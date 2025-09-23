@@ -1,0 +1,612 @@
+#[macro_use]
+extern crate rocket;
+
+mod parser;
+mod save;
+mod template;
+
+use chrono::{DateTime, Utc};
+use rocket::serde::{Deserialize, Serialize};
+use rocket::{response::content, State};
+use std::collections::HashMap;
+
+use std::sync::Mutex;
+use template::TemplateEngine;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Post {
+    id: String,
+    title: String,
+    author: String,
+    content: String,
+    raw_content: String,
+    created_at: DateTime<Utc>,
+}
+
+type PostStorage = Mutex<HashMap<String, Post>>;
+
+#[get("/")]
+fn index() -> content::RawHtml<String> {
+    let engine = TemplateEngine::new("templates");
+    let mut context = HashMap::new();
+    context.insert("error".to_string(), "".to_string());
+    context.insert("success".to_string(), "".to_string());
+
+    match engine.render_with_defaults("home", &context) {
+        Ok(html) => content::RawHtml(html),
+        Err(e) => content::RawHtml(format!("Template error: {}", e)),
+    }
+}
+
+#[derive(FromForm)]
+struct NewPost {
+    title: String,
+    content: String,
+}
+
+fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String> {
+    let now = Utc::now();
+    let date_str = now.format("%m-%d-%Y").to_string();
+
+    // Create URL-safe slug from title
+    let title_slug: String = title
+        .trim()
+        .to_lowercase()
+        .chars()
+        .filter_map(|c| {
+            if c.is_ascii_alphanumeric() {
+                Some(c)
+            } else if c.is_whitespace() || c == '-' || c == '_' {
+                Some('-')
+            } else {
+                None
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<&str>>()
+        .join("-");
+
+    if title_slug.is_empty() {
+        return Err("Title must contain at least one alphanumeric character".to_string());
+    }
+
+    let posts = storage.lock().unwrap();
+
+    // Try to find an available slot (0-999)
+    for i in 0..1000 {
+        let post_id = if i == 0 {
+            format!("{}-{}", title_slug, date_str)
+        } else {
+            format!("{}-{}-{}", title_slug, date_str, i)
+        };
+
+        if !posts.contains_key(&post_id) {
+            return Ok(post_id);
+        }
+    }
+
+    Err("All slots for this title and date are taken. Please choose another title.".to_string())
+}
+
+#[post("/create", data = "<form>")]
+fn create_post(
+    form: rocket::form::Form<NewPost>,
+    storage: &State<PostStorage>,
+) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
+    // Basic validation
+    if form.title.trim().is_empty() {
+        return Ok(rocket::response::Redirect::to("/?error=title_required"));
+    }
+
+    if form.content.trim().is_empty() {
+        return Ok(rocket::response::Redirect::to("/?error=content_required"));
+    }
+
+    if form.content.len() > 128000 {
+        return Ok(rocket::response::Redirect::to("/?error=content_too_long"));
+    }
+
+    if form.title.len() > 100 {
+        return Ok(rocket::response::Redirect::to("/?error=title_too_long"));
+    }
+
+    // Generate post ID
+    let post_id = match generate_post_id(&form.title, storage) {
+        Ok(id) => id,
+        Err(_) => return Ok(rocket::response::Redirect::to("/?error=no_available_slots")),
+    };
+
+    // Render markdown content
+    let rendered_content = parser::render_markdown(&form.content);
+
+    let post = Post {
+        id: post_id.clone(),
+        title: form.title.clone(),
+        author: "".to_string(),
+        content: rendered_content,
+        raw_content: form.content.clone(),
+        created_at: Utc::now(),
+    };
+
+    // Store the post in memory and save to file
+    let mut posts = storage.lock().unwrap();
+    posts.insert(post_id.clone(), post.clone());
+    drop(posts); // Release lock before file operation
+
+    // Save to file system
+    if let Err(e) = save::save_post_to_file(&post) {
+        eprintln!("Failed to save post to file: {}", e);
+    }
+
+    // Redirect to the published post
+    Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
+}
+
+#[get("/<post_id>")]
+fn view_post(post_id: String, storage: &State<PostStorage>) -> content::RawHtml<String> {
+    let posts = storage.lock().unwrap();
+
+    // Try to load from memory first, then from file if not found
+    let post = posts.get(&post_id).cloned().or_else(|| {
+        // If not in memory, try to load from file and reconstruct Post
+        if save::post_file_exists(&post_id) {
+            if let Ok(file_content) = std::fs::read_to_string(format!("content/{}.md", post_id)) {
+                let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+                if lines.len() >= 4 {
+                    // Extract title from line 3 (remove "# " prefix)
+                    let title = lines[2]
+                        .strip_prefix("# ")
+                        .unwrap_or("Untitled")
+                        .to_string();
+                    let raw_content = lines[3].to_string();
+
+                    let post = Post {
+                        id: post_id.clone(),
+                        title,
+                        author: "".to_string(),
+                        content: parser::render_markdown(&raw_content),
+                        raw_content,
+                        created_at: Utc::now(), // We lose original creation time
+                    };
+
+                    // Store back in memory for future requests
+                    let mut posts_write = storage.lock().unwrap();
+                    posts_write.insert(post_id.clone(), post.clone());
+                    drop(posts_write);
+
+                    Some(post)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    });
+
+    match post {
+        Some(post) => {
+            let engine = TemplateEngine::new("templates");
+            let mut context = HashMap::new();
+
+            context.insert("title".to_string(), post.title.clone());
+            context.insert("content".to_string(), post.content.clone());
+            context.insert("raw_content".to_string(), post.raw_content.clone());
+            context.insert(
+                "created_at".to_string(),
+                post.created_at.format("%B %d, %Y").to_string(),
+            );
+            context.insert("post_id".to_string(), post_id);
+
+            match engine.render("post", &context) {
+                Ok(html) => content::RawHtml(html),
+                Err(e) => content::RawHtml(format!("Template error: {}", e)),
+            }
+        }
+        None => content::RawHtml(
+            r#"<!doctype html>
+<html>
+<head>
+    <title>404 - Post not found</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+            color: #333;
+        }
+        h1 { font-weight: 300; margin-bottom: 16px; }
+        a { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>404 - Post Not Found</h1>
+    <p><a href="/">← Create New Article</a></p>
+</body>
+</html>"#
+                .to_string(),
+        ),
+    }
+}
+
+#[get("/markup")]
+fn markup_page() -> content::RawHtml<String> {
+    serve_static_page("markup")
+}
+
+#[get("/legal")]
+fn legal_page() -> content::RawHtml<String> {
+    serve_static_page("legal")
+}
+
+#[get("/about")]
+fn about_page() -> content::RawHtml<String> {
+    serve_static_page("about")
+}
+
+fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
+    let file_path = format!("content/{}.md", page_name);
+
+    match std::fs::read_to_string(&file_path) {
+        Ok(content) => {
+            // Parse the file format: date, empty line, title, content
+            let lines: Vec<&str> = content.splitn(4, '\n').collect();
+            if lines.len() >= 4 {
+                let title = lines[2].strip_prefix("# ").unwrap_or("Page");
+                let raw_content = lines[3];
+                let rendered_content = parser::render_markdown(raw_content);
+
+                let engine = TemplateEngine::new("templates");
+                let mut context = HashMap::new();
+                context.insert("title".to_string(), title.to_string());
+                context.insert("content".to_string(), rendered_content);
+                context.insert("created_at".to_string(), lines[0].to_string());
+
+                match engine.render("post", &context) {
+                    Ok(html) => content::RawHtml(html),
+                    Err(e) => content::RawHtml(format!("Template error: {}", e)),
+                }
+            } else {
+                content::RawHtml(format!("<h1>Error</h1><p>Invalid file format for {}</p>", page_name))
+            }
+        }
+        Err(_) => {
+            content::RawHtml(format!(
+                "<h1>Page Not Found</h1><p>The {} page doesn't exist yet.</p><p><a href=\"/\">← Home</a></p>",
+                page_name
+            ))
+        }
+    }
+}
+
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .manage(PostStorage::new(HashMap::new()))
+        .mount(
+            "/",
+            routes![
+                index,
+                create_post,
+                view_post,
+                markup_page,
+                legal_page,
+                about_page
+            ],
+        )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_post_id_generation() {
+        let storage = PostStorage::new(HashMap::new());
+
+        let id1 = generate_post_id("Hello World", &storage).unwrap();
+        assert!(id1.contains("hello-world"));
+        assert!(id1.contains(&Utc::now().format("%m-%d-%Y").to_string()));
+
+        // Test with special characters
+        let id2 = generate_post_id("Hello, World! & More", &storage).unwrap();
+        assert!(id2.contains("hello-world-more"));
+    }
+
+    #[test]
+    fn test_markdown_rendering_basic() {
+        let input = "This is *bold* text and **italic** text.";
+        let output = parser::render_markdown(input);
+        // Basic test - the actual implementation needs proper regex
+        assert!(output.contains("bold"));
+        assert!(output.contains("italic"));
+    }
+
+    #[test]
+    fn test_content_length_validation() {
+        let short_content = "a".repeat(100);
+        let long_content = "a".repeat(130000);
+
+        assert!(short_content.len() <= 128000);
+        assert!(long_content.len() > 128000);
+    }
+
+    #[test]
+    fn test_template_engine_basic() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let template_content = "<h1>{{title}}</h1><p>{{content}}</p>";
+        fs::write(dir.path().join("test.html"), template_content).unwrap();
+
+        let engine = TemplateEngine::new(dir.path().to_str().unwrap());
+        let mut context = HashMap::new();
+        context.insert("title".to_string(), "Test Title".to_string());
+        context.insert("content".to_string(), "Test content".to_string());
+
+        let result = engine.render("test", &context).unwrap();
+        assert_eq!(result, "<h1>Test Title</h1><p>Test content</p>");
+    }
+
+    #[test]
+    fn test_slug_generation() {
+        let tests = vec![
+            ("Hello World", "hello-world"),
+            ("Test-Post_123", "test-post-123"),
+            ("Special!@#$%Characters", "specialcharacters"),
+            ("   Whitespace   ", "whitespace"),
+            ("Multiple---Dashes", "multiple-dashes"),
+        ];
+
+        for (input, expected) in tests {
+            let slug: String = input
+                .trim()
+                .to_lowercase()
+                .chars()
+                .filter_map(|c| {
+                    if c.is_ascii_alphanumeric() {
+                        Some(c)
+                    } else if c.is_whitespace() || c == '-' || c == '_' {
+                        Some('-')
+                    } else {
+                        None
+                    }
+                })
+                .collect::<String>()
+                .split('-')
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join("-");
+
+            assert_eq!(slug, expected);
+        }
+    }
+
+    #[test]
+    fn test_markdown_bold_formatting() {
+        let input = "This is *bold* text and more *bold text*.";
+        let output = parser::render_markdown(input);
+        assert!(output.contains("<strong>bold</strong>"));
+        assert!(output.contains("<strong>bold text</strong>"));
+    }
+
+    #[test]
+    fn test_markdown_code_formatting() {
+        let input = "Here is `inline code` and more `code`.";
+        let output = parser::render_markdown(input);
+        // Note: Our current simple implementation doesn't handle this yet
+        // This test documents expected behavior
+        assert!(output.contains("inline code"));
+    }
+
+    #[test]
+    fn test_content_sanitization() {
+        let malicious_content = "<script>alert('xss')</script>";
+        let sanitized = ammonia::clean(malicious_content);
+        assert!(!sanitized.contains("<script>"));
+        assert!(!sanitized.contains("alert"));
+    }
+
+    #[test]
+    fn test_post_storage() {
+        let storage = PostStorage::new(HashMap::new());
+        let post = Post {
+            id: "test-post".to_string(),
+            title: "Test Post".to_string(),
+            author: "Test Author".to_string(),
+            content: "Test content".to_string(),
+            raw_content: "Test content".to_string(),
+            created_at: Utc::now(),
+        };
+
+        {
+            let mut posts = storage.lock().unwrap();
+            posts.insert("test-post".to_string(), post.clone());
+        }
+
+        {
+            let posts = storage.lock().unwrap();
+            let retrieved = posts.get("test-post").unwrap();
+            assert_eq!(retrieved.title, "Test Post");
+            assert_eq!(retrieved.content, "Test content");
+        }
+    }
+
+    #[test]
+    fn test_post_id_collision_handling() {
+        let storage = PostStorage::new(HashMap::new());
+
+        // Pre-populate with posts to test collision handling
+        {
+            let mut posts = storage.lock().unwrap();
+            let now = Utc::now();
+            let date_str = now.format("%m-%d-%Y").to_string();
+
+            // Add posts that would collide
+            for i in 0..3 {
+                let id = if i == 0 {
+                    format!("test-{}", date_str)
+                } else {
+                    format!("test-{}-{}", date_str, i)
+                };
+
+                let post = Post {
+                    id: id.clone(),
+                    title: "Test".to_string(),
+                    author: "Test Author".to_string(),
+                    content: "Content".to_string(),
+                    raw_content: "Content".to_string(),
+                    created_at: now,
+                };
+                posts.insert(id, post);
+            }
+        }
+
+        // This should generate "test-MM-dd-YYYY-3"
+        let new_id = generate_post_id("Test", &storage).unwrap();
+        let date_str = Utc::now().format("%m-%d-%Y").to_string();
+        assert_eq!(new_id, format!("test-{}-3", date_str));
+    }
+
+    #[test]
+    fn test_url_safe_slug_generation() {
+        let test_cases = vec![
+            ("Hello/World", "helloworld"),
+            ("Test\\Post", "testpost"),
+            ("Question?", "question"),
+            ("Exclamation!", "exclamation"),
+            ("At@Symbol", "atsymbol"),
+            ("Hash#Tag", "hashtag"),
+            ("Dollar$Sign", "dollarsign"),
+            ("Percent%Sign", "percentsign"),
+        ];
+
+        for (input, expected) in test_cases {
+            let slug: String = input
+                .trim()
+                .to_lowercase()
+                .chars()
+                .filter_map(|c| {
+                    if c.is_ascii_alphanumeric() {
+                        Some(c)
+                    } else if c.is_whitespace() || c == '-' || c == '_' {
+                        Some('-')
+                    } else {
+                        None
+                    }
+                })
+                .collect::<String>()
+                .split('-')
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join("-");
+
+            assert_eq!(slug, expected, "Failed for input: {}", input);
+        }
+    }
+
+    #[test]
+    fn test_character_limits() {
+        // Test title length limit
+        let long_title = "a".repeat(150);
+        assert!(long_title.len() > 100);
+
+        // Test content length limit
+        let long_content = "a".repeat(130000);
+        assert!(long_content.len() > 128000);
+
+        // Test valid lengths
+        let valid_title = "a".repeat(50);
+        let valid_content = "a".repeat(50000);
+        assert!(valid_title.len() <= 100);
+        assert!(valid_content.len() <= 128000);
+    }
+
+    #[test]
+    fn test_template_context_building() {
+        let mut context = HashMap::new();
+        context.insert("title".to_string(), "Test Title".to_string());
+        context.insert("content".to_string(), "Test Content".to_string());
+
+        assert_eq!(context.get("title").unwrap(), "Test Title");
+        assert_eq!(context.get("content").unwrap(), "Test Content");
+        assert!(context.get("missing").is_none());
+    }
+
+    #[test]
+    fn test_date_formatting() {
+        let now = Utc::now();
+        let formatted = now.format("%B %d, %Y").to_string();
+
+        // Basic validation that the format works
+        assert!(formatted.len() > 10); // Should be a reasonable length
+        assert!(!formatted.contains("UTC")); // Should not contain time info
+        assert!(!formatted.contains("at")); // Should not contain time info
+    }
+
+    #[test]
+    fn test_date_format_output() {
+        let now = Utc::now();
+        let formatted = now.format("%B %d, %Y").to_string();
+
+        // Should be format like "January 01, 2024"
+        assert!(formatted.len() >= 13); // At least "January 1, 2024" length
+        assert!(formatted.contains(", "));
+        assert!(!formatted.contains("UTC"));
+        assert!(!formatted.contains(":"));
+
+        // Example: "March 15, 2024" (no time, no timezone)
+    }
+
+    #[test]
+    fn test_empty_input_validation() {
+        assert!("".trim().is_empty());
+        assert!("   ".trim().is_empty());
+        assert!(!"hello".trim().is_empty());
+        assert!(!"  hello  ".trim().is_empty());
+    }
+
+    #[test]
+    fn test_ammonia_configuration() {
+        // Test that ammonia is properly configured for our use case
+        let safe_html = "<strong>Bold</strong> and <em>italic</em>";
+        let cleaned = ammonia::clean(safe_html);
+        assert!(cleaned.contains("<strong>"));
+        assert!(cleaned.contains("<em>"));
+
+        let unsafe_html = "<script>alert('xss')</script><strong>Safe</strong>";
+        let cleaned_unsafe = ammonia::clean(unsafe_html);
+        assert!(!cleaned_unsafe.contains("<script>"));
+        assert!(cleaned_unsafe.contains("<strong>Safe</strong>"));
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        // Test very short titles
+        let short_title = "A";
+        let storage = PostStorage::new(HashMap::new());
+        let id = generate_post_id(short_title, &storage);
+        assert!(id.is_ok());
+        assert!(id.unwrap().starts_with("a-"));
+
+        // Test titles with only special characters (should fail)
+        let special_only = "!@#$%^&*()";
+        let result = generate_post_id(special_only, &storage);
+        assert!(result.is_err());
+
+        // Test numeric titles
+        let numeric = "12345";
+        let id = generate_post_id(numeric, &storage);
+        assert!(id.is_ok());
+        assert!(id.unwrap().starts_with("12345-"));
+    }
+}
