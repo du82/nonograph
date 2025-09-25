@@ -23,7 +23,126 @@ struct Post {
     created_at: DateTime<Utc>,
 }
 
-type PostStorage = Mutex<HashMap<String, Post>>;
+impl Post {
+    fn memory_size(&self) -> usize {
+        self.id.len()
+            + self.title.len()
+            + self.author.len()
+            + self.content.len()
+            + self.raw_content.len()
+            + 64 // Rough estimate for DateTime and struct overhead
+    }
+}
+
+#[derive(Debug)]
+struct CacheEntry {
+    post: Post,
+    last_accessed: DateTime<Utc>,
+}
+
+#[derive(Debug)]
+struct PostCache {
+    entries: HashMap<String, CacheEntry>,
+    total_size: usize,
+    max_size: usize, // 128 MB = 128 * 1024 * 1024
+}
+
+impl PostCache {
+    fn new() -> Self {
+        PostCache {
+            entries: HashMap::new(),
+            total_size: 0,
+            max_size: 128 * 1024 * 1024, // 128 MB
+        }
+    }
+
+    fn get(&mut self, post_id: &str) -> Option<Post> {
+        if let Some(entry) = self.entries.get_mut(post_id) {
+            entry.last_accessed = Utc::now();
+            println!(
+                "Cache HIT for post: {} (total size: {} MB)",
+                post_id,
+                self.total_size / (1024 * 1024)
+            );
+            Some(entry.post.clone())
+        } else {
+            println!(
+                "Cache MISS for post: {} (total size: {} MB)",
+                post_id,
+                self.total_size / (1024 * 1024)
+            );
+            None
+        }
+    }
+
+    fn contains_key(&self, post_id: &str) -> bool {
+        self.entries.contains_key(post_id)
+    }
+
+    fn insert(&mut self, post_id: String, post: Post) {
+        let post_size = post.memory_size();
+
+        // Remove existing entry if it exists
+        if let Some(old_entry) = self.entries.remove(&post_id) {
+            self.total_size -= old_entry.post.memory_size();
+            println!("Cache UPDATE for post: {}", post_id);
+        } else {
+            println!("Cache INSERT for post: {}", post_id);
+        }
+
+        // Add new entry size
+        self.total_size += post_size;
+
+        // Evict oldest entries if over limit
+        let mut evicted_count = 0;
+        while self.total_size > self.max_size && !self.entries.is_empty() {
+            self.evict_oldest();
+            evicted_count += 1;
+        }
+
+        if evicted_count > 0 {
+            println!(
+                "Cache EVICTED {} old posts to stay under 128MB limit",
+                evicted_count
+            );
+        }
+
+        // Insert new entry
+        let entry = CacheEntry {
+            post,
+            last_accessed: Utc::now(),
+        };
+
+        self.entries.insert(post_id.clone(), entry);
+        println!(
+            "Cache now contains {} posts, total size: {} MB",
+            self.entries.len(),
+            self.total_size / (1024 * 1024)
+        );
+    }
+
+    fn evict_oldest(&mut self) {
+        if let Some(oldest_id) = self.find_oldest_entry() {
+            if let Some(old_entry) = self.entries.remove(&oldest_id) {
+                self.total_size -= old_entry.post.memory_size();
+                println!(
+                    "Cache EVICTED oldest post: {} (size: {} KB)",
+                    oldest_id,
+                    old_entry.post.memory_size() / 1024
+                );
+            }
+        }
+    }
+
+    fn find_oldest_entry(&self) -> Option<String> {
+        self.entries
+            .iter()
+            .min_by_key(|(_, entry)| entry.last_accessed)
+            .map(|(id, _)| id.clone())
+    }
+}
+
+type PostStorage = Mutex<PostCache>;
 
 #[get("/")]
 fn index() -> content::RawHtml<String> {
@@ -145,70 +264,115 @@ fn create_post(
 }
 
 #[get("/<post_id>")]
-fn view_post(post_id: String, storage: &State<PostStorage>) -> content::RawHtml<String> {
-    let posts = storage.lock().unwrap();
+fn view_post(
+    post_id: String,
+    storage: &State<PostStorage>,
+) -> Result<
+    rocket::Either<content::RawHtml<String>, content::RawText<String>>,
+    rocket::response::status::NotFound<String>,
+> {
+    // Check if this is a request for raw markdown
+    let is_raw_request = post_id.ends_with(".md");
+    let actual_post_id = if is_raw_request {
+        post_id.strip_suffix(".md").unwrap()
+    } else {
+        &post_id
+    };
 
-    // Try to load from memory first, then from file if not found
-    let post = posts.get(&post_id).cloned().or_else(|| {
-        // If not in memory, try to load from file and reconstruct Post
-        if save::post_file_exists(&post_id) {
-            if let Ok(file_content) = std::fs::read_to_string(format!("content/{}.md", post_id)) {
-                let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
-                if lines.len() >= 4 {
-                    // Extract title from line 3 (remove "# " prefix)
-                    let title = lines[2]
-                        .strip_prefix("# ")
-                        .unwrap_or("Untitled")
-                        .to_string();
-                    let raw_content = lines[3].to_string();
+    // Try to load from memory first
+    let post_from_memory = {
+        let mut posts = storage.lock().unwrap();
+        posts.get(actual_post_id)
+    };
 
-                    let post = Post {
-                        id: post_id.clone(),
-                        title,
-                        author: "".to_string(),
-                        content: parser::render_markdown(&raw_content),
-                        raw_content,
-                        created_at: Utc::now(), // We lose original creation time
-                    };
+    // If not found in memory, try to load from file
+    let post = match post_from_memory {
+        Some(post) => Some(post),
+        None => {
+            // Load from file without holding any locks
+            if save::post_file_exists(actual_post_id) {
+                if let Ok(file_content) =
+                    std::fs::read_to_string(format!("content/{}.md", actual_post_id))
+                {
+                    let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+                    if lines.len() >= 4 {
+                        // Extract title from line 3 (remove "# " prefix)
+                        let title = lines[2]
+                            .strip_prefix("# ")
+                            .unwrap_or("Untitled")
+                            .to_string();
+                        let raw_content = lines[3].to_string();
 
-                    // Store back in memory for future requests
-                    let mut posts_write = storage.lock().unwrap();
-                    posts_write.insert(post_id.clone(), post.clone());
-                    drop(posts_write);
+                        // Create post object completely before acquiring any locks
+                        let new_post = Post {
+                            id: actual_post_id.to_string(),
+                            title,
+                            author: "".to_string(),
+                            content: parser::render_markdown(&raw_content),
+                            raw_content,
+                            created_at: Utc::now(), // We lose original creation time
+                        };
 
-                    Some(post)
+                        // Now store in memory with a separate lock acquisition
+                        {
+                            let mut posts_write = storage.lock().unwrap();
+                            posts_write.insert(actual_post_id.to_string(), new_post.clone());
+                        }
+
+                        Some(new_post)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             } else {
                 None
             }
-        } else {
-            None
         }
-    });
+    };
 
     match post {
         Some(post) => {
-            let engine = TemplateEngine::new("templates");
-            let mut context = HashMap::new();
+            if is_raw_request {
+                // Return raw markdown in exact same format as original file
+                let formatted_date = post.created_at.format("%B %d, %Y").to_string();
+                let markdown_content = format!(
+                    "{}\n\n# {}\n{}",
+                    formatted_date, post.title, post.raw_content
+                );
+                Ok(rocket::Either::Right(content::RawText(markdown_content)))
+            } else {
+                // Return HTML page
+                let engine = TemplateEngine::new("templates");
+                let mut context = HashMap::new();
 
-            context.insert("title".to_string(), post.title.clone());
-            context.insert("content".to_string(), post.content.clone());
-            context.insert("raw_content".to_string(), post.raw_content.clone());
-            context.insert(
-                "created_at".to_string(),
-                post.created_at.format("%B %d, %Y").to_string(),
-            );
-            context.insert("post_id".to_string(), post_id);
+                context.insert("title".to_string(), post.title.clone());
+                context.insert("content".to_string(), post.content.clone());
+                context.insert("raw_content".to_string(), post.raw_content.clone());
+                context.insert(
+                    "created_at".to_string(),
+                    post.created_at.format("%B %d, %Y").to_string(),
+                );
+                context.insert("post_id".to_string(), actual_post_id.to_string());
 
-            match engine.render("post", &context) {
-                Ok(html) => content::RawHtml(html),
-                Err(e) => content::RawHtml(format!("Template error: {}", e)),
+                match engine.render("post", &context) {
+                    Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
+                    Err(e) => Ok(rocket::Either::Left(content::RawHtml(format!(
+                        "Template error: {}",
+                        e
+                    )))),
+                }
             }
         }
-        None => content::RawHtml(
-            r#"<!doctype html>
+        None => {
+            if is_raw_request {
+                Err(rocket::response::status::NotFound(
+                    "Post not found".to_string(),
+                ))
+            } else {
+                Ok(rocket::Either::Left(content::RawHtml(
+                    r#"<!doctype html>
 <html>
 <head>
     <title>404 - Post not found</title>
@@ -232,8 +396,10 @@ fn view_post(post_id: String, storage: &State<PostStorage>) -> content::RawHtml<
     <p><a href="/">← Create New Article</a></p>
 </body>
 </html>"#
-                .to_string(),
-        ),
+                        .to_string(),
+                )))
+            }
+        }
     }
 }
 
@@ -289,8 +455,19 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
 
 #[launch]
 fn rocket() -> _ {
+    use rocket::data::{Limits, ToByteUnit};
+
+    let limits = Limits::default()
+        .limit("form", 512.kibibytes()) // Increase form limit to 512 KB
+        .limit("data-form", 512.kibibytes()) // Increase data-form limit to 512 KB
+        .limit("string", 512.kibibytes()); // Increase string limit to 512 KB
+
     rocket::build()
-        .manage(PostStorage::new(HashMap::new()))
+        .configure(rocket::Config {
+            limits,
+            ..rocket::Config::default()
+        })
+        .manage(PostStorage::new(PostCache::new()))
         .mount(
             "/",
             routes![
@@ -310,7 +487,7 @@ mod tests {
 
     #[test]
     fn test_post_id_generation() {
-        let storage = PostStorage::new(HashMap::new());
+        let storage = PostStorage::new(PostCache::new());
 
         let id1 = generate_post_id("Hello World", &storage).unwrap();
         assert!(id1.contains("hello-world"));
@@ -418,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_post_storage() {
-        let storage = PostStorage::new(HashMap::new());
+        let storage = PostStorage::new(PostCache::new());
         let post = Post {
             id: "test-post".to_string(),
             title: "Test Post".to_string(),
@@ -434,7 +611,7 @@ mod tests {
         }
 
         {
-            let posts = storage.lock().unwrap();
+            let mut posts = storage.lock().unwrap();
             let retrieved = posts.get("test-post").unwrap();
             assert_eq!(retrieved.title, "Test Post");
             assert_eq!(retrieved.content, "Test content");
@@ -443,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_post_id_collision_handling() {
-        let storage = PostStorage::new(HashMap::new());
+        let storage = PostStorage::new(PostCache::new());
 
         // Pre-populate with posts to test collision handling
         {
@@ -593,7 +770,7 @@ mod tests {
     fn test_edge_cases() {
         // Test very short titles
         let short_title = "A";
-        let storage = PostStorage::new(HashMap::new());
+        let storage = PostStorage::new(PostCache::new());
         let id = generate_post_id(short_title, &storage);
         assert!(id.is_ok());
         assert!(id.unwrap().starts_with("a-"));

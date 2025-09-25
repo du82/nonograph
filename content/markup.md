@@ -5,17 +5,19 @@ Telegraph supports a limited set of markdown formatting to keep things simple an
 
 **Text Formatting**
 
-*bold* - Wrap text with single asterisks
-**italic** - Wrap text with double asterisks
-_underline_ - Wrap text with underscores
-~strikethrough~ - Wrap text with tildes
-^superscript^ - Wrap text with carets
-`inline code` - Wrap text with backticks
+`*bold*` - *Wrap text with single asterisks*
+`**italic**` - **Wrap text with double asterisks**
+`_underline_` - _Wrap text with underscores_
+`~strikethrough~` - ~Wrap text with tildes~
+`^superscript^` - ^Wrap text with carets^
+`inline code` - `Wrap text with backticks`
+
+Like the markup you see in someone elses page? Append ".md" to the end of their URL to get the raw markdown!
 
 **Links**
 
-(link text)[https://example.com] - Link with custom text
-[https://example.com] - Link showing the URL
+`(link text)[https://example.com]` - Link with custom text
+`[https://example.com]` - Link showing the URL
 
 **Media**
 
