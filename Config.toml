@@ -1,0 +1,42 @@
+# Telegraph-rs Configuration File
+
+[limits]
+# Maximum title length in characters
+title_max_length = 128
+
+# Maximum alias/author name length in characters
+alias_max_length = 32
+
+# Maximum content length in characters
+content_max_length = 64_000
+
+# Maximum form data size in KB
+form_data_limit_kb = 512
+
+[server]
+# Server port (can be overridden by ROCKET_PORT environment variable)
+port = 8000
+
+# Server address
+address = "127.0.0.1"
+
+[cache]
+# Maximum cache size in MB
+max_cache_size_mb = 128
+
+# Cache buffer size for streaming processing in bytes
+stream_buffer_size = 8192
+
+[performance]
+# Content size threshold for simple pre-formatted fallback (characters)
+large_content_threshold = 30000
+
+# Content size threshold for streaming processing (characters)
+streaming_threshold = 50000
+
+[security]
+# Maximum URL length for link processing
+max_url_length = 4096
+
+# Enable/disable external link security attributes
+external_link_security = true

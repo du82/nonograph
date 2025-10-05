@@ -1,16 +1,21 @@
 #[macro_use]
 extern crate rocket;
 
+mod config;
 mod parser;
 mod save;
 mod template;
 
+use config::Config;
+use std::sync::mpsc;
+use std::thread;
+
 use chrono::{DateTime, Utc};
-use rocket::serde::{Deserialize, Serialize};
 use rocket::{response::content, State};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use template::TemplateEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,29 +53,20 @@ struct PostCache {
 }
 
 impl PostCache {
-    fn new() -> Self {
+    fn new(max_size_mb: usize) -> Self {
         PostCache {
             entries: HashMap::new(),
             total_size: 0,
-            max_size: 128 * 1024 * 1024, // 128 MB
+            max_size: max_size_mb * 1024 * 1024,
         }
     }
 
-    fn get(&mut self, post_id: &str) -> Option<Post> {
+    // Add a non-cloning get for read-only access
+    fn get_ref(&mut self, post_id: &str) -> Option<&Post> {
         if let Some(entry) = self.entries.get_mut(post_id) {
             entry.last_accessed = Utc::now();
-            println!(
-                "Cache HIT for post: {} (total size: {} MB)",
-                post_id,
-                self.total_size / (1024 * 1024)
-            );
-            Some(entry.post.clone())
+            Some(&entry.post)
         } else {
-            println!(
-                "Cache MISS for post: {} (total size: {} MB)",
-                post_id,
-                self.total_size / (1024 * 1024)
-            );
             None
         }
     }
@@ -142,14 +138,27 @@ impl PostCache {
     }
 }
 
-type PostStorage = Mutex<PostCache>;
+type PostStorage = Arc<Mutex<PostCache>>;
+type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
 #[get("/")]
-fn index() -> content::RawHtml<String> {
+fn index(config: &State<Config>) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
     let mut context = HashMap::new();
     context.insert("error".to_string(), "".to_string());
     context.insert("success".to_string(), "".to_string());
+    context.insert(
+        "title_max_length".to_string(),
+        config.limits.title_max_length.to_string(),
+    );
+    context.insert(
+        "alias_max_length".to_string(),
+        config.limits.alias_max_length.to_string(),
+    );
+    context.insert(
+        "content_max_length".to_string(),
+        config.limits.content_max_length.to_string(),
+    );
 
     match engine.render_with_defaults("home", &context) {
         Ok(html) => content::RawHtml(html),
@@ -214,38 +223,19 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
 fn create_post(
     form: rocket::form::Form<NewPost>,
     storage: &State<PostStorage>,
+    file_queue: &State<FileSaveQueue>,
+    config: &State<Config>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
-    // Basic validation
-    if form.title.trim().is_empty() {
-        return Ok(rocket::response::Redirect::to("/?error=title_required"));
+    if let Err(error) = config.validate_post(&form.title, &form.content, form.alias.as_deref()) {
+        let error_url = format!("/?error={}", error);
+        return Ok(rocket::response::Redirect::to(error_url));
     }
 
-    if form.content.trim().is_empty() {
-        return Ok(rocket::response::Redirect::to("/?error=content_required"));
-    }
-
-    if form.content.len() > 32000 {
-        return Ok(rocket::response::Redirect::to("/?error=content_too_long"));
-    }
-
-    if form.title.len() > 128 {
-        return Ok(rocket::response::Redirect::to("/?error=title_too_long"));
-    }
-
-    // Validate alias field if provided
-    if let Some(ref alias) = form.alias {
-        if alias.len() > 32 {
-            return Ok(rocket::response::Redirect::to("/?error=alias_too_long"));
-        }
-    }
-
-    // Generate post ID
     let post_id = match generate_post_id(&form.title, storage) {
         Ok(id) => id,
         Err(_) => return Ok(rocket::response::Redirect::to("/?error=no_available_slots")),
     };
 
-    // Render markdown content
     let rendered_content = parser::render_markdown(&form.content);
 
     let post = Post {
@@ -257,29 +247,30 @@ fn create_post(
         created_at: Utc::now(),
     };
 
-    // Store the post in memory and save to file
-    let mut posts = storage.lock().unwrap();
-    posts.insert(post_id.clone(), post.clone());
-    drop(posts); // Release lock before file operation
-
-    // Save to file system
-    if let Err(e) = save::save_post_to_file(&post) {
-        eprintln!("Failed to save post to file: {}", e);
+    let post_for_file = post.clone();
+    {
+        let mut posts = storage.lock().unwrap();
+        posts.insert(post_id.clone(), post); // Move post here
     }
 
-    // Redirect to the published post
+    if let Ok(tx) = file_queue.lock() {
+        if let Err(_) = tx.send(post_for_file) {
+            eprintln!("Failed to queue post for background save: {}", post_id);
+        }
+    }
+
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
 }
 
 #[get("/<post_id>")]
 fn view_post(
-    post_id: String,
+    post_id: &str,
     storage: &State<PostStorage>,
+    _config: &State<Config>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
     rocket::response::status::NotFound<String>,
 > {
-    // Check if this is a request for raw markdown
     let is_raw_request = post_id.ends_with(".md");
     let actual_post_id = if is_raw_request {
         post_id.strip_suffix(".md").unwrap()
@@ -287,48 +278,47 @@ fn view_post(
         &post_id
     };
 
-    // Try to load from memory first
+    // Try to load from memory first with minimal lock time
     let post_from_memory = {
         let mut posts = storage.lock().unwrap();
-        posts.get(actual_post_id)
+        // Use the non-cloning get_ref for better performance
+        if let Some(post_ref) = posts.get_ref(actual_post_id) {
+            Some(post_ref.clone()) // Only clone when we actually found it
+        } else {
+            None
+        }
     };
 
-    // If not found in memory, try to load from file
     let post = match post_from_memory {
         Some(post) => Some(post),
         None => {
-            // Load from file without holding any locks
             if save::post_file_exists(actual_post_id) {
                 if let Ok(file_content) =
                     std::fs::read_to_string(format!("content/{}.md", actual_post_id))
                 {
                     let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
                     if lines.len() >= 4 {
-                        // Extract author from first line if it contains a pipe
                         let author = if let Some(pipe_pos) = lines[0].find(" | ") {
                             lines[0][(pipe_pos + 3)..].to_string()
                         } else {
                             "".to_string()
                         };
 
-                        // Extract title from line 3 (remove "# " prefix)
                         let title = lines[2]
                             .strip_prefix("# ")
                             .unwrap_or("Untitled")
                             .to_string();
                         let raw_content = lines[3].to_string();
 
-                        // Create post object completely before acquiring any locks
                         let new_post = Post {
                             id: actual_post_id.to_string(),
                             title,
                             author,
                             content: parser::render_markdown(&raw_content),
                             raw_content,
-                            created_at: Utc::now(), // We lose original creation time
+                            created_at: Utc::now(),
                         };
 
-                        // Now store in memory with a separate lock acquisition
                         {
                             let mut posts_write = storage.lock().unwrap();
                             posts_write.insert(actual_post_id.to_string(), new_post.clone());
@@ -350,7 +340,6 @@ fn view_post(
     match post {
         Some(post) => {
             if is_raw_request {
-                // Return raw markdown in exact same format as original file
                 let formatted_date = post.created_at.format("%B %d, %Y").to_string();
                 let markdown_content = format!(
                     "{}\n\n# {}\n{}",
@@ -358,16 +347,17 @@ fn view_post(
                 );
                 Ok(rocket::Either::Right(content::RawText(markdown_content)))
             } else {
-                // Return HTML page
                 let engine = TemplateEngine::new("templates");
                 let mut context = HashMap::new();
 
+                // Use pre-rendered content
+                let rendered_content = post.content.clone();
+
                 context.insert("title".to_string(), post.title.clone());
-                context.insert("content".to_string(), post.content.clone());
+                context.insert("content".to_string(), rendered_content);
                 context.insert("raw_content".to_string(), post.raw_content.clone());
                 context.insert("author".to_string(), post.author.clone());
 
-                // Format author display with proper separator
                 let author_display = if post.author.is_empty() {
                     String::new()
                 } else {
@@ -478,21 +468,48 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
     }
 }
 
+fn start_file_save_worker() -> mpsc::Sender<Post> {
+    let (tx, rx) = mpsc::channel::<Post>();
+
+    thread::spawn(move || {
+        for post in rx {
+            if let Err(e) = save::save_post_to_file(&post) {
+                eprintln!("Background file save failed for post {}: {}", post.id, e);
+            }
+        }
+    });
+
+    tx
+}
+
 #[launch]
-fn rocket() -> _ {
+fn rocket() -> rocket::Rocket<rocket::Build> {
     use rocket::data::{Limits, ToByteUnit};
 
+    let config = Config::load_with_logging();
+
     let limits = Limits::default()
-        .limit("form", 512.kibibytes()) // Increase form limit to 512 KB
-        .limit("data-form", 512.kibibytes()) // Increase data-form limit to 512 KB
-        .limit("string", 512.kibibytes()); // Increase string limit to 512 KB
+        .limit("form", config.form_data_limit_bytes().bytes())
+        .limit("data-form", config.form_data_limit_bytes().bytes())
+        .limit("string", config.form_data_limit_bytes().bytes());
+
+    let storage = Arc::new(Mutex::new(PostCache::new(config.cache.max_cache_size_mb)));
+    let file_save_sender = start_file_save_worker();
 
     rocket::build()
         .configure(rocket::Config {
             limits,
+            port: config.server.port,
+            address: config
+                .server
+                .address
+                .parse()
+                .unwrap_or("127.0.0.1".parse().unwrap()),
             ..rocket::Config::default()
         })
-        .manage(PostStorage::new(PostCache::new()))
+        .manage(storage)
+        .manage(FileSaveQueue::new(file_save_sender))
+        .manage(config)
         .mount(
             "/",
             routes![
@@ -512,7 +529,7 @@ mod tests {
 
     #[test]
     fn test_post_id_generation() {
-        let storage = PostStorage::new(PostCache::new());
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
 
         let id1 = generate_post_id("Hello World", &storage).unwrap();
         assert!(id1.contains("hello-world"));
@@ -620,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_post_storage() {
-        let storage = PostStorage::new(PostCache::new());
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
         let post = Post {
             id: "test-post".to_string(),
             title: "Test Post".to_string(),
@@ -637,7 +654,7 @@ mod tests {
 
         {
             let mut posts = storage.lock().unwrap();
-            let retrieved = posts.get("test-post").unwrap();
+            let retrieved = posts.get_ref("test-post").unwrap();
             assert_eq!(retrieved.title, "Test Post");
             assert_eq!(retrieved.content, "Test content");
         }
@@ -645,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_post_id_collision_handling() {
-        let storage = PostStorage::new(PostCache::new());
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
 
         // Pre-populate with posts to test collision handling
         {
@@ -795,7 +812,7 @@ mod tests {
     fn test_edge_cases() {
         // Test very short titles
         let short_title = "A";
-        let storage = PostStorage::new(PostCache::new());
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
         let id = generate_post_id(short_title, &storage);
         assert!(id.is_ok());
         assert!(id.unwrap().starts_with("a-"));

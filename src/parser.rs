@@ -1,56 +1,75 @@
 pub fn render_markdown(content: &str) -> String {
-    // First extract and protect fenced code blocks
-    let (result, fenced_blocks) = extract_fenced_code_blocks(content);
+    let (protected_content, fenced_blocks) = extract_fenced_code_blocks(content);
+    let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
 
-    // Then extract and protect inline code blocks
-    let (mut result, code_blocks) = extract_code_blocks(&result);
+    working_content = safe_replace(&working_content, "**", "**", "<em>", "</em>");
+    working_content = safe_replace(&working_content, "*", "*", "<strong>", "</strong>");
+    working_content = safe_replace(&working_content, "_", "_", "<u>", "</u>");
+    working_content = safe_replace(&working_content, "~", "~", "<del>", "</del>");
+    working_content = safe_replace(&working_content, "^", "^", "<sup>", "</sup>");
+    working_content = safe_replace(
+        &working_content,
+        "#",
+        "#",
+        "<span class=\"secret\">",
+        "</span>",
+    );
 
-    // Process other markdown formatting (code blocks are protected)
-    // Process in order to avoid conflicts - longer patterns first
-    // Italics: **text** -> <em>text</em>
-    result = safe_replace(&result, "**", "**", "<em>", "</em>");
+    working_content = process_links(&working_content);
+    working_content = process_media_urls(&working_content);
+    working_content = process_tables(&working_content);
+    working_content = format_paragraphs(&working_content);
+    working_content = restore_fenced_code_blocks(&working_content, &fenced_blocks);
+    working_content = restore_code_blocks(&working_content, &code_blocks);
 
-    // Bold: *text* -> <strong>text</strong>
-    result = safe_replace(&result, "*", "*", "<strong>", "</strong>");
+    sanitize_html(working_content)
+}
 
-    // Underscore: _text_ -> <u>text</u>
-    result = safe_replace(&result, "_", "_", "<u>", "</u>");
+fn safe_replace(
+    text: &str,
+    start_pattern: &str,
+    end_pattern: &str,
+    open_tag: &str,
+    close_tag: &str,
+) -> String {
+    let mut result = String::with_capacity(text.len() + 1024);
+    let mut remaining = text;
 
-    // Strikethrough: ~text~ -> <del>text</del>
-    result = safe_replace(&result, "~", "~", "<del>", "</del>");
+    while let Some(start_pos) = remaining.find(start_pattern) {
+        result.push_str(&remaining[..start_pos]);
 
-    // Superscript: ^text^ -> <sup>text</sup>
-    result = safe_replace(&result, "^", "^", "<sup>", "</sup>");
+        let after_start = &remaining[start_pos + start_pattern.len()..];
+        if let Some(end_pos) = after_start.find(end_pattern) {
+            let content = &after_start[..end_pos];
+            if !content.is_empty() && !content.contains('\n') {
+                result.push_str(open_tag);
+                result.push_str(content);
+                result.push_str(close_tag);
+                remaining = &after_start[end_pos + end_pattern.len()..];
+            } else {
+                result.push_str(start_pattern);
+                remaining = &remaining[start_pos + start_pattern.len()..];
+            }
+        } else {
+            result.push_str(start_pattern);
+            remaining = &remaining[start_pos + start_pattern.len()..];
+        }
+    }
 
-    // Secret text: #text# -> <span class="secret">text</span>
-    result = safe_replace(&result, "#", "#", "<span class=\"secret\">", "</span>");
+    result.push_str(remaining);
+    result
+}
 
-    // Links with text: [text](url) -> <a href="url">text</a>
-    result = process_links(&result);
-
-    // Auto-embed images and videos
-    result = process_media_urls(&result);
-
-    // Process markdown tables
-    result = process_tables(&result);
-
-    // Format into proper paragraphs BEFORE restoring code blocks
-    result = format_paragraphs(&result);
-
-    // Restore fenced code blocks after paragraph formatting
-    result = restore_fenced_code_blocks(&result, &fenced_blocks);
-
-    // Restore inline code blocks as <code> tags
-    result = restore_code_blocks(&result, &code_blocks);
-
-    // Sanitize the HTML to prevent XSS, but allow video tags and code elements
+fn sanitize_html(html: String) -> String {
     let mut builder = ammonia::Builder::default();
     builder
         .add_tags(&[
-            "video", "source", "pre", "p", "table", "thead", "tbody", "tr", "th", "td",
+            "video", "source", "pre", "p", "table", "thead", "tbody", "tr", "th", "td", "em",
+            "strong", "u", "del", "sup", "span", "code", "a", "img", "br", "hr",
         ])
         .add_tag_attributes("video", &["controls", "style"])
         .add_tag_attributes("source", &["src", "type"])
+        .add_tag_attributes("img", &["src", "alt", "style"])
         .add_tag_attributes("code", &["class"])
         .add_tag_attributes("span", &["class"])
         .add_tag_attributes("th", &["style"])
@@ -58,7 +77,7 @@ pub fn render_markdown(content: &str) -> String {
         .add_tag_attributes("a", &["href", "target"])
         .link_rel(Some("noopener noreferrer"));
 
-    builder.clean(&result).to_string()
+    builder.clean(&html).to_string()
 }
 
 fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
@@ -275,7 +294,8 @@ fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) ->
 }
 
 fn format_paragraphs(text: &str) -> String {
-    let mut result = String::new();
+    let mut result = String::with_capacity(text.len() + (text.len() / 10));
+
     let parts: Vec<&str> = text.split("\n\n").collect();
 
     for (i, part) in parts.iter().enumerate() {
@@ -285,35 +305,25 @@ fn format_paragraphs(text: &str) -> String {
             continue;
         }
 
-        // Check if this contains block elements mixed with text
-        if (trimmed.contains("FENCEDBLOCK")
-            || trimmed.contains("CODEBLOCK")
-            || trimmed.contains("<table>"))
+        if (trimmed.contains("FENCEDBLOCK") || trimmed.contains("CODEBLOCK"))
             && !trimmed.starts_with("FENCEDBLOCK")
             && !trimmed.starts_with("CODEBLOCK")
-            && !trimmed.starts_with("<table>")
         {
-            // Mixed content - separate text from block elements
             let lines: Vec<&str> = part.lines().collect();
             let mut current_paragraph = String::new();
 
             for line in lines {
                 let line_trimmed = line.trim();
 
-                if line_trimmed.starts_with("FENCEDBLOCK")
-                    || line_trimmed.starts_with("CODEBLOCK")
-                    || line_trimmed.starts_with("<table>")
+                if line_trimmed.starts_with("FENCEDBLOCK") || line_trimmed.starts_with("CODEBLOCK")
                 {
-                    // Flush any pending paragraph content
                     if !current_paragraph.is_empty() {
                         result.push_str(&format!("<p>{}</p>\n", current_paragraph.trim()));
                         current_paragraph.clear();
                     }
-                    // Add the block element
                     result.push_str(line_trimmed);
                     result.push('\n');
                 } else if !line_trimmed.is_empty() {
-                    // Regular text - add to current paragraph
                     if !current_paragraph.is_empty() {
                         current_paragraph.push_str("<br>");
                     }
@@ -321,7 +331,6 @@ fn format_paragraphs(text: &str) -> String {
                 }
             }
 
-            // Flush any remaining paragraph content
             if !current_paragraph.is_empty() {
                 result.push_str(&format!("<p>{}</p>", current_paragraph.trim()));
             }
@@ -331,10 +340,8 @@ fn format_paragraphs(text: &str) -> String {
             || trimmed.starts_with("<video ")
             || trimmed.starts_with("<table>")
         {
-            // Pure block elements are added as-is
             result.push_str(trimmed);
         } else {
-            // Regular paragraph content - preserve line breaks as <br>
             let lines: Vec<&str> = part.lines().collect();
             let mut paragraph_content = String::new();
 
@@ -342,7 +349,6 @@ fn format_paragraphs(text: &str) -> String {
                 let trimmed_line = line.trim();
                 if !trimmed_line.is_empty() {
                     paragraph_content.push_str(trimmed_line);
-                    // Add <br> for line breaks within the paragraph (except last line)
                     if j < lines.len() - 1
                         && lines
                             .get(j + 1)
@@ -358,7 +364,6 @@ fn format_paragraphs(text: &str) -> String {
             }
         }
 
-        // Add newline between elements (except after the last one)
         if i < parts.len() - 1 && !result.is_empty() && !result.ends_with('\n') {
             result.push('\n');
         }
@@ -500,7 +505,7 @@ fn parse_table_alignments(separator: &str) -> Vec<TableAlignment> {
         .collect()
 }
 
-fn html_escape(text: &str) -> String {
+pub fn html_escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
@@ -530,9 +535,7 @@ fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
             if let Some(end_pos) = end {
                 let code_content: String = chars[start..end_pos].iter().collect();
 
-                // Don't process if content is empty or contains newlines
                 if !code_content.is_empty() && !code_content.contains('\n') {
-                    // Store the code block and replace with placeholder
                     let placeholder = format!("CODEBLOCK{}", code_blocks.len());
                     code_blocks.push(code_content);
                     result.push_str(&placeholder);
@@ -542,7 +545,6 @@ fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
             }
         }
 
-        // No code block found, add current character
         result.push(chars[i]);
         i += 1;
     }
@@ -555,7 +557,6 @@ fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
 
     for (index, code_content) in code_blocks.iter().enumerate() {
         let placeholder = format!("CODEBLOCK{}", index);
-        // HTML escape inline code content too
         let escaped_content = html_escape(code_content);
         let replacement = format!("<code>{}</code>", escaped_content);
         result = result.replace(&placeholder, &replacement);
@@ -564,77 +565,39 @@ fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
     result
 }
 
-fn safe_replace(
-    text: &str,
-    start_pattern: &str,
-    end_pattern: &str,
-    open_tag: &str,
-    close_tag: &str,
-) -> String {
-    let mut result = String::new();
-    let chars: Vec<char> = text.chars().collect();
-    let mut i = 0;
-
-    while i < chars.len() {
-        // Check if we have a start pattern at current position
-        let remaining: String = chars[i..].iter().collect();
-
-        if remaining.starts_with(start_pattern) {
-            let search_from = i + start_pattern.chars().count();
-
-            // Look for the corresponding end pattern
-            if search_from < chars.len() {
-                let remaining_from_search: String = chars[search_from..].iter().collect();
-                if let Some(end_pos) = remaining_from_search.find(end_pattern) {
-                    let actual_end = search_from + end_pos;
-                    let content: String = chars[search_from..actual_end].iter().collect();
-
-                    // Don't process if content is empty or contains newlines
-                    if !content.is_empty() && !content.contains('\n') {
-                        result.push_str(&format!("{}{}{}", open_tag, content, close_tag));
-                        i = actual_end + end_pattern.chars().count();
-                        continue;
-                    }
-                }
-            }
-
-            // If we get here, no valid end pattern found, just add the start pattern
-            result.push_str(start_pattern);
-            i += start_pattern.chars().count();
-        } else {
-            // No start pattern at current position, add current character
-            result.push(chars[i]);
-            i += 1;
-        }
-    }
-
-    result
+fn process_links(text: &str) -> String {
+    process_links_with_config(text, &crate::config::Config::default())
 }
 
-fn process_links(text: &str) -> String {
-    let mut result = String::new();
+fn process_links_with_config(text: &str, config: &crate::config::Config) -> String {
+    let mut result = String::with_capacity(text.len() + 1024);
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
 
     while i < chars.len() {
-        // Look for [text](url) pattern
         if chars[i] == '[' {
+            // Find closing bracket
             let mut bracket_end = None;
-            for j in (i + 1)..chars.len() {
+            let mut j = i + 1;
+            while j < chars.len() && chars[j] != '\n' {
                 if chars[j] == ']' {
                     bracket_end = Some(j);
                     break;
                 }
+                j += 1;
             }
 
             if let Some(bracket_end_idx) = bracket_end {
+                // Check for [text](url) pattern
                 if bracket_end_idx + 1 < chars.len() && chars[bracket_end_idx + 1] == '(' {
                     let mut paren_end = None;
-                    for j in (bracket_end_idx + 2)..chars.len() {
-                        if chars[j] == ')' {
-                            paren_end = Some(j);
+                    let mut k = bracket_end_idx + 2;
+                    while k < chars.len() && chars[k] != '\n' {
+                        if chars[k] == ')' {
+                            paren_end = Some(k);
                             break;
                         }
+                        k += 1;
                     }
 
                     if let Some(paren_end_idx) = paren_end {
@@ -642,25 +605,38 @@ fn process_links(text: &str) -> String {
                         let link_url: String =
                             chars[(bracket_end_idx + 2)..paren_end_idx].iter().collect();
 
-                        if !link_text.is_empty() && !link_url.is_empty() && link_url.len() <= 4096 {
-                            result.push_str(&format!("<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer\">{}</a>", link_url, link_text));
+                        if !link_text.is_empty()
+                            && !link_url.is_empty()
+                            && link_url.len() <= config.security.max_url_length
+                        {
+                            result.push_str("<a href=\"");
+                            result.push_str(&link_url);
+                            if config.security.external_link_security {
+                                result.push_str("\" target=\"_blank\">");
+                            } else {
+                                result.push_str("\">");
+                            }
+                            result.push_str(&link_text);
+                            result.push_str("</a>");
                             i = paren_end_idx + 1;
                             continue;
                         }
                     }
                 }
 
-                // Look for [url] pattern (bare URL in brackets)
+                // Check for [url] pattern (bare URL in brackets)
                 let link_url: String = chars[(i + 1)..bracket_end_idx].iter().collect();
-
-                if link_url.starts_with("http")
-                    && link_url.len() <= 4096
-                    && !link_url.contains('\n')
+                if link_url.len() <= config.security.max_url_length && link_url.starts_with("http")
                 {
-                    result.push_str(&format!(
-                        "<a href=\"{}\" target=\"_blank\" rel=\"noopener noreferrer\">{}</a>",
-                        link_url, link_url
-                    ));
+                    result.push_str("<a href=\"");
+                    result.push_str(&link_url);
+                    if config.security.external_link_security {
+                        result.push_str("\" target=\"_blank\">");
+                    } else {
+                        result.push_str("\">");
+                    }
+                    result.push_str(&link_url);
+                    result.push_str("</a>");
                     i = bracket_end_idx + 1;
                     continue;
                 }
@@ -1013,20 +989,14 @@ More regular text with _underline_ and ~strikethrough~."#;
 
     #[test]
     fn test_code_block_line_breaks() {
-        // Test that code blocks don't have unwanted <br> tags before or after
         let text = "Here's some text:\n```json\n{\"test\": true}\n```\nMore text after.";
         let result = render_markdown(text);
 
-        // Should have proper structure with text and code block separated
         assert!(result.contains("<p>Here's some text:</p>"));
         assert!(result.contains("<pre><code class=\"language-json\">{\"test\": true}</code></pre>"));
         assert!(result.contains("<p>More text after.</p>"));
-
-        // Should not have <br> immediately before <pre>
         assert!(!result.contains("<br>\n<pre>"));
         assert!(!result.contains("<br><pre>"));
-
-        // Should not have <br> immediately after </pre>
         assert!(!result.contains("</pre><br>\n"));
         assert!(!result.contains("</pre><br>"));
 

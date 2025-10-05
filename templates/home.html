@@ -270,20 +270,20 @@
                         type="text"
                         name="title"
                         placeholder="Title"
-                        maxlength="128"
+                        maxlength="{{title_max_length}}"
                         required
                     />
                     <input
                         type="text"
                         name="alias"
                         placeholder="Alias (optional)"
-                        maxlength="32"
+                        maxlength="{{alias_max_length}}"
                         class="author-input"
                     />
                     <textarea
                         name="content"
                         placeholder="Write something with markdown..."
-                        maxlength="32000"
+                        maxlength="{{content_max_length}}"
                         required
                     ></textarea>
                 </form>
@@ -291,7 +291,9 @@
 
             <div class="sidebar">
                 <button type="submit" form="publishForm">Publish</button>
-                <div class="char-count" id="charCount">0 / 32,000</div>
+                <div class="char-count" id="charCount">
+                    0 / {{content_max_length}}
+                </div>
                 <div class="links">
                     <a href="/markup" target="_blank">markup guide</a>
                     <a href="/legal" target="_blank">legal & privacy</a>
@@ -316,9 +318,10 @@
             function updateCharCount() {
                 const count = textarea.value.length;
                 const button = document.querySelector('button[type="submit"]');
-                charCount.textContent = count.toLocaleString() + " / 32,000";
+                const limit = {{content_max_length}};
+                charCount.textContent = count.toLocaleString() + " / " + limit.toLocaleString();
 
-                if (count > 32000) {
+                if (count > limit) {
                     charCount.classList.add("over-limit");
                     button.disabled = true;
                 } else {
@@ -333,9 +336,10 @@
             });
 
             form.addEventListener("submit", function (e) {
-                if (textarea.value.length > 32000) {
+                const limit = {{content_max_length}};
+                if (textarea.value.length > limit) {
                     e.preventDefault();
-                    alert("Content exceeds 32,000 character limit.");
+                    alert("Content exceeds " + limit.toLocaleString() + " character limit.");
                     return false;
                 }
             });

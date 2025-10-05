@@ -9,6 +9,7 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 ammonia = "3.3"
+toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3.0"
