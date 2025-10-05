@@ -83,6 +83,80 @@
                     monospace;
                 font-size: 0.9em;
             }
+            .article-content pre {
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 10px;
+                margin: 20px 0;
+                overflow-x: auto;
+                line-height: 1.4;
+                position: relative;
+            }
+            .article-content pre code {
+                background: transparent;
+                padding: 0;
+                font-size: 14px;
+                display: block;
+                white-space: pre;
+            }
+            .code-header {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+                color: #666;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                z-index: 10;
+            }
+            .code-header:hover {
+                background: #f8f9fa;
+            }
+            .article-content pre::-webkit-scrollbar {
+                height: 8px;
+            }
+            .article-content pre::-webkit-scrollbar-track {
+                background: #f1f3f4;
+            }
+            .article-content pre::-webkit-scrollbar-thumb {
+                background: #dadce0;
+                border-radius: 4px;
+            }
+            .article-content pre::-webkit-scrollbar-thumb:hover {
+                background: #bdc1c6;
+            }
+            .code-language {
+                text-transform: uppercase;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+                opacity: 0;
+                pointer-events: none;
+                order: -1;
+            }
+            .code-header:hover .code-language {
+                opacity: 1;
+            }
+            .copy-button {
+                background: #fff;
+                border: 1px solid #e9ecef;
+                padding: 6px 10px;
+                font-size: 11px;
+                cursor: pointer;
+                color: #656d76;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                font-weight: 500;
+            }
+            .copy-button.copied {
+                background: #2ea043;
+                border-color: #2ea043;
+                color: white;
+            }
             .article-content a {
                 color: #333;
                 text-decoration: underline;
@@ -98,25 +172,17 @@
                 display: block;
             }
             .secret {
-                background: #333;
-                color: #333;
+                background: #000;
+                color: #000;
                 cursor: pointer;
-                padding: 4px 8px;
                 user-select: none;
-                border-radius: 2px;
                 transition: background-color 0.2s ease;
                 -webkit-tap-highlight-color: transparent;
                 touch-action: manipulation;
-                min-height: 32px;
-                display: inline-flex;
                 align-items: center;
             }
             .secret.revealed {
-                background: #f8f8f8;
-                color: #333;
-            }
-            .secret:hover {
-                background: #666;
+                background: #f0f0f0;
             }
             .secret:active {
                 background: #555;
@@ -175,6 +241,13 @@
                     font-size: 14px;
                     padding: 1px 4px;
                 }
+                .article-content pre {
+                    padding: 12px;
+                    margin: 10px 0;
+                }
+                .article-content pre code {
+                    font-size: 13px;
+                }
                 .article-content img,
                 .article-content video {
                     margin: 16px 0;
@@ -185,22 +258,116 @@
                     font-size: 16px;
                 }
             }
+            .article-content table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 20px 0;
+                font-size: 16px;
+            }
+            .article-content th,
+            .article-content td {
+                border: 1px solid #e9ecef;
+                padding: 8px;
+                text-align: left;
+            }
+            .article-content th {
+                background-color: #f8f9fa;
+                font-weight: 600;
+                color: #333;
+            }
+            .article-content tr:nth-child(even) {
+                background-color: #f8f9fa;
+            }
+            .article-content tr:hover {
+                background-color: #e9ecef;
+            }
+            @media (max-width: 768px) {
+                .article-content table {
+                    font-size: 14px;
+                    overflow-x: auto;
+                    display: block;
+                    white-space: nowrap;
+                }
+                .article-content th,
+                .article-content td {
+                    padding: 8px;
+                }
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="content">
                 <h1>{{title}}</h1>
-                <div class="article-meta">{{created_at}}</div>
+                <div class="article-meta">{{author_display}}{{created_at}}</div>
                 <div class="article-content">{{content}}</div>
             </div>
         </div>
-        <!-- Script for revealing secret text on click -->
+        <!-- Scripts for revealing secret text and copying code -->
         <script>
             document.querySelectorAll(".secret").forEach(function (secret) {
                 secret.addEventListener("click", function () {
                     this.classList.toggle("revealed");
                 });
+            });
+
+            // Add copy functionality and language labels to code blocks
+            document.querySelectorAll("pre code").forEach(function (codeBlock) {
+                const pre = codeBlock.parentElement;
+                const className = codeBlock.className;
+                let language = "";
+
+                // Extract language from class name
+                if (className && className.includes("language-")) {
+                    language = className.replace("language-", "");
+                }
+
+                // Create header with language and copy button
+                const header = document.createElement("div");
+                header.className = "code-header";
+
+                // Create language label first (for CSS ordering)
+                if (language) {
+                    const langLabel = document.createElement("span");
+                    langLabel.className = "code-language";
+                    langLabel.textContent = language.toUpperCase();
+                    header.appendChild(langLabel);
+                }
+
+                const copyButton = document.createElement("button");
+                copyButton.className = "copy-button";
+                copyButton.textContent = "Copy";
+                copyButton.addEventListener("click", function () {
+                    navigator.clipboard
+                        .writeText(codeBlock.textContent)
+                        .then(function () {
+                            copyButton.textContent = "Copied!";
+                            copyButton.classList.add("copied");
+                            setTimeout(function () {
+                                copyButton.textContent = "Copy";
+                                copyButton.classList.remove("copied");
+                            }, 2000);
+                        })
+                        .catch(function () {
+                            // Fallback for older browsers
+                            const textArea = document.createElement("textarea");
+                            textArea.value = codeBlock.textContent;
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(textArea);
+                            copyButton.textContent = "Copied!";
+                            copyButton.classList.add("copied");
+                            setTimeout(function () {
+                                copyButton.textContent = "Copy";
+                                copyButton.classList.remove("copied");
+                            }, 2000);
+                        });
+                });
+
+                header.appendChild(copyButton);
+
+                pre.appendChild(header);
             });
         </script>
     </body>

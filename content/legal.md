@@ -1,52 +1,38 @@
 September 23, 2025
 
-# Legal Information
-**Service Provided As-Is**
-This Telegraph-rs service is provided "as-is" without warranty of any kind. Users are solely responsible for the content they publish.
-It is in no way related to the service operated by Telegram beyond the concept.
-
-**Content Responsibility**
-- You retain ownership of content you create
-- You are responsible for ensuring your content is legal
-- We reserve the right to remove content that violates laws in (insert your country here)
-- Posts are public and can be viewed by anyone with the link
+# Legal & Privacy
 
 **Privacy**
-- No user accounts or personal information required
-- No tracking or analytics. Be mindful of what you publish
-- Content is stored as plain text files on the server
+We collect nothing beyond what you choose to provide. Your posts are stored as plain markdown files on the server. No tracking, analytics, user accounts, or personal data collection.
 
 **Data Storage**
-- Posts are stored indefinitely unless removed
-- No automatic deletion or expiration
-- Files are stored in markdown format
-- No database - just simple file storage
+- Posts stored as markdown text files
+- Images/videos are not hosted here - only linked from external sources
+- Content is public and accessible to anyone with the link
+- No automatic deletion or backup guarantees
 
-**Prohibited Content**
-- Illegal content under applicable law
-- Content that violates others' rights
-- Spam or automated posting
-- Malicious code or scripts
+**Acceptable Use**
+- No illegal content under applicable law
+- No spam or automated posting
+- You are solely responsible for what you publish
 
-**Limitations**
-- No uptime guarantees
-- No content backup guarantees
+**Service Limitations**
+- Provided "as-is" without warranties
+- No uptime or data preservation guarantees
 - Service may be discontinued at any time
-- Links have 4KB size limit for security
 
-**Jurisdiction**
-These terms are governed by the laws of (insert your country here).
+**Third-Party Content**
+This service only hosts text. All images, videos, and external links are served from third-party hosts. We are not responsible for external content or its availability.
 
-**Notes for Glowies / Law Enforcement**
-- No personally identifable data (nor metadata) is stored beyond post title and date.
-- The only data I can hand over is what the user submits; no IP, no UA, nothing else.
-- This service ONLY hosts markdown (similar to .txt) files. All images, videos, and other assets all come from external hosts.
+**User Responsibility**
+You retain ownership of your content and are solely responsible for ensuring it complies with applicable laws. Posts are public once published.
+
+**For Authorities**
+No personally identifiable data or metadata is collected or stored unless explicitly published by the user. We can only provide the markdown text content that users submit - no IP addresses, user agents, or other tracking data exists.
+
+No information is collected from readers, not even post view counts or anonymized metrics.
 
 **Contact**
-This is an open source project. Issues and questions should be directed to the project repository.
+This is an open source project. Questions should be directed to the [project repository](https://github.com/du82/telegraph-rs)
 
-**License**
-This is free and unencumbered software released into the public domain.
-For more information, please refer to [https://unlicense.org/]
-
-Last updated: September 2025
+Last updated: October 5th, 2025

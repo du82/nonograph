@@ -18,13 +18,14 @@ pub fn save_post_to_file(post: &Post) -> Result<(), String> {
     let filename = format!("content/{}.md", post.id);
     let file_path = Path::new(&filename);
 
-    // Create file content with date at top, empty line, title as h1, then user content
-    let file_content = format!(
-        "{}\n\n# {}\n{}",
-        post.created_at.format("%B %d, %Y").to_string(),
-        post.title,
-        post.raw_content
-    );
+    // Create file content with date at top, optionally author with pipe, empty line, title as h1, then user content
+    let header = if post.author.is_empty() {
+        post.created_at.format("%B %d, %Y").to_string()
+    } else {
+        format!("{} | {}", post.created_at.format("%B %d, %Y"), post.author)
+    };
+
+    let file_content = format!("{}\n\n# {}\n{}", header, post.title, post.raw_content);
 
     fs::write(file_path, file_content)
         .map_err(|e| format!("Failed to write post to file {}: {}", filename, e))?;
@@ -125,10 +126,11 @@ mod tests {
         let raw_file = fs::read_to_string("content/format-test-01-01-2024.md").unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
-        // First line should be date - check for current year range
+        // First line should be date with author - check for current year range and author
         assert!(
             lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
         );
+        assert!(lines[0].contains(" | Test Author"));
         // Second line should be empty
         assert_eq!(lines[1], "");
         // Third line should be title with h1
@@ -136,5 +138,38 @@ mod tests {
         // Fourth line should start user content
         assert_eq!(lines[3], "This is the user content");
         assert_eq!(lines[4], "With multiple lines");
+    }
+
+    #[test]
+    fn test_file_format_no_author() {
+        let _temp_dir = setup_test_env();
+        ensure_content_directory().unwrap();
+
+        let post = Post {
+            id: "no-author-test-01-01-2024".to_string(),
+            title: "No Author Test".to_string(),
+            author: "".to_string(),
+            content: "<p>Content</p>".to_string(),
+            raw_content: "Content without author".to_string(),
+            created_at: Utc::now(),
+        };
+
+        assert!(save_post_to_file(&post).is_ok());
+
+        // Read raw file content to verify format
+        let raw_file = fs::read_to_string("content/no-author-test-01-01-2024.md").unwrap();
+        let lines: Vec<&str> = raw_file.lines().collect();
+
+        // First line should be date only (no pipe or author)
+        assert!(
+            lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
+        );
+        assert!(!lines[0].contains(" | "));
+        // Second line should be empty
+        assert_eq!(lines[1], "");
+        // Third line should be title with h1
+        assert_eq!(lines[2], "# No Author Test");
+        // Fourth line should start user content
+        assert_eq!(lines[3], "Content without author");
     }
 }

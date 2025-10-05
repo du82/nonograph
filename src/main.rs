@@ -161,6 +161,7 @@ fn index() -> content::RawHtml<String> {
 struct NewPost {
     title: String,
     content: String,
+    author: Option<String>,
 }
 
 fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String> {
@@ -223,12 +224,19 @@ fn create_post(
         return Ok(rocket::response::Redirect::to("/?error=content_required"));
     }
 
-    if form.content.len() > 128000 {
+    if form.content.len() > 32000 {
         return Ok(rocket::response::Redirect::to("/?error=content_too_long"));
     }
 
-    if form.title.len() > 100 {
+    if form.title.len() > 128 {
         return Ok(rocket::response::Redirect::to("/?error=title_too_long"));
+    }
+
+    // Validate author field if provided
+    if let Some(ref author) = form.author {
+        if author.len() > 32 {
+            return Ok(rocket::response::Redirect::to("/?error=author_too_long"));
+        }
     }
 
     // Generate post ID
@@ -243,7 +251,7 @@ fn create_post(
     let post = Post {
         id: post_id.clone(),
         title: form.title.clone(),
-        author: "".to_string(),
+        author: form.author.clone().unwrap_or_default(),
         content: rendered_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
@@ -296,6 +304,13 @@ fn view_post(
                 {
                     let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
                     if lines.len() >= 4 {
+                        // Extract author from first line if it contains a pipe
+                        let author = if let Some(pipe_pos) = lines[0].find(" | ") {
+                            lines[0][(pipe_pos + 3)..].to_string()
+                        } else {
+                            "".to_string()
+                        };
+
                         // Extract title from line 3 (remove "# " prefix)
                         let title = lines[2]
                             .strip_prefix("# ")
@@ -307,7 +322,7 @@ fn view_post(
                         let new_post = Post {
                             id: actual_post_id.to_string(),
                             title,
-                            author: "".to_string(),
+                            author,
                             content: parser::render_markdown(&raw_content),
                             raw_content,
                             created_at: Utc::now(), // We lose original creation time
@@ -350,6 +365,16 @@ fn view_post(
                 context.insert("title".to_string(), post.title.clone());
                 context.insert("content".to_string(), post.content.clone());
                 context.insert("raw_content".to_string(), post.raw_content.clone());
+                context.insert("author".to_string(), post.author.clone());
+
+                // Format author display with proper separator
+                let author_display = if post.author.is_empty() {
+                    String::new()
+                } else {
+                    format!("by {} · ", post.author)
+                };
+                context.insert("author_display".to_string(), author_display);
+
                 context.insert(
                     "created_at".to_string(),
                     post.created_at.format("%B %d, %Y").to_string(),
@@ -510,10 +535,10 @@ mod tests {
     #[test]
     fn test_content_length_validation() {
         let short_content = "a".repeat(100);
-        let long_content = "a".repeat(130000);
+        let long_content = "a".repeat(35000);
 
-        assert!(short_content.len() <= 128000);
-        assert!(long_content.len() > 128000);
+        assert!(short_content.len() <= 32000);
+        assert!(long_content.len() > 32000);
     }
 
     #[test]
@@ -695,17 +720,17 @@ mod tests {
     fn test_character_limits() {
         // Test title length limit
         let long_title = "a".repeat(150);
-        assert!(long_title.len() > 100);
+        assert!(long_title.len() > 128);
 
         // Test content length limit
-        let long_content = "a".repeat(130000);
-        assert!(long_content.len() > 128000);
+        let long_content = "a".repeat(35000);
+        assert!(long_content.len() > 32000);
 
         // Test valid lengths
         let valid_title = "a".repeat(50);
-        let valid_content = "a".repeat(50000);
-        assert!(valid_title.len() <= 100);
-        assert!(valid_content.len() <= 128000);
+        let valid_content = "a".repeat(20000);
+        assert!(valid_title.len() <= 128);
+        assert!(valid_content.len() <= 32000);
     }
 
     #[test]
@@ -785,5 +810,76 @@ mod tests {
         let id = generate_post_id(numeric, &storage);
         assert!(id.is_ok());
         assert!(id.unwrap().starts_with("12345-"));
+    }
+
+    #[test]
+    fn test_author_field_validation() {
+        // Test valid author field
+        let valid_author = "John Doe";
+        assert!(valid_author.len() <= 32);
+
+        // Test author at character limit
+        let max_author = "a".repeat(32);
+        assert_eq!(max_author.len(), 32);
+
+        // Test author over character limit
+        let over_limit_author = "a".repeat(33);
+        assert!(over_limit_author.len() > 32);
+
+        // Test empty author (should be allowed as it's optional)
+        let empty_author = "";
+        assert!(empty_author.is_empty());
+    }
+
+    #[test]
+    fn test_author_display_formatting() {
+        // Test with author
+        let post_with_author = Post {
+            id: "test-author-post".to_string(),
+            title: "Test Post".to_string(),
+            author: "Jane Smith".to_string(),
+            content: "<p>Content</p>".to_string(),
+            raw_content: "Content".to_string(),
+            created_at: Utc::now(),
+        };
+
+        let author_display = if post_with_author.author.is_empty() {
+            String::new()
+        } else {
+            format!("by {} · ", post_with_author.author)
+        };
+        assert_eq!(author_display, "by Jane Smith · ");
+
+        // Test without author
+        let post_without_author = Post {
+            id: "test-no-author-post".to_string(),
+            title: "Test Post".to_string(),
+            author: "".to_string(),
+            content: "<p>Content</p>".to_string(),
+            raw_content: "Content".to_string(),
+            created_at: Utc::now(),
+        };
+
+        let author_display_empty = if post_without_author.author.is_empty() {
+            String::new()
+        } else {
+            format!("by {} · ", post_without_author.author)
+        };
+        assert_eq!(author_display_empty, "");
+    }
+
+    #[test]
+    fn test_title_character_limit() {
+        // Test valid title at limit
+        let max_title = "a".repeat(128);
+        assert_eq!(max_title.len(), 128);
+
+        // Test title over limit
+        let over_limit_title = "a".repeat(129);
+        assert!(over_limit_title.len() > 128);
+
+        // Test normal title
+        let normal_title = "A Great Article Title";
+        assert!(normal_title.len() <= 128);
     }
 }
