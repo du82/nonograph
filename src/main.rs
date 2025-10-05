@@ -161,7 +161,7 @@ fn index() -> content::RawHtml<String> {
 struct NewPost {
     title: String,
     content: String,
-    author: Option<String>,
+    alias: Option<String>,
 }
 
 fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String> {
@@ -232,10 +232,10 @@ fn create_post(
         return Ok(rocket::response::Redirect::to("/?error=title_too_long"));
     }
 
-    // Validate author field if provided
-    if let Some(ref author) = form.author {
-        if author.len() > 32 {
-            return Ok(rocket::response::Redirect::to("/?error=author_too_long"));
+    // Validate alias field if provided
+    if let Some(ref alias) = form.alias {
+        if alias.len() > 32 {
+            return Ok(rocket::response::Redirect::to("/?error=alias_too_long"));
         }
     }
 
@@ -251,7 +251,7 @@ fn create_post(
     let post = Post {
         id: post_id.clone(),
         title: form.title.clone(),
-        author: form.author.clone().unwrap_or_default(),
+        author: form.alias.clone().unwrap_or_default(),
         content: rendered_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
@@ -813,29 +813,29 @@ mod tests {
     }
 
     #[test]
-    fn test_author_field_validation() {
-        // Test valid author field
-        let valid_author = "John Doe";
-        assert!(valid_author.len() <= 32);
+    fn test_alias_field_validation() {
+        // Test valid alias field
+        let valid_alias = "John Doe";
+        assert!(valid_alias.len() <= 32);
 
-        // Test author at character limit
-        let max_author = "a".repeat(32);
-        assert_eq!(max_author.len(), 32);
+        // Test alias at character limit
+        let max_alias = "a".repeat(32);
+        assert_eq!(max_alias.len(), 32);
 
-        // Test author over character limit
-        let over_limit_author = "a".repeat(33);
-        assert!(over_limit_author.len() > 32);
+        // Test alias over character limit
+        let over_limit_alias = "a".repeat(33);
+        assert!(over_limit_alias.len() > 32);
 
-        // Test empty author (should be allowed as it's optional)
-        let empty_author = "";
-        assert!(empty_author.is_empty());
+        // Test empty alias (should be allowed as it's optional)
+        let empty_alias = "";
+        assert!(empty_alias.is_empty());
     }
 
     #[test]
-    fn test_author_display_formatting() {
-        // Test with author
-        let post_with_author = Post {
-            id: "test-author-post".to_string(),
+    fn test_alias_display_formatting() {
+        // Test with alias
+        let post_with_alias = Post {
+            id: "test-alias-post".to_string(),
             title: "Test Post".to_string(),
             author: "Jane Smith".to_string(),
             content: "<p>Content</p>".to_string(),
@@ -843,16 +843,16 @@ mod tests {
             created_at: Utc::now(),
         };
 
-        let author_display = if post_with_author.author.is_empty() {
+        let alias_display = if post_with_alias.author.is_empty() {
             String::new()
         } else {
-            format!("by {} · ", post_with_author.author)
+            format!("by {} · ", post_with_alias.author)
         };
-        assert_eq!(author_display, "by Jane Smith · ");
+        assert_eq!(alias_display, "by Jane Smith · ");
 
-        // Test without author
-        let post_without_author = Post {
-            id: "test-no-author-post".to_string(),
+        // Test without alias
+        let post_without_alias = Post {
+            id: "test-no-alias-post".to_string(),
             title: "Test Post".to_string(),
             author: "".to_string(),
             content: "<p>Content</p>".to_string(),
@@ -860,12 +860,12 @@ mod tests {
             created_at: Utc::now(),
         };
 
-        let author_display_empty = if post_without_author.author.is_empty() {
+        let alias_display_empty = if post_without_alias.author.is_empty() {
             String::new()
         } else {
-            format!("by {} · ", post_without_author.author)
+            format!("by {} · ", post_without_alias.author)
         };
-        assert_eq!(author_display_empty, "");
+        assert_eq!(alias_display_empty, "");
     }
 
     #[test]

@@ -15,7 +15,7 @@ Telegraph-rs provides a simple HTTP API for programmatically publishing articles
 |-------|------|----------|------------|-------------|
 | `title` | string | Yes | 128 chars | Article title |
 | `content` | string | Yes | 32,000 chars | Article content in markdown |
-| `author` | string | No | 32 chars | Author name (optional) |
+| `alias` | string | No | 32 chars | Alias name (optional) |
 
 ### Example Request
 
@@ -23,7 +23,7 @@ Telegraph-rs provides a simple HTTP API for programmatically publishing articles
 curl -X POST http://localhost:8000/create \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "title=My API Article" \
-  -d "author=API User" \
+  -d "alias=API User" \
   -d "content=This article was created via the API!
 
 ## Features
@@ -60,7 +60,7 @@ The API redirects to the published article URL. Extract the post ID from the Loc
 | `?error=content_required` | Content is empty |
 | `?error=title_too_long` | Title exceeds 128 characters |
 | `?error=content_too_long` | Content exceeds 32,000 characters |
-| `?error=author_too_long` | Author exceeds 32 characters |
+| `?error=alias_too_long` | Alias exceeds 32 characters |
 | `?error=no_available_slots` | No available post ID slots (rare) |
 
 ## Post URLs
@@ -97,7 +97,7 @@ import requests
 
 data = {
     'title': 'API Test Article',
-    'author': 'Python Script',
+    'alias': 'Python Script',
     'content': '''# Hello from Python!
 
 This article was created programmatically.
@@ -125,7 +125,7 @@ const axios = require('axios');
 
 const data = new URLSearchParams({
     title: 'API Test Article',
-    author: 'Node.js Script',
+    alias: 'Node.js Script',
     content: `# Hello from JavaScript!
 
 This article was created with Node.js.
@@ -151,7 +151,7 @@ axios.post('http://localhost:8000/create', data)
 #!/bin/bash
 
 TITLE="Daily Report $(date +%Y-%m-%d)"
-AUTHOR="Automation"
+ALIAS="Automation"
 CONTENT="# Daily System Report
 
 Generated at: $(date)
@@ -170,7 +170,7 @@ Generated at: $(date)
 
 curl -X POST http://localhost:8000/create \
   --data-urlencode "title=$TITLE" \
-  --data-urlencode "author=$AUTHOR" \
+  --data-urlencode "alias=$ALIAS" \
   --data-urlencode "content=$CONTENT" \
   --location \
   --silent \

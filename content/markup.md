@@ -76,6 +76,7 @@ Press Enter twice for a paragraph break
 - Posts: 32,000 characters maximum
 - Links: 4,096 characters maximum
 - Titles: 128 characters maximum
+- Alias: 32 characters maximum
 
 **What's NOT Supported**
 
