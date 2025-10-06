@@ -34,5 +34,3 @@ No information is collected from readers, not even post view counts or anonymize
 
 **Contact**
 This is an open source project. Questions should be directed to the [project repository](https://github.com/du82/telegraph-rs)
-
-Last updated: October 5th, 2025

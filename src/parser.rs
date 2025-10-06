@@ -64,8 +64,32 @@ fn sanitize_html(html: String) -> String {
     let mut builder = ammonia::Builder::default();
     builder
         .add_tags(&[
-            "video", "source", "pre", "p", "table", "thead", "tbody", "tr", "th", "td", "em",
-            "strong", "u", "del", "sup", "span", "code", "a", "img", "br", "hr",
+            "video",
+            "source",
+            "pre",
+            "p",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
+            "em",
+            "strong",
+            "u",
+            "del",
+            "sup",
+            "span",
+            "code",
+            "a",
+            "img",
+            "br",
+            "hr",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "blockquote",
         ])
         .add_tag_attributes("video", &["controls", "style"])
         .add_tag_attributes("source", &["src", "type"])
@@ -78,6 +102,42 @@ fn sanitize_html(html: String) -> String {
         .link_rel(Some("noopener noreferrer"));
 
     builder.clean(&html).to_string()
+}
+
+fn process_single_header(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.starts_with("#### ") {
+        let header_text = &trimmed[5..];
+        Some(format!("<h4>{}</h4>", header_text))
+    } else if trimmed.starts_with("### ") {
+        let header_text = &trimmed[4..];
+        Some(format!("<h3>{}</h3>", header_text))
+    } else if trimmed.starts_with("## ") {
+        let header_text = &trimmed[3..];
+        Some(format!("<h2>{}</h2>", header_text))
+    } else if trimmed.starts_with("# ") {
+        let header_text = &trimmed[2..];
+        Some(format!("<h1>{}</h1>", header_text))
+    } else {
+        None
+    }
+}
+
+fn process_single_blockquote(text: &str) -> String {
+    let mut blockquote_content = String::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("> ") {
+            let quote_text = &trimmed[2..];
+            if !blockquote_content.is_empty() {
+                blockquote_content.push_str("<br>");
+            }
+            blockquote_content.push_str(quote_text);
+        }
+    }
+
+    format!("<blockquote>{}</blockquote>", blockquote_content)
 }
 
 fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
@@ -305,9 +365,21 @@ fn format_paragraphs(text: &str) -> String {
             continue;
         }
 
-        if (trimmed.contains("FENCEDBLOCK") || trimmed.contains("CODEBLOCK"))
+        // Check for headers first
+        if let Some(header) = process_single_header(trimmed) {
+            result.push_str(&header);
+        }
+        // Check for blockquotes
+        else if trimmed.lines().any(|line| line.trim().starts_with("> ")) {
+            result.push_str(&process_single_blockquote(trimmed));
+        }
+        // Check for mixed block content
+        else if (trimmed.contains("FENCEDBLOCK")
+            || trimmed.contains("CODEBLOCK")
+            || trimmed.contains("<table>"))
             && !trimmed.starts_with("FENCEDBLOCK")
             && !trimmed.starts_with("CODEBLOCK")
+            && !trimmed.starts_with("<table>")
         {
             let lines: Vec<&str> = part.lines().collect();
             let mut current_paragraph = String::new();
@@ -315,7 +387,9 @@ fn format_paragraphs(text: &str) -> String {
             for line in lines {
                 let line_trimmed = line.trim();
 
-                if line_trimmed.starts_with("FENCEDBLOCK") || line_trimmed.starts_with("CODEBLOCK")
+                if line_trimmed.starts_with("FENCEDBLOCK")
+                    || line_trimmed.starts_with("CODEBLOCK")
+                    || line_trimmed.starts_with("<table>")
                 {
                     if !current_paragraph.is_empty() {
                         result.push_str(&format!("<p>{}</p>\n", current_paragraph.trim()));
@@ -367,6 +441,19 @@ fn format_paragraphs(text: &str) -> String {
         if i < parts.len() - 1 && !result.is_empty() && !result.ends_with('\n') {
             result.push('\n');
         }
+    }
+
+    // Clean up empty paragraphs and excessive spacing
+    result = result.replace("<p></p>", "");
+    result = result.replace("\n\n\n", "\n\n");
+
+    // Remove excessive br tags before tables - more aggressive cleanup
+    let mut iterations = 0;
+    while result.contains("<br><table>") && iterations < 50 {
+        result = result.replace("<br><br>", "<br>");
+        result = result.replace("<br><table>", "<table>");
+        result = result.replace("<br>\n<table>", "\n<table>");
+        iterations += 1;
     }
 
     result
@@ -1261,5 +1348,36 @@ With line breaks"#;
         assert!(context_result.contains("<p>Here's a table:</p>"));
         assert!(context_result.contains("<p>After table.</p>"));
         assert!(context_result.contains("<table>"));
+    }
+
+    #[test]
+    fn test_headers() {
+        let text = "# Header 1\n\n## Header 2\n\n### Header 3\n\n#### Header 4";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<h1>Header 1</h1>"));
+        assert!(result.contains("<h2>Header 2</h2>"));
+        assert!(result.contains("<h3>Header 3</h3>"));
+        assert!(result.contains("<h4>Header 4</h4>"));
+    }
+
+    #[test]
+    fn test_blockquotes() {
+        let text = "> This is a quote\n> Continued quote\n\nNormal text";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<blockquote>This is a quote<br>Continued quote</blockquote>"));
+        assert!(result.contains("<p>Normal text</p>"));
+    }
+
+    #[test]
+    fn test_mixed_headers_and_quotes() {
+        let text = "# Title\n\n> A quote\n\n## Subtitle\n\nNormal text";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<h1>Title</h1>"));
+        assert!(result.contains("<blockquote>A quote</blockquote>"));
+        assert!(result.contains("<h2>Subtitle</h2>"));
+        assert!(result.contains("<p>Normal text</p>"));
     }
 }
