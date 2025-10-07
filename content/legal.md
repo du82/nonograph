@@ -14,7 +14,7 @@ This service has no user accounts or registration system - anyone can publish an
 We store only the words you write. Specifically, we store the text content you choose to publish, the timestamp when you published it, and any alias name you optionally provide. We do not track your IP address, use cookies for tracking, collect analytics, or gather any other personal information about you. We do not store or have access to any images, videos, or other media files you might link to in your posts.
 
 **For People Who Read Content:**
-We collect absolutely nothing from readers. No tracking, no analytics, no IP addresses, no cookies, no data of any kind. We don't even collect anonymized metrics like page views, visitor counts, or usage statistics. When you visit a post to read it, we don't record that you were here, don't count your visit, and don't track your activity in any way.
+We collect absolutely nothing from readers. No IP addresses, cookies, tracking, analytics, or any identifying information is logged or stored. When you visit a post, the service may cache the HTML in memory for faster loading on subsequent visits by anyone - popular posts stay cached longer because they're requested more frequently - but this system is completely blind to who you are and cannot distinguish between different visitors. The cache constantly overwrites older data with newer requests, making it impossible to build any patterns about readership over time. You leave no digital footprint that we can see or access.
 
 ## Important: Service Privacy Is Not Anonymity
 
@@ -42,7 +42,7 @@ We provide this service "as-is" without any guarantees. We don't promise that th
 
 ## Legal Matters
 
-You keep ownership of the content you create, but by publishing it here, you give us permission to store and display it. If law enforcement makes a valid legal request, we will cooperate, but we can only provide the text content you've published - we don't have access to any other information about you.
+You keep ownership of the content you create, but by publishing it here, you give us permission to store and display it. If law enforcement makes a valid legal request, we will cooperate, but we can only provide the raw text content you've published - no IP addresses, user data, logs, or tracking information exists for us to share. We literally don't have access to any other information about you.
 
 If law enforcement makes a valid legal request to remove content that is actually illegal, we will comply. However, we will resist requests for content removal based solely on someone finding the content objectionable or offensive. We may ignore takedown requests that appear false, abusive, or attempt to censor legal speech.
 
@@ -55,6 +55,8 @@ This service operates under the laws of the jurisdiction where our servers are l
 ## Children
 
 This service is not intended for children under 13 years old. We don't knowingly collect any information from children under 13.
+
+Any content that sexualizes, exploits, or fetishizes children is strictly prohibited and will be removed and reported to appropriate authorities. This includes written content, links to such material, or any other form of child exploitation content.
 
 ## Changes to This Policy
 
