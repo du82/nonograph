@@ -14,7 +14,7 @@ This service has no user accounts or registration system - anyone can publish an
 We store only the words you write. Specifically, we store the text content you choose to publish, the timestamp when you published it, and any alias name you optionally provide. We do not track your IP address, use cookies for tracking, collect analytics, or gather any other personal information about you. We do not store or have access to any images, videos, or other media files you might link to in your posts.
 
 **For People Who Read Content:**
-We collect absolutely nothing from readers. No IP addresses, cookies, tracking, analytics, or any identifying information is logged or stored. When you visit a post, the service uses an LRU (Least Recently Used) cache that stores the HTML in memory for faster loading on subsequent visits by anyone. When memory fills up, the oldest unused posts are automatically removed to make room for newer requests. This system is completely blind to who you are and cannot distinguish between different visitors. The cache constantly overwrites older data with newer requests, making it impossible to build any patterns about readership over time. You leave no digital footprint that we can see or access.
+We collect nothing from readers. While the server receives your request to serve the page, no IP addresses, cookies, tracking, analytics, or identifying information is stored or logged. Your request only informs an in-memory cache that keeps frequently accessed pages saved in memory faster response times. The system cannot identify individual users and doesn't store reading habits or track what you read. You leave no digital footprint that we can see or access.
 
 ## Important: Service Privacy Is Not Anonymity
 
