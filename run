@@ -1,0 +1,568 @@
+#!/bin/bash
+
+# Telegraph-rs One-Click Deployment Script
+# Automatically sets up Telegraph-rs with Tor hidden service on any Debian machine
+# Reuses existing onion addresses and fixes common issues automatically
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE_PORT=8009
+TOR_DATA_DIR="/var/lib/tor/telegraph"
+TORRC_PATH="/etc/tor/torrc"
+SERVICE_NAME="telegraph-rs"
+LOG_FILE="$SCRIPT_DIR/telegraph.log"
+PID_FILE="$SCRIPT_DIR/telegraph.pid"
+
+cd "$SCRIPT_DIR"
+
+# Logging functions
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+show_banner() {
+    echo -e "${PURPLE}"
+    echo "╔════════════════════════════════════════════════╗"
+    echo "║            Telegraph-rs Runner                 ║"
+    echo "║      One-Click Anonymous Publishing            ║"
+    echo "║                                                ║"
+    echo "║  • Automatic setup on any Debian machine       ║"
+    echo "║  • Reuses existing onion addresses             ║"
+    echo "║  • Self-healing and issue detection            ║"
+    echo "║  • Zero configuration required                 ║"
+    echo "╚════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo
+}
+
+# Check if running as root
+check_root() {
+    if [[ $EUID -eq 0 ]]; then
+        log_error "This script should not be run as root for security reasons"
+        log_info "Run as a regular user - sudo will be requested when needed"
+        exit 1
+    fi
+}
+
+# Detect system information
+detect_system() {
+    log_info "Detecting system information..."
+
+    if ! command -v apt &> /dev/null; then
+        log_error "This script requires a Debian-based system with apt package manager"
+        exit 1
+    fi
+
+    OS_VERSION=$(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)
+    log_info "Detected: $OS_VERSION"
+}
+
+# Check and install system dependencies
+install_dependencies() {
+    log_info "Checking system dependencies..."
+
+    local packages_needed=()
+
+    # Check for required packages
+    for package in curl build-essential pkg-config libssl-dev tor; do
+        if ! dpkg -l "$package" &> /dev/null; then
+            packages_needed+=("$package")
+        fi
+    done
+
+    # Check for Rust
+    if ! command -v cargo &> /dev/null; then
+        log_info "Rust not found, will install via rustup"
+        packages_needed+=("curl")
+    fi
+
+    if [ ${#packages_needed[@]} -gt 0 ]; then
+        log_info "Installing missing packages: ${packages_needed[*]}"
+
+        # Update package lists
+        log_info "Updating package lists..."
+        sudo apt update -qq 2>/dev/null || {
+            log_warn "Some repositories failed to update, continuing anyway..."
+        }
+
+        # Install packages
+        sudo apt install -y "${packages_needed[@]}" || {
+            log_error "Failed to install required packages"
+            exit 1
+        }
+
+        log_success "System dependencies installed"
+    else
+        log_success "All system dependencies already installed"
+    fi
+}
+
+# Install Rust if not present
+install_rust() {
+    if ! command -v cargo &> /dev/null; then
+        log_info "Installing Rust..."
+
+        # Install rustup
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+
+        # Source the environment
+        source "$HOME/.cargo/env"
+
+        # Verify installation
+        if command -v cargo &> /dev/null; then
+            log_success "Rust installed successfully"
+        else
+            log_error "Failed to install Rust"
+            exit 1
+        fi
+    else
+        log_success "Rust already installed"
+    fi
+}
+
+# Check if Telegraph-rs is already running
+check_existing_service() {
+    local pid
+
+    # Check PID file
+    if [ -f "$PID_FILE" ]; then
+        pid=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            if pgrep -f "$SERVICE_NAME" | grep -q "$pid"; then
+                log_info "Telegraph-rs already running (PID: $pid)"
+                return 0
+            else
+                log_debug "Stale PID file found, removing..."
+                rm -f "$PID_FILE"
+            fi
+        else
+            rm -f "$PID_FILE"
+        fi
+    fi
+
+    # Check for running processes
+    pid=$(pgrep -f "$SERVICE_NAME" | head -1)
+    if [ -n "$pid" ]; then
+        echo "$pid" > "$PID_FILE"
+        log_info "Found running Telegraph-rs process (PID: $pid)"
+        return 0
+    fi
+
+    return 1
+}
+
+# Stop existing service
+stop_service() {
+    log_info "Stopping existing Telegraph-rs service..."
+
+    if [ -f "$PID_FILE" ]; then
+        local pid=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+            sleep 2
+
+            # Force kill if still running
+            if kill -0 "$pid" 2>/dev/null; then
+                kill -9 "$pid"
+                sleep 1
+            fi
+        fi
+        rm -f "$PID_FILE"
+    fi
+
+    # Kill any remaining processes
+    pkill -f "$SERVICE_NAME" 2>/dev/null || true
+    sleep 1
+
+    log_success "Service stopped"
+}
+
+# Build Telegraph-rs
+build_service() {
+    log_info "Building Telegraph-rs..."
+
+    if [ ! -f "Cargo.toml" ]; then
+        log_error "Cargo.toml not found. Make sure you're in the Telegraph-rs directory"
+        exit 1
+    fi
+
+    # Build in release mode
+    cargo build --release || {
+        log_error "Failed to build Telegraph-rs"
+        exit 1
+    }
+
+    log_success "Telegraph-rs built successfully"
+}
+
+# Check and preserve existing onion service
+check_existing_onion() {
+    log_info "Checking for existing Tor hidden service..."
+
+    if sudo test -f "$TOR_DATA_DIR/hostname" 2>/dev/null; then
+        EXISTING_ONION=$(sudo cat "$TOR_DATA_DIR/hostname" 2>/dev/null)
+        if [ -n "$EXISTING_ONION" ]; then
+            log_success "Found existing onion address: $EXISTING_ONION"
+            return 0
+        fi
+    fi
+
+    log_info "No existing onion service found"
+    return 1
+}
+
+# Backup existing onion keys
+backup_onion_keys() {
+    if sudo test -d "$TOR_DATA_DIR" 2>/dev/null; then
+        log_info "Backing up existing onion service keys..."
+
+        local backup_dir="$SCRIPT_DIR/onion_backup_$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$backup_dir"
+
+        # Copy keys with proper permissions
+        sudo cp -r "$TOR_DATA_DIR"/* "$backup_dir/" 2>/dev/null || true
+        sudo chown -R $(whoami):$(whoami) "$backup_dir" 2>/dev/null || true
+
+        log_success "Onion keys backed up to: $backup_dir"
+    fi
+}
+
+# Setup Tor hidden service
+setup_tor() {
+    log_info "Configuring Tor hidden service..."
+
+    # Backup existing keys if they exist
+    backup_onion_keys
+
+    # Stop Tor service
+    sudo systemctl stop tor 2>/dev/null || true
+
+    # Remove existing Telegraph-rs configuration from torrc
+    sudo sed -i '/# Telegraph-rs Hidden Service/,+2d' "$TORRC_PATH" 2>/dev/null || true
+
+    # Add new configuration
+    echo "" | sudo tee -a "$TORRC_PATH" > /dev/null
+    echo "# Telegraph-rs Hidden Service" | sudo tee -a "$TORRC_PATH" > /dev/null
+    echo "HiddenServiceDir $TOR_DATA_DIR" | sudo tee -a "$TORRC_PATH" > /dev/null
+    echo "HiddenServicePort 80 127.0.0.1:$SERVICE_PORT" | sudo tee -a "$TORRC_PATH" > /dev/null
+
+    # Create hidden service directory if it doesn't exist
+    if ! sudo test -d "$TOR_DATA_DIR" 2>/dev/null; then
+        sudo mkdir -p "$TOR_DATA_DIR"
+        sudo chown debian-tor:debian-tor "$TOR_DATA_DIR"
+        sudo chmod 700 "$TOR_DATA_DIR"
+    fi
+
+    # Restore backed up keys if we want to reuse the same onion address
+    local latest_backup=$(ls -t "$SCRIPT_DIR"/onion_backup_* 2>/dev/null | head -1)
+    if [ -n "$latest_backup" ] && [ -d "$latest_backup" ]; then
+        log_info "Restoring previous onion service keys..."
+        sudo cp "$latest_backup"/* "$TOR_DATA_DIR/" 2>/dev/null || true
+        sudo chown -R debian-tor:debian-tor "$TOR_DATA_DIR"
+        sudo chmod 700 "$TOR_DATA_DIR"
+        sudo chmod 600 "$TOR_DATA_DIR"/* 2>/dev/null || true
+    fi
+
+    # Enable and start Tor
+    sudo systemctl enable tor
+    sudo systemctl start tor
+
+    # Wait for Tor to start and generate keys
+    log_info "Waiting for Tor to generate hidden service..."
+    local attempts=0
+    while [ $attempts -lt 30 ]; do
+        if sudo test -f "$TOR_DATA_DIR/hostname" 2>/dev/null; then
+            break
+        fi
+        sleep 2
+        attempts=$((attempts + 1))
+        echo -n "."
+    done
+    echo
+
+    if sudo test -f "$TOR_DATA_DIR/hostname" 2>/dev/null; then
+        ONION_ADDRESS=$(sudo cat "$TOR_DATA_DIR/hostname")
+        log_success "Tor hidden service configured: $ONION_ADDRESS"
+    else
+        log_warn "Onion address not yet available, but Tor is configured"
+    fi
+}
+
+# Start Telegraph-rs service
+start_service() {
+    log_info "Starting Telegraph-rs service..."
+
+    # Make sure we're in the right directory
+    cd "$SCRIPT_DIR"
+
+    # Start the service in background
+    nohup cargo run --release > "$LOG_FILE" 2>&1 &
+    local pid=$!
+
+    # Save PID
+    echo "$pid" > "$PID_FILE"
+
+    # Wait a moment and check if it's still running
+    sleep 3
+    if kill -0 "$pid" 2>/dev/null; then
+        log_success "Telegraph-rs started successfully (PID: $pid)"
+
+        # Test if service is responding
+        if curl -s --max-time 5 "http://localhost:$SERVICE_PORT" > /dev/null 2>&1; then
+            log_success "Service is responding on port $SERVICE_PORT"
+        else
+            log_warn "Service started but not responding yet, may need a moment"
+        fi
+    else
+        log_error "Failed to start Telegraph-rs"
+        log_info "Check logs: tail -f $LOG_FILE"
+        exit 1
+    fi
+}
+
+# Show service status and information
+show_status() {
+    echo
+    log_info "Service Status:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Telegraph-rs status
+    if check_existing_service; then
+        local pid=$(cat "$PID_FILE" 2>/dev/null)
+        echo -e "${GREEN}✅ Telegraph-rs: RUNNING${NC} (PID: $pid)"
+        echo -e "${BLUE}🌐 Local Access: http://localhost:$SERVICE_PORT${NC}"
+    else
+        echo -e "${RED}❌ Telegraph-rs: NOT RUNNING${NC}"
+    fi
+
+    # Tor status
+    if systemctl is-active tor > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Tor Service: RUNNING${NC}"
+
+        # Show onion address
+        if sudo test -f "$TOR_DATA_DIR/hostname" 2>/dev/null; then
+            local onion_addr=$(sudo cat "$TOR_DATA_DIR/hostname" 2>/dev/null)
+            echo -e "${PURPLE}🧅 Onion Address: http://$onion_addr${NC}"
+            echo -e "${CYAN}📋 Copy command: echo 'http://$onion_addr' | xclip -selection clipboard${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Onion address not yet generated${NC}"
+        fi
+    else
+        echo -e "${RED}❌ Tor Service: NOT RUNNING${NC}"
+    fi
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Show recent logs
+    if [ -f "$LOG_FILE" ]; then
+        echo -e "${BLUE}📝 Recent logs:${NC}"
+        tail -5 "$LOG_FILE" | sed 's/^/   /'
+        echo
+    fi
+
+    # Show management commands
+    echo -e "${CYAN}Management Commands:${NC}"
+    echo "  ./run stop          - Stop the service"
+    echo "  ./run restart       - Restart the service"
+    echo "  ./run logs          - View full logs"
+    echo "  ./run status        - Show this status"
+    echo "  tail -f $LOG_FILE   - Follow logs in real-time"
+    echo
+}
+
+# Show logs
+show_logs() {
+    if [ -f "$LOG_FILE" ]; then
+        echo -e "${BLUE}📝 Telegraph-rs Logs:${NC}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        cat "$LOG_FILE"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "💡 Use 'tail -f $LOG_FILE' to follow logs in real-time"
+    else
+        log_warn "No log file found at $LOG_FILE"
+    fi
+}
+
+# Health check and auto-fix issues
+health_check() {
+    log_info "Running health check..."
+    local issues_found=0
+
+    # Check if ports are available
+    if netstat -tuln 2>/dev/null | grep -q ":$SERVICE_PORT "; then
+        if ! check_existing_service; then
+            log_warn "Port $SERVICE_PORT is in use but Telegraph-rs not running"
+            log_info "Attempting to free port..."
+            sudo lsof -ti:$SERVICE_PORT | xargs sudo kill -9 2>/dev/null || true
+            sleep 2
+        fi
+    fi
+
+    # Check Tor configuration
+    if ! sudo grep -q "HiddenServiceDir $TOR_DATA_DIR" "$TORRC_PATH" 2>/dev/null; then
+        log_warn "Tor configuration missing, will reconfigure"
+        issues_found=1
+    fi
+
+    # Check if Tor data directory has correct permissions
+    if sudo test -d "$TOR_DATA_DIR" 2>/dev/null; then
+        local owner=$(sudo stat -c %U "$TOR_DATA_DIR" 2>/dev/null)
+        if [ "$owner" != "debian-tor" ]; then
+            log_warn "Fixing Tor directory permissions..."
+            sudo chown -R debian-tor:debian-tor "$TOR_DATA_DIR"
+            sudo chmod 700 "$TOR_DATA_DIR"
+            issues_found=1
+        fi
+    fi
+
+    # Check if cargo is in PATH
+    if ! command -v cargo &> /dev/null; then
+        if [ -f "$HOME/.cargo/env" ]; then
+            source "$HOME/.cargo/env"
+        else
+            log_error "Rust/Cargo not found in PATH"
+            return 1
+        fi
+    fi
+
+    return $issues_found
+}
+
+# Create a test post
+create_test_post() {
+    log_info "Creating test post to verify service..."
+
+    if ! curl -s --max-time 5 "http://localhost:$SERVICE_PORT" > /dev/null 2>&1; then
+        log_error "Service not accessible for testing"
+        return 1
+    fi
+
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$SERVICE_PORT/create" \
+        -d "title=Test Post - $timestamp" \
+        -d "content=This is an automated test post created by the run script at $timestamp. If you can see this, Telegraph-rs is working correctly!" \
+        -H "Content-Type: application/x-www-form-urlencoded")
+
+    local http_code="${response: -3}"
+    if [ "$http_code" = "200" ] || [ "$http_code" = "302" ]; then
+        log_success "Test post created successfully"
+    else
+        log_warn "Test post creation returned code: $http_code"
+    fi
+}
+
+# Main execution function
+main() {
+    local command="${1:-start}"
+
+    case "$command" in
+        "stop")
+            show_banner
+            stop_service
+            log_success "Telegraph-rs stopped"
+            ;;
+        "restart")
+            show_banner
+            log_info "Restarting Telegraph-rs..."
+            stop_service
+            sleep 2
+            # Re-run the full startup process
+            exec "$0"
+            ;;
+        "status")
+            show_banner
+            show_status
+            ;;
+        "logs")
+            show_logs
+            ;;
+        "test")
+            create_test_post
+            ;;
+        "start"|*)
+            show_banner
+            check_root
+            detect_system
+
+            # Check if already running
+            if check_existing_service; then
+                log_success "Telegraph-rs is already running!"
+                show_status
+                exit 0
+            fi
+
+            # Check for existing onion service first
+            local has_existing_onion=false
+            if check_existing_onion; then
+                has_existing_onion=true
+                log_info "Will reuse existing onion address: $EXISTING_ONION"
+            fi
+
+            # Install dependencies
+            install_dependencies
+            install_rust
+
+            # Source Rust environment
+            if [ -f "$HOME/.cargo/env" ]; then
+                source "$HOME/.cargo/env"
+            fi
+
+            # Run health check and fix issues
+            health_check || log_info "Fixed some configuration issues"
+
+            # Build the service
+            build_service
+
+            # Setup Tor (preserving existing keys)
+            setup_tor
+
+            # Start the service
+            start_service
+
+            # Create test post
+            sleep 2
+            create_test_post
+
+            # Show final status
+            show_status
+
+            log_success "Telegraph-rs is now running as a Tor hidden service!"
+            if [ "$has_existing_onion" = true ]; then
+                log_success "Reusing previous onion address: $EXISTING_ONION"
+            fi
+            ;;
+    esac
+}
+
+# Handle script interruption
+trap 'log_warn "Script interrupted"; exit 1' INT TERM
+
+# Run main function with all arguments
+main "$@"
