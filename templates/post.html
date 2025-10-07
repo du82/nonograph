@@ -164,6 +164,55 @@
             .article-content a:hover {
                 color: #000;
             }
+            .article-content blockquote {
+                margin: 20px 0;
+                padding: 0 20px;
+                border-left: 2px solid #e9ecef;
+                color: #666;
+            }
+            .article-content blockquote p {
+                margin: 0;
+            }
+            .article-content .footnotes {
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #e9ecef;
+                font-size: 16px;
+                color: #666;
+            }
+            .article-content .footnotes ol {
+                padding-left: 20px;
+                margin: 0;
+            }
+            .article-content .footnotes li {
+                margin-bottom: 8px;
+                line-height: 1.5;
+            }
+            .article-content .footnotes .footnote-backref {
+                color: #999;
+                text-decoration: none;
+                margin-left: 4px;
+                font-size: 14px;
+            }
+            .article-content .footnotes .footnote-backref:hover {
+                color: #666;
+                text-decoration: none;
+            }
+            .article-content sup {
+                font-size: 0.8em;
+                vertical-align: super;
+            }
+            .article-content sup a {
+                color: #666;
+                text-decoration: none;
+                padding: 1px 3px;
+                border-radius: 2px;
+                transition: background-color 0.2s ease;
+            }
+            .article-content sup a:hover {
+                background-color: #f8f9fa;
+                color: #333;
+            }
             .article-content img,
             .article-content video {
                 max-width: 100%;
@@ -247,6 +296,29 @@
                 }
                 .article-content pre code {
                     font-size: 13px;
+                }
+                .article-content blockquote {
+                    margin: 16px 0;
+                    padding: 0 16px;
+                }
+                .article-content .footnotes {
+                    margin-top: 32px;
+                    padding-top: 16px;
+                    font-size: 14px;
+                }
+                .article-content .footnotes ol {
+                    padding-left: 16px;
+                }
+                .article-content .footnotes li {
+                    margin-bottom: 6px;
+                }
+                .article-content sup a {
+                    padding: 2px 4px;
+                    min-height: 24px;
+                    min-width: 24px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
                 }
                 .article-content img,
                 .article-content video {

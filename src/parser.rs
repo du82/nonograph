@@ -1,6 +1,13 @@
+fn process_images(text: &str) -> String {
+    process_images_with_config(text, &crate::config::Config::default())
+}
+
 pub fn render_markdown(content: &str) -> String {
     let (protected_content, fenced_blocks) = extract_fenced_code_blocks(content);
     let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
+
+    // Process footnotes before text formatting to avoid conflicts with ^ and []
+    working_content = process_footnotes(&working_content);
 
     working_content = safe_replace(&working_content, "**", "**", "<em>", "</em>");
     working_content = safe_replace(&working_content, "*", "*", "<strong>", "</strong>");
@@ -15,14 +22,80 @@ pub fn render_markdown(content: &str) -> String {
         "</span>",
     );
 
+    working_content = process_images(&working_content);
     working_content = process_links(&working_content);
     working_content = process_media_urls(&working_content);
     working_content = process_tables(&working_content);
     working_content = format_paragraphs(&working_content);
     working_content = restore_fenced_code_blocks(&working_content, &fenced_blocks);
     working_content = restore_code_blocks(&working_content, &code_blocks);
+    working_content = restore_footnotes(&working_content);
 
     sanitize_html(working_content)
+}
+
+fn process_images_with_config(text: &str, config: &crate::config::Config) -> String {
+    let mut result = String::with_capacity(text.len() + 1024);
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if i < chars.len() - 1 && chars[i] == '!' && chars[i + 1] == '[' {
+            // Find closing bracket
+            let mut bracket_end = None;
+            let mut j = i + 2;
+            while j < chars.len() && chars[j] != '\n' {
+                if chars[j] == ']' {
+                    bracket_end = Some(j);
+                    break;
+                }
+                j += 1;
+            }
+
+            if let Some(bracket_end_idx) = bracket_end {
+                // Check for ![alt](url) pattern
+                if bracket_end_idx + 1 < chars.len() && chars[bracket_end_idx + 1] == '(' {
+                    let mut paren_end = None;
+                    let mut k = bracket_end_idx + 2;
+                    while k < chars.len() && chars[k] != '\n' {
+                        if chars[k] == ')' {
+                            paren_end = Some(k);
+                            break;
+                        }
+                        k += 1;
+                    }
+
+                    if let Some(paren_end_idx) = paren_end {
+                        let alt_text: String = chars[(i + 2)..bracket_end_idx].iter().collect();
+                        let image_url: String =
+                            chars[(bracket_end_idx + 2)..paren_end_idx].iter().collect();
+
+                        if !image_url.is_empty()
+                            && image_url.len() <= config.security.max_url_length
+                        {
+                            result.push_str("<img src=\"");
+                            result.push_str(&html_escape(&image_url));
+                            result.push_str("\" alt=\"");
+                            result.push_str(&html_escape(&alt_text));
+                            result.push_str("\">");
+                            i = paren_end_idx + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        // No pattern matched, add current character
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    result
+}
+
+fn process_links(text: &str) -> String {
+    process_links_with_config(text, &crate::config::Config::default())
 }
 
 fn safe_replace(
@@ -90,6 +163,9 @@ fn sanitize_html(html: String) -> String {
             "h3",
             "h4",
             "blockquote",
+            "div",
+            "ol",
+            "li",
         ])
         .add_tag_attributes("video", &["controls", "style"])
         .add_tag_attributes("source", &["src", "type"])
@@ -98,7 +174,10 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("span", &["class"])
         .add_tag_attributes("th", &["style"])
         .add_tag_attributes("td", &["style"])
-        .add_tag_attributes("a", &["href", "target"])
+        .add_tag_attributes("a", &["href", "target", "id", "class"])
+        .add_tag_attributes("div", &["class"])
+        .add_tag_attributes("li", &["id"])
+        .add_tag_attributes("sup", &["id"])
         .link_rel(Some("noopener noreferrer"));
 
     builder.clean(&html).to_string()
@@ -157,30 +236,37 @@ fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
 
         // Check if this line starts a fenced code block
         if line.starts_with("```") {
-            let language = line[3..].trim().to_string();
+            // Count the fence length
+            let fence_length = line.chars().take_while(|&c| c == '`').count();
+            let language = line[fence_length..].trim().to_string();
             let mut code_content = String::new();
             let mut found_end = false;
 
-            // Look for the closing fence
+            // Look for the closing fence with same or greater length
             for j in (i + 1)..lines.len() {
-                if lines[j].starts_with("```") {
-                    // Found closing fence
-                    let placeholder = format!("FENCEDBLOCK{}", fenced_blocks.len());
-                    fenced_blocks.push((language, code_content));
-                    result.push_str(&placeholder);
-                    if i < lines.len() - 1 || text.ends_with('\n') {
-                        result.push('\n');
+                let closing_line = lines[j];
+                if closing_line.starts_with("```") {
+                    let closing_fence_length =
+                        closing_line.chars().take_while(|&c| c == '`').count();
+                    // Closing fence must be at least as long as opening fence
+                    if closing_fence_length >= fence_length {
+                        // Found closing fence
+                        let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", fenced_blocks.len());
+                        fenced_blocks.push((language, code_content));
+                        result.push_str(&placeholder);
+                        if i < lines.len() - 1 || text.ends_with('\n') {
+                            result.push('\n');
+                        }
+                        i = j + 1;
+                        found_end = true;
+                        break;
                     }
-                    i = j + 1;
-                    found_end = true;
-                    break;
-                } else {
-                    // Add line to code content
-                    if !code_content.is_empty() {
-                        code_content.push('\n');
-                    }
-                    code_content.push_str(lines[j]);
                 }
+                // Add line to code content (including lines with shorter fences)
+                if !code_content.is_empty() {
+                    code_content.push('\n');
+                }
+                code_content.push_str(lines[j]);
             }
 
             // If no closing fence found, treat as regular text
@@ -337,7 +423,7 @@ fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) ->
     let mut result = text.to_string();
 
     for (index, (language, code_content)) in fenced_blocks.iter().enumerate() {
-        let placeholder = format!("FENCEDBLOCK{}", index);
+        let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", index);
         let mapped_lang = map_language(language);
         let class_attr = if mapped_lang.is_empty() {
             String::new()
@@ -374,11 +460,11 @@ fn format_paragraphs(text: &str) -> String {
             result.push_str(&process_single_blockquote(trimmed));
         }
         // Check for mixed block content
-        else if (trimmed.contains("FENCEDBLOCK")
-            || trimmed.contains("CODEBLOCK")
+        else if (trimmed.contains("{{FENCEDBLOCK")
+            || trimmed.contains("{{CODEBLOCK")
             || trimmed.contains("<table>"))
-            && !trimmed.starts_with("FENCEDBLOCK")
-            && !trimmed.starts_with("CODEBLOCK")
+            && !trimmed.starts_with("{{FENCEDBLOCK")
+            && !trimmed.starts_with("{{CODEBLOCK")
             && !trimmed.starts_with("<table>")
         {
             let lines: Vec<&str> = part.lines().collect();
@@ -387,8 +473,8 @@ fn format_paragraphs(text: &str) -> String {
             for line in lines {
                 let line_trimmed = line.trim();
 
-                if line_trimmed.starts_with("FENCEDBLOCK")
-                    || line_trimmed.starts_with("CODEBLOCK")
+                if line_trimmed.starts_with("{{FENCEDBLOCK")
+                    || line_trimmed.starts_with("{{CODEBLOCK")
                     || line_trimmed.starts_with("<table>")
                 {
                     if !current_paragraph.is_empty() {
@@ -408,8 +494,8 @@ fn format_paragraphs(text: &str) -> String {
             if !current_paragraph.is_empty() {
                 result.push_str(&format!("<p>{}</p>", current_paragraph.trim()));
             }
-        } else if trimmed.starts_with("FENCEDBLOCK")
-            || trimmed.starts_with("CODEBLOCK")
+        } else if trimmed.starts_with("{{FENCEDBLOCK")
+            || trimmed.starts_with("{{CODEBLOCK")
             || trimmed.starts_with("<img ")
             || trimmed.starts_with("<video ")
             || trimmed.starts_with("<table>")
@@ -623,7 +709,7 @@ fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
                 let code_content: String = chars[start..end_pos].iter().collect();
 
                 if !code_content.is_empty() && !code_content.contains('\n') {
-                    let placeholder = format!("CODEBLOCK{}", code_blocks.len());
+                    let placeholder = format!("{{{{CODEBLOCK{}}}}}", code_blocks.len());
                     code_blocks.push(code_content);
                     result.push_str(&placeholder);
                     i = end_pos + 1;
@@ -643,7 +729,7 @@ fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
     let mut result = text.to_string();
 
     for (index, code_content) in code_blocks.iter().enumerate() {
-        let placeholder = format!("CODEBLOCK{}", index);
+        let placeholder = format!("{{{{CODEBLOCK{}}}}}", index);
         let escaped_content = html_escape(code_content);
         let replacement = format!("<code>{}</code>", escaped_content);
         result = result.replace(&placeholder, &replacement);
@@ -652,8 +738,163 @@ fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
     result
 }
 
-fn process_links(text: &str) -> String {
-    process_links_with_config(text, &crate::config::Config::default())
+fn process_footnotes(text: &str) -> String {
+    let mut result = String::new();
+    let mut footnote_definitions = std::collections::HashMap::new();
+    let mut footnote_counter = 0u32;
+    let mut inline_footnote_counter = 0u32;
+
+    // First pass: extract footnote definitions [^id]: text
+    let lines: Vec<&str> = text.lines().collect();
+    let mut content_lines = Vec::new();
+
+    for line in &lines {
+        let trimmed = line.trim();
+        if trimmed.starts_with("[^") && trimmed.contains("]:") {
+            if let Some(colon_pos) = trimmed.find("]:") {
+                let id_part = &trimmed[2..colon_pos];
+                let definition = trimmed[colon_pos + 2..].trim();
+                footnote_definitions.insert(id_part.to_string(), definition.to_string());
+            }
+        } else {
+            content_lines.push(*line);
+        }
+    }
+
+    let content_text = content_lines.join("\n");
+    let chars: Vec<char> = content_text.chars().collect();
+    let mut i = 0;
+    let mut footnote_references = Vec::new();
+    let mut inline_footnotes = Vec::new();
+
+    // Second pass: process footnote references and inline footnotes
+    while i < chars.len() {
+        if i < chars.len() - 2 && chars[i] == '^' && chars[i + 1] == '[' {
+            // Inline footnote: ^[text]
+            let mut bracket_end = None;
+            let mut j = i + 2;
+            let mut bracket_depth = 1;
+
+            while j < chars.len() && bracket_depth > 0 {
+                if chars[j] == '[' {
+                    bracket_depth += 1;
+                } else if chars[j] == ']' {
+                    bracket_depth -= 1;
+                    if bracket_depth == 0 {
+                        bracket_end = Some(j);
+                        break;
+                    }
+                }
+                j += 1;
+            }
+
+            if let Some(end_pos) = bracket_end {
+                inline_footnote_counter += 1;
+                let footnote_text: String = chars[(i + 2)..end_pos].iter().collect();
+                let footnote_id = format!("ifn{}", inline_footnote_counter);
+
+                inline_footnotes.push((footnote_id.clone(), footnote_text));
+
+                // Use placeholder to avoid processing by other markdown processors
+                result.push_str(&format!("XFOOTNOTEINLINEX{}XENDX", inline_footnote_counter));
+
+                i = end_pos + 1;
+                continue;
+            }
+        } else if i < chars.len() - 3 && chars[i] == '[' && chars[i + 1] == '^' {
+            // Reference footnote: [^id]
+            let mut bracket_end = None;
+            let mut j = i + 2;
+
+            while j < chars.len() && chars[j] != '\n' {
+                if chars[j] == ']' {
+                    bracket_end = Some(j);
+                    break;
+                }
+                j += 1;
+            }
+
+            if let Some(end_pos) = bracket_end {
+                let footnote_id: String = chars[(i + 2)..end_pos].iter().collect();
+
+                if footnote_definitions.contains_key(&footnote_id) {
+                    footnote_counter += 1;
+                    footnote_references.push((footnote_id.clone(), footnote_counter));
+
+                    // Use placeholder to avoid processing by other markdown processors
+                    result.push_str(&format!("XFOOTNOTEREFX{}XENDX", footnote_counter));
+
+                    i = end_pos + 1;
+                    continue;
+                }
+            }
+        }
+
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    // Replace placeholders with actual HTML
+    for i in 1..=footnote_counter {
+        let placeholder = format!("XFOOTNOTEREFX{}XENDX", i);
+        let replacement = format!(
+            "<sup><a href=\"XHASHXFN{}\" id=\"fnref{}\">{}</a></sup>",
+            i, i, i
+        );
+        result = result.replace(&placeholder, &replacement);
+    }
+
+    for i in 1..=inline_footnote_counter {
+        let placeholder = format!("XFOOTNOTEINLINEX{}XENDX", i);
+        let replacement = format!(
+            "<sup><a href=\"XHASHXIFN{}\" id=\"ifn{}ref\">{}</a></sup>",
+            i, i, i
+        );
+        result = result.replace(&placeholder, &replacement);
+    }
+
+    // Add footnotes section at the end if there are any footnotes
+    if !footnote_references.is_empty() || !inline_footnotes.is_empty() {
+        result.push_str("\n\nXFOOTNOTESECTIONSTARTX");
+
+        // Add reference footnotes
+        for (footnote_id, number) in footnote_references {
+            if let Some(definition) = footnote_definitions.get(&footnote_id) {
+                result.push_str(&format!(
+                    "<li id=\"fn{}\">{} <a href=\"XHASHXfnref{}\" class=\"footnote-backref\">↩</a></li>\n",
+                    number, definition, number
+                ));
+            }
+        }
+
+        // Add inline footnotes
+        for (footnote_id, footnote_text) in inline_footnotes.iter() {
+            result.push_str(&format!(
+                "<li id=\"{}\">{} <a href=\"XHASHX{}ref\" class=\"footnote-backref\">↩</a></li>\n",
+                footnote_id, footnote_text, footnote_id
+            ));
+        }
+
+        result.push_str("XFOOTNOTESECTIONENDX");
+    }
+
+    result
+}
+
+fn restore_footnotes(text: &str) -> String {
+    let mut result = text.to_string();
+
+    // Replace footnote section placeholders
+    result = result.replace(
+        "XFOOTNOTESECTIONSTARTX",
+        "<div class=\"footnotes\">\n<ol>\n",
+    );
+    result = result.replace("XFOOTNOTESECTIONENDX", "</ol>\n</div>");
+
+    // Replace hash placeholders
+    result = result.replace("XHASHX", "#");
+
+    result
 }
 
 fn process_links_with_config(text: &str, config: &crate::config::Config) -> String {
@@ -1123,6 +1364,14 @@ More regular text with _underline_ and ~strikethrough~."#;
 
     #[test]
     fn test_media_embedding() {
+        // Test CommonMark image syntax
+        let image_text = "![Alt text](https://example.com/image.jpg)";
+        let image_result = render_markdown(image_text);
+        assert!(
+            image_result.contains("<img src=\"https://example.com/image.jpg\" alt=\"Alt text\">")
+        );
+
+        // Test automatic URL embedding (legacy behavior)
         let text = "https://example.com/image.jpg";
         let result = render_markdown(text);
         assert!(result.contains("<img src=\"https://example.com/image.jpg\""));
@@ -1135,6 +1384,159 @@ More regular text with _underline_ and ~strikethrough~."#;
         assert!(video_result
             .contains("<source src=\"https://example.com/video.mp4\" type=\"video/mp4\""));
         assert!(!video_result.contains("Your browser does not support"));
+
+        // Test image with empty alt text
+        let empty_alt = "![](https://example.com/test.png)";
+        let empty_alt_result = render_markdown(empty_alt);
+        assert!(empty_alt_result.contains("<img src=\"https://example.com/test.png\" alt=\"\">"));
+    }
+
+    #[test]
+    fn test_commonmark_image_syntax() {
+        // Test basic image syntax
+        let basic = "![Alt text](https://example.com/image.jpg)";
+        let basic_result = render_markdown(basic);
+        assert!(
+            basic_result.contains("<img src=\"https://example.com/image.jpg\" alt=\"Alt text\">")
+        );
+
+        // Test image with special characters in alt text
+        let special_alt = "![My \"special\" image & test](https://example.com/test.png)";
+        let special_result = render_markdown(special_alt);
+        assert!(special_result.contains("alt=\"My &quot;special&quot; image &amp; test\""));
+
+        // Test image with special characters in URL (sanitizer handles escaping)
+        let special_url = "![Test](https://example.com/test<>&.png)";
+        let url_result = render_markdown(special_url);
+        assert!(url_result.contains("<img src="));
+        assert!(url_result.contains("alt=\"Test\""));
+
+        // Test multiple images in one text
+        let multiple =
+            "![First](https://example.com/1.jpg) and ![Second](https://example.com/2.png)";
+        let multiple_result = render_markdown(multiple);
+        assert!(multiple_result.contains("<img src=\"https://example.com/1.jpg\" alt=\"First\">"));
+        assert!(multiple_result.contains("<img src=\"https://example.com/2.png\" alt=\"Second\">"));
+
+        // Test image mixed with text
+        let mixed = "Here is an image: ![Cool pic](https://example.com/cool.jpg) - isn't it nice?";
+        let mixed_result = render_markdown(mixed);
+        assert!(mixed_result.contains("Here is an image: <img src=\"https://example.com/cool.jpg\" alt=\"Cool pic\"> - isn't it nice?"));
+
+        // Test that incomplete syntax is not processed
+        let incomplete1 = "![Alt text](no-closing-paren";
+        let incomplete1_result = render_markdown(incomplete1);
+        assert!(!incomplete1_result.contains("<img"));
+
+        let incomplete2 = "![Alt text without url]";
+        let incomplete2_result = render_markdown(incomplete2);
+        assert!(!incomplete2_result.contains("<img"));
+
+        // Test that images are processed before links (so ![text](url) doesn't become a link)
+        let not_link = "![This should be an image](https://example.com/image.jpg)";
+        let not_link_result = render_markdown(not_link);
+        assert!(not_link_result.contains("<img"));
+        assert!(!not_link_result.contains("<a href"));
+    }
+
+    #[test]
+    fn test_footnotes() {
+        // Test reference footnotes
+        let reference_text = "This has a footnote[^1] and another[^2].\n\n[^1]: First footnote text.\n[^2]: Second footnote text.";
+        let reference_result = render_markdown(reference_text);
+
+        // Check that footnote references are created (link processor adds attributes)
+        assert!(reference_result.contains("<sup><a href=\"#FN1\""));
+        assert!(reference_result.contains("<sup><a href=\"#FN2\""));
+        assert!(reference_result.contains(">1</a></sup>"));
+        assert!(reference_result.contains(">2</a></sup>"));
+        assert!(reference_result.contains("<div class=\"footnotes\">"));
+        assert!(reference_result.contains("First footnote text."));
+        assert!(reference_result.contains("Second footnote text."));
+        assert!(reference_result.contains("href=\"#fnref1\""));
+        assert!(reference_result.contains("href=\"#fnref2\""));
+
+        // Test inline footnotes
+        let inline_text =
+            "This has an inline footnote^[This is inline] and another^[Second inline].";
+        let inline_result = render_markdown(inline_text);
+
+        // Check that inline footnotes are created
+        assert!(inline_result.contains("<sup><a href=\"#IFN1\""));
+        assert!(inline_result.contains("<sup><a href=\"#IFN2\""));
+        assert!(inline_result.contains("This is inline"));
+        assert!(inline_result.contains("Second inline"));
+        assert!(inline_result.contains("href=\"#ifn1ref\""));
+        assert!(inline_result.contains("href=\"#ifn2ref\""));
+
+        // Test mixed footnotes
+        let mixed_text = "Reference[^1] and inline^[Inline text].\n\n[^1]: Reference text.";
+        let mixed_result = render_markdown(mixed_text);
+
+        assert!(mixed_result.contains("href=\"#FN1\""));
+        assert!(mixed_result.contains("href=\"#IFN1\""));
+        assert!(mixed_result.contains("Reference text."));
+        assert!(mixed_result.contains("Inline text"));
+
+        // Test footnote without definition (should not be processed)
+        let undefined_text = "This has undefined[^missing] footnote.";
+        let undefined_result = render_markdown(undefined_text);
+
+        assert!(!undefined_result.contains("<sup>"));
+        assert!(undefined_result.contains("[^missing]"));
+    }
+
+    #[test]
+    fn test_footnote_integration() {
+        // Test comprehensive footnote functionality with mixed content
+        let complex_text = r#"# Document with Footnotes
+
+This is a **bold** text with a reference footnote[^1] and some *italic* text.
+
+Here's an inline footnote^[This is inline content with **formatting**] in the middle.
+
+Another paragraph with multiple footnotes[^ref] and inline^[Another inline note].
+
+> This blockquote also has a footnote[^quote].
+
+```rust
+// Code blocks should not process footnotes[^code]
+let x = 42;
+```
+
+[^1]: First reference footnote with *formatting*.
+[^ref]: Reference footnote with a [link](https://example.com).
+[^quote]: Footnote from blockquote."#;
+
+        let result = render_markdown(complex_text);
+
+        // Check that reference footnotes work
+        assert!(result.contains("href=\"#FN1\""));
+        assert!(result.contains("href=\"#FN2\""));
+        assert!(result.contains("href=\"#FN3\""));
+
+        // Check that inline footnotes work
+        assert!(result.contains("href=\"#IFN1\""));
+        assert!(result.contains("href=\"#IFN2\""));
+
+        // Check footnotes section exists
+        assert!(result.contains("<div class=\"footnotes\">"));
+        assert!(result.contains("First reference footnote"));
+        assert!(result.contains("Reference footnote with a"));
+        assert!(result.contains("Footnote from blockquote"));
+        assert!(result.contains("This is inline content"));
+        assert!(result.contains("Another inline note"));
+
+        // Check that code blocks don't process footnotes
+        assert!(result.contains("footnotes[^code]"));
+        assert!(!result.contains("href=\"#FN4\""));
+
+        // Check that other markdown still works (with correct formatting)
+        assert!(result.contains("<h1>"));
+        assert!(result.contains("<em>bold</em>")); // ** is italic, * is bold in this parser
+        assert!(result.contains("<strong>italic</strong>"));
+        assert!(result.contains("<blockquote>"));
+        assert!(result.contains("href=\"https://example.com\""));
     }
 
     #[test]
@@ -1379,5 +1781,23 @@ With line breaks"#;
         assert!(result.contains("<blockquote>A quote</blockquote>"));
         assert!(result.contains("<h2>Subtitle</h2>"));
         assert!(result.contains("<p>Normal text</p>"));
+    }
+
+    #[test]
+    fn test_markup_md_specific_case() {
+        println!("=== MARKUP.MD SPECIFIC TEST ===");
+
+        // Test the exact pattern from markup.md
+        let input = "```\n> This is a quoted text\n```";
+        println!("Input: {}", input);
+
+        let result = render_markdown(input);
+        println!("Output: {}", result);
+
+        // This should contain the literal text with proper HTML escaping, not formatting
+        assert!(result.contains("&gt; This is a quoted text"));
+        assert!(!result.contains("**italic**"));
+
+        println!("=== END MARKUP.MD TEST ===");
     }
 }

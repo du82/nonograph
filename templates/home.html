@@ -77,11 +77,10 @@
                 color: #666;
             }
             textarea {
-                min-height: 60px;
+                min-height: 100px;
                 font-size: 18px;
                 resize: none;
                 line-height: 1.6;
-                overflow: hidden;
                 -webkit-overflow-scrolling: touch;
             }
             button {
@@ -96,7 +95,6 @@
                 -webkit-box-shadow: none;
                 -moz-box-shadow: none;
                 margin-top: 0;
-                border-radius: 2px;
                 min-height: 44px;
                 transition: background-color 0.2s ease;
                 -webkit-tap-highlight-color: transparent;
@@ -271,6 +269,7 @@
                         name="title"
                         placeholder="Title"
                         maxlength="{{title_max_length}}"
+                        title="Mind your opsec. Limited to {{title_max_length}} characters."
                         required
                     />
                     <input
@@ -279,11 +278,13 @@
                         placeholder="Alias (optional)"
                         maxlength="{{alias_max_length}}"
                         class="author-input"
+                        title="Mind your opsec. Limited to {{alias_max_length}} chracters."
                     />
                     <textarea
                         name="content"
                         placeholder="Write something with markdown..."
                         maxlength="{{content_max_length}}"
+                        title="Mind your opsec, be careful what you share."
                         required
                     ></textarea>
                 </form>

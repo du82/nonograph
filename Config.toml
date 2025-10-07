@@ -15,7 +15,7 @@ form_data_limit_kb = 512
 
 [server]
 # Server port (can be overridden by ROCKET_PORT environment variable)
-port = 8000
+port = 8009
 
 # Server address
 address = "127.0.0.1"
