@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Telegraph-rs One-Click Deployment Script
-# Automatically sets up Telegraph-rs with Tor hidden service on any Debian machine
+# Nonograph One-Click Deployment Script
+# Automatically sets up Nonograph with Tor hidden service on any Debian machine
 # Reuses existing onion addresses and fixes common issues automatically
 
 set -e
@@ -18,11 +18,11 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_PORT=8009
-TOR_DATA_DIR="/var/lib/tor/telegraph"
+TOR_DATA_DIR="/var/lib/tor/nonograph"
 TORRC_PATH="/etc/tor/torrc"
-SERVICE_NAME="telegraph-rs"
-LOG_FILE="$SCRIPT_DIR/telegraph.log"
-PID_FILE="$SCRIPT_DIR/telegraph.pid"
+SERVICE_NAME="nonograph"
+LOG_FILE="$SCRIPT_DIR/nonograph.log"
+PID_FILE="$SCRIPT_DIR/nonograph.pid"
 
 cd "$SCRIPT_DIR"
 
@@ -50,7 +50,7 @@ log_success() {
 show_banner() {
     echo -e "${PURPLE}"
     echo "╔════════════════════════════════════════════════╗"
-    echo "║            Telegraph-rs Runner                 ║"
+    echo "║            Nonograph Runner                    ║"
     echo "║      One-Click Anonymous Publishing            ║"
     echo "║                                                ║"
     echo "║  • Automatic setup on any Debian machine       ║"
@@ -147,7 +147,7 @@ install_rust() {
     fi
 }
 
-# Check if Telegraph-rs is already running
+# Check if Nonograph is already running
 check_existing_service() {
     local pid
 
@@ -156,7 +156,7 @@ check_existing_service() {
         pid=$(cat "$PID_FILE" 2>/dev/null)
         if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
             if pgrep -f "$SERVICE_NAME" | grep -q "$pid"; then
-                log_info "Telegraph-rs already running (PID: $pid)"
+                log_info "Nonograph already running (PID: $pid)"
                 return 0
             else
                 log_debug "Stale PID file found, removing..."
@@ -171,7 +171,7 @@ check_existing_service() {
     pid=$(pgrep -f "$SERVICE_NAME" | head -1)
     if [ -n "$pid" ]; then
         echo "$pid" > "$PID_FILE"
-        log_info "Found running Telegraph-rs process (PID: $pid)"
+        log_info "Found running Nonograph process (PID: $pid)"
         return 0
     fi
 
@@ -180,7 +180,7 @@ check_existing_service() {
 
 # Stop existing service
 stop_service() {
-    log_info "Stopping existing Telegraph-rs service..."
+    log_info "Stopping existing Nonograph service..."
 
     if [ -f "$PID_FILE" ]; then
         local pid=$(cat "$PID_FILE" 2>/dev/null)
@@ -204,22 +204,22 @@ stop_service() {
     log_success "Service stopped"
 }
 
-# Build Telegraph-rs
+# Build Nonograph
 build_service() {
-    log_info "Building Telegraph-rs..."
+    log_info "Building Nonograph..."
 
     if [ ! -f "Cargo.toml" ]; then
-        log_error "Cargo.toml not found. Make sure you're in the Telegraph-rs directory"
+        log_error "Cargo.toml not found. Make sure you're in the Nonograph directory"
         exit 1
     fi
 
     # Build in release mode
     cargo build --release || {
-        log_error "Failed to build Telegraph-rs"
+        log_error "Failed to build Nonograph"
         exit 1
     }
 
-    log_success "Telegraph-rs built successfully"
+    log_success "Nonograph built successfully"
 }
 
 # Check and preserve existing onion service
@@ -264,12 +264,12 @@ setup_tor() {
     # Stop Tor service
     sudo systemctl stop tor 2>/dev/null || true
 
-    # Remove existing Telegraph-rs configuration from torrc
-    sudo sed -i '/# Telegraph-rs Hidden Service/,+2d' "$TORRC_PATH" 2>/dev/null || true
+    # Remove existing Nonograph configuration from torrc
+    sudo sed -i '/# Nonograph Hidden Service/,+2d' "$TORRC_PATH" 2>/dev/null || true
 
     # Add new configuration
     echo "" | sudo tee -a "$TORRC_PATH" > /dev/null
-    echo "# Telegraph-rs Hidden Service" | sudo tee -a "$TORRC_PATH" > /dev/null
+    echo "# Nonograph Hidden Service" | sudo tee -a "$TORRC_PATH" > /dev/null
     echo "HiddenServiceDir $TOR_DATA_DIR" | sudo tee -a "$TORRC_PATH" > /dev/null
     echo "HiddenServicePort 80 127.0.0.1:$SERVICE_PORT" | sudo tee -a "$TORRC_PATH" > /dev/null
 
@@ -315,9 +315,9 @@ setup_tor() {
     fi
 }
 
-# Start Telegraph-rs service
+# Start Nonograph service
 start_service() {
-    log_info "Starting Telegraph-rs service..."
+    log_info "Starting Nonograph service..."
 
     # Make sure we're in the right directory
     cd "$SCRIPT_DIR"
@@ -332,7 +332,7 @@ start_service() {
     # Wait a moment and check if it's still running
     sleep 3
     if kill -0 "$pid" 2>/dev/null; then
-        log_success "Telegraph-rs started successfully (PID: $pid)"
+        log_success "Nonograph started successfully (PID: $pid)"
 
         # Test if service is responding
         if curl -s --max-time 5 "http://localhost:$SERVICE_PORT" > /dev/null 2>&1; then
@@ -341,7 +341,7 @@ start_service() {
             log_warn "Service started but not responding yet, may need a moment"
         fi
     else
-        log_error "Failed to start Telegraph-rs"
+        log_error "Failed to start Nonograph"
         log_info "Check logs: tail -f $LOG_FILE"
         exit 1
     fi
@@ -356,10 +356,10 @@ show_status() {
     # Telegraph-rs status
     if check_existing_service; then
         local pid=$(cat "$PID_FILE" 2>/dev/null)
-        echo -e "${GREEN}✅ Telegraph-rs: RUNNING${NC} (PID: $pid)"
+        echo -e "${GREEN}✅ Nonograph: RUNNING${NC} (PID: $pid)"
         echo -e "${BLUE}🌐 Local Access: http://localhost:$SERVICE_PORT${NC}"
     else
-        echo -e "${RED}❌ Telegraph-rs: NOT RUNNING${NC}"
+        echo -e "${RED}❌ Nonograph: NOT RUNNING${NC}"
     fi
 
     # Tor status
@@ -400,7 +400,7 @@ show_status() {
 # Show logs
 show_logs() {
     if [ -f "$LOG_FILE" ]; then
-        echo -e "${BLUE}📝 Telegraph-rs Logs:${NC}"
+        echo -e "${BLUE}📝 Nonograph Logs:${NC}"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         cat "$LOG_FILE"
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -418,7 +418,7 @@ health_check() {
     # Check if ports are available
     if netstat -tuln 2>/dev/null | grep -q ":$SERVICE_PORT "; then
         if ! check_existing_service; then
-            log_warn "Port $SERVICE_PORT is in use but Telegraph-rs not running"
+            log_warn "Port $SERVICE_PORT is in use but Nonograph not running"
             log_info "Attempting to free port..."
             sudo lsof -ti:$SERVICE_PORT | xargs sudo kill -9 2>/dev/null || true
             sleep 2
@@ -467,7 +467,7 @@ create_test_post() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$SERVICE_PORT/create" \
         -d "title=Test Post - $timestamp" \
-        -d "content=This is an automated test post created by the run script at $timestamp. If you can see this, Telegraph-rs is working correctly!" \
+        -d "content=This is an automated test post created by the run script at $timestamp. If you can see this, Nonograph is working correctly!" \
         -H "Content-Type: application/x-www-form-urlencoded")
 
     local http_code="${response: -3}"
@@ -486,11 +486,11 @@ main() {
         "stop")
             show_banner
             stop_service
-            log_success "Telegraph-rs stopped"
+            log_success "Nonograph stopped"
             ;;
         "restart")
             show_banner
-            log_info "Restarting Telegraph-rs..."
+            log_info "Restarting Nonograph..."
             stop_service
             sleep 2
             # Re-run the full startup process
@@ -513,7 +513,7 @@ main() {
 
             # Check if already running
             if check_existing_service; then
-                log_success "Telegraph-rs is already running!"
+                log_success "Nonograph is already running!"
                 show_status
                 exit 0
             fi

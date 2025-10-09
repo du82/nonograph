@@ -3,6 +3,14 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{{title}}</title>
+        <meta property="og:title" content="{{title}}" />
+        <meta property="og:type" content="article" />
+        <meta property="og:url" content="{{url}}" />
+        <meta property="og:description" content="{{description}}" />
+        <meta property="article:author" content="{{author}}" />
+        <meta property="article:published_time" content="{{created_at_iso}}" />
+        <meta name="author" content="{{author}}" />
         <style>
             * {
                 margin: 0;
@@ -10,15 +18,16 @@
                 box-sizing: border-box;
             }
             body {
-                font-family:
-                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                    sans-serif;
-                padding: 40px;
                 line-height: 1.6;
                 background: #ffffff;
                 color: #333;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
             }
             .container {
+                padding: 40px;
+                flex: 1;
             }
             .content {
                 width: 700px;
@@ -238,7 +247,7 @@
             }
 
             @media (max-width: 768px) {
-                body {
+                .container {
                     padding: 20px;
                 }
                 .content {
@@ -264,7 +273,7 @@
             }
 
             @media (max-width: 480px) {
-                body {
+                .container {
                     padding: 16px;
                 }
 
@@ -358,6 +367,34 @@
                     padding: 8px;
                 }
             }
+
+            .footer {
+                width: 100vw;
+                background: #fff;
+                text-align: center;
+                font-size: 13px;
+                padding: 6px 0;
+            }
+            .footer a {
+                color: #999;
+                text-decoration: none;
+                margin: 0 12px;
+            }
+            .footer a:hover {
+                color: #666;
+                text-decoration: underline;
+            }
+
+            @media (max-width: 768px) {
+                .footer {
+                    margin-top: 40px;
+                    font-size: 12px;
+                    padding: 6px 0;
+                }
+                .footer a {
+                    margin: 0 8px;
+                }
+            }
         </style>
     </head>
     <body>
@@ -367,6 +404,13 @@
                 <div class="article-meta">{{author_display}}{{created_at}}</div>
                 <div class="article-content">{{content}}</div>
             </div>
+        </div>
+
+        <div class="footer">
+            <a href="/" target="_blank">write your own</a>
+            <a href="/legal" target="_blank">legal</a>
+            <a href="/api" target="_blank">api</a>
+            <a href="/markup" target="_blank">source code</a>
         </div>
         <!-- Scripts for revealing secret text and copying code -->
         <script>

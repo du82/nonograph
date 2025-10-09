@@ -1,5 +1,5 @@
 [package]
-name = "telegraph-rs"
+name = "nonograph"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,3 +13,4 @@ toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3.0"
+serial_test = "3.0"

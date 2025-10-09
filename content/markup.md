@@ -2,19 +2,19 @@ October 5, 2025
 
 # Markup Help
 
-Telegraph supports a limited set of markdown formatting to keep things simple and clean.
+Nonograph supports a limited set of markdown formatting to keep things simple and clean.
 
 ## Text Formatting
 
 ```
-*bold*
+**bold**
 ```
-*Wrap text with single asterisks*
+**Wrap text with single asterisks**
 
 ```
-**italic**
+*italic*
 ```
-**Wrap text with double asterisks**
+*Wrap text with double asterisks*
 
 ```
 _underline_
@@ -41,22 +41,26 @@ _Wrap text with underscores_
 ```
 # Heading 1
 ```
-Large heading
+
+# Large heading
 
 ```
 ## Heading 2
 ```
-Medium heading
+
+## Medium heading
 
 ```
 ### Heading 3
 ```
-Small heading
+
+### Small heading
 
 ```
 #### Heading 4
 ```
-Smaller heading
+
+#### Smaller heading
 
 ## Blockquotes
 
@@ -153,7 +157,7 @@ You can append a filetype immediately after the backticks (on the same line, no 
 ````
 ```json
 {
-  "name": "telegraph-rs",
+  "name": "nonograph",
   "version": "1.0.0",
   "settings": {
     "debug": true,

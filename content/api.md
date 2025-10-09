@@ -2,7 +2,7 @@ October 05, 2025
 
 # API Documentation
 
-Telegraph-rs provides a simple HTTP API for programmatically publishing articles.
+Nonograph provides a simple HTTP API for programmatically publishing articles.
 
 ## Publishing a Post
 
@@ -75,7 +75,7 @@ Access the original markdown by appending `.md`: `/{post-id}.md`
 
 ## Supported Content
 
-All standard Telegraph-rs markdown features are supported:
+All standard Nonograph markdown features are supported:
 
 - **Text formatting:** bold, italic, underline, strikethrough, superscript
 - **Links:** `[text](url)` and `[bare-url]`

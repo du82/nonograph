@@ -14,7 +14,7 @@ This service has no user accounts or registration system - anyone can publish an
 We store only the words you write. Specifically, we store the text content you choose to publish, the timestamp when you published it, and any alias name you optionally provide. We do not track your IP address, use cookies for tracking, collect analytics, or gather any other personal information about you. We do not store or have access to any images, videos, or other media files you might link to in your posts.
 
 **For People Who Read Content:**
-We collect nothing from readers. While the server receives your request to serve the page, no IP addresses, cookies, tracking, analytics, or identifying information is stored or logged. Your request only informs an in-memory cache that keeps frequently accessed pages saved in memory faster response times. The system cannot identify individual users and doesn't store reading habits or track what you read. You leave no digital footprint that we can see or access.
+We collect nothing from readers. While the server receives your request to serve the page, no IP addresses, cookies, tracking, analytics, or identifying information is stored or logged. Your request only informs an in-memory cache that keeps frequently accessed pages saved in memory faster response times. The cache system never writes to disk and doesn't store any specifics.
 
 ## Important: Service Privacy Is Not Anonymity
 
@@ -42,9 +42,9 @@ We provide this service "as-is" without any guarantees. We don't promise that th
 
 ## Legal Matters
 
-You keep ownership of the content you create, but by publishing it here, you give us permission to store and display it. If law enforcement makes a valid legal request, we will cooperate, but we can only provide the raw text content you've published - no IP addresses, user data, logs, or tracking information exists for us to share. We literally don't have access to any other information about you.
+You keep ownership of the content you create, but by publishing it here, you give us permission to store and display it. In response to valid legal processes, we can only provide the raw text content you've published - no IP addresses, user data, logs, or tracking information exists for us to share. We don't have access to any information you don't write and publish.
 
-If law enforcement makes a valid legal request to remove content that is actually illegal, we will comply. However, we will resist requests for content removal based solely on someone finding the content objectionable or offensive. We may ignore takedown requests that appear false, abusive, or attempt to censor legal speech.
+If we receive valid legal demands to remove content that violates applicable law, we may comply after careful review. However, we will resist removal requests based solely on content being objectionable or offensive. We will ignore demands that appear false, abusive, or attempt to censor legal speech.
 
 We believe in protecting your right to express your views, even when those views are unpopular or controversial.
 
@@ -56,7 +56,7 @@ This service operates under the laws of the jurisdiction where our servers are l
 
 This service is not intended for children under 13 years old. We don't knowingly collect any information from children under 13.
 
-Any content that sexualizes, exploits, or fetishizes children is strictly prohibited and will be removed and reported to appropriate authorities. This includes written content, links to such material, or any other form of child exploitation content.
+Any content that sexualizes, exploits, or fetishizes children is strictly prohibited and will be removed immediately. This includes written content, links to such material, or any other form of child exploitation content. Such violations will result in reporting to relevant authorities as required by applicable law.
 
 ## Changes to This Policy
 
@@ -64,9 +64,9 @@ We may need to update this policy occasionally. If we make significant changes, 
 
 ## Getting Help
 
-This is an open-source project available on GitHub at https://github.com/du82/telegraph-rs. If you have questions about the service, found a bug, or need technical help, please create an issue in that repository.
+This is an open-source project available on GitHub at https://github.com/du82/nonograph. If you have questions about the service, found a bug, or need technical help, please create an issue in that repository.
 
-For legal notices, takedown requests, or other legal matters, create an issue in the repository labeled "legal" or contact the project maintainers directly through GitHub.
+For notices, requests, or other matters, create an issue in the [GitHub repository](https://github.com/du82/nonograph).
 
 If you discover a security vulnerability, please report it privately through GitHub's security reporting system rather than creating a public issue.
 

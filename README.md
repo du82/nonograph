@@ -1,8 +1,8 @@
-# Telegraph-rs
+# Nonograph
 
 **Anonymous publishing for the privacy-conscious web.**
 
-Telegraph-rs is a self-hosted anonymous publishing platform. No accounts, no tracking, no data collection. Write anonymously, publish instantly, read privately.
+Nonograph is a self-hosted anonymous publishing platform. No accounts, no tracking, no data collection. Write anonymously, publish instantly, read privately.
 
 ## One-Command Deploy
 
@@ -13,7 +13,7 @@ Telegraph-rs is a self-hosted anonymous publishing platform. No accounts, no tra
 This single command:
 - Installs all dependencies (Rust, Tor)
 - Configures Tor hidden service with persistent `.onion` address
-- Builds and launches your anonymous publishing platform
+- Builds and launches Nonograph
 - Works on any Debian system (NOT Ubuntu)
 
 ## Why Self-Host?

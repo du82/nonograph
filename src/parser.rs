@@ -9,8 +9,8 @@ pub fn render_markdown(content: &str) -> String {
     // Process footnotes before text formatting to avoid conflicts with ^ and []
     working_content = process_footnotes(&working_content);
 
-    working_content = safe_replace(&working_content, "*", "*", "<em>", "</em>");
     working_content = safe_replace(&working_content, "**", "**", "<strong>", "</strong>");
+    working_content = safe_replace(&working_content, "*", "*", "<em>", "</em>");
     working_content = safe_replace(&working_content, "_", "_", "<u>", "</u>");
     working_content = safe_replace(&working_content, "~", "~", "<del>", "</del>");
     working_content = safe_replace(&working_content, "^", "^", "<sup>", "</sup>");
@@ -1046,11 +1046,11 @@ mod tests {
     #[test]
     fn test_basic_formatting() {
         assert_eq!(
-            render_markdown("*bold* text").contains("<strong>bold</strong>"),
+            render_markdown("*italic* text").contains("<em>italic</em>"),
             true
         );
         assert_eq!(
-            render_markdown("**italic** text").contains("<em>italic</em>"),
+            render_markdown("**bold** text").contains("<strong>bold</strong>"),
             true
         );
         assert_eq!(
@@ -1064,7 +1064,7 @@ mod tests {
         let japanese = "渋い美しさ *bold* text";
         let result = render_markdown(japanese);
         assert!(result.contains("渋い美しさ"));
-        assert!(result.contains("<strong>bold</strong>"));
+        assert!(result.contains("<em>bold</em>"));
     }
 
     #[test]
@@ -1125,10 +1125,10 @@ mod tests {
         // Test code block mixed with regular markdown
         let text3 = "This is *bold* and `this is code with *asterisks*` and more *bold*.";
         let result3 = render_markdown(text3);
-        assert!(result3.contains("<strong>bold</strong>"));
+        assert!(result3.contains("<em>bold</em>"));
         assert!(result3.contains("<code>this is code with *asterisks*</code>"));
         // The asterisks inside code should NOT become <strong> tags
-        assert!(!result3.contains("<code>this is code with <strong>asterisks</strong></code>"));
+        assert!(!result3.contains("<code>this is code with <em>asterisks</em></code>"));
 
         // Test adjacent backticks with content
         let text4 = "Test `first` and `second` code blocks";
@@ -1280,7 +1280,7 @@ mod tests {
     #[test]
     fn test_fenced_vs_regular_markdown_processing() {
         // Test that shows the clear difference between processed and unprocessed markdown
-        let mixed_content = r#"Regular text with *bold* and **italic** formatting.
+        let mixed_content = r#"Regular text with **bold** and *italic* formatting.
 
 ```js
 // This code has *bold* and **italic** but should NOT be processed
@@ -1292,7 +1292,7 @@ More regular text with _underline_ and ~strikethrough~."#;
 
         let result = render_markdown(mixed_content);
 
-        // Regular text should be processed into HTML
+        // Regular text should be processed
         assert!(result.contains("<strong>bold</strong>"));
         assert!(result.contains("<em>italic</em>"));
         assert!(result.contains("<u>underline</u>"));
@@ -1533,8 +1533,8 @@ let x = 42;
 
         // Check that other markdown still works (with correct formatting)
         assert!(result.contains("<h1>"));
-        assert!(result.contains("<em>bold</em>")); // ** is italic, * is bold in this parser
-        assert!(result.contains("<strong>italic</strong>"));
+        assert!(result.contains("<strong>bold</strong>")); // ** is bold, * is italic in this parser
+        assert!(result.contains("<em>italic</em>"));
         assert!(result.contains("<blockquote>"));
         assert!(result.contains("href=\"https://example.com\""));
     }
@@ -1553,15 +1553,15 @@ let x = 42;
         assert!(result_multi.contains("<p>Second paragraph.</p>"));
 
         // Test paragraph with inline formatting
-        let text_formatted = "This has *bold* and **italic** text.";
+        let text_formatted = "This has *italic* and **bold** text.";
         let result_formatted = render_markdown(text_formatted);
         assert!(result_formatted
-            .contains("<p>This has <strong>bold</strong> and <em>italic</em> text.</p>"));
+            .contains("<p>This has <em>italic</em> and <strong>bold</strong> text.</p>"));
     }
 
     #[test]
     fn test_comprehensive_paragraph_structure() {
-        let complex_content = r#"This is the first paragraph with *bold* text.
+        let complex_content = r#"This is the first paragraph with **bold** text.
 
 This is the second paragraph with a `code snippet` inline.
 
@@ -1574,11 +1574,11 @@ This paragraph comes after the code block.
 
 Here's an image: https://example.com/image.jpg
 
-Final paragraph with **emphasis** and _underline_."#;
+Final paragraph with *emphasis* and _underline_."#;
 
         let result = render_markdown(complex_content);
 
-        // Should have proper paragraph structure
+        // Verify paragraph structure
         assert!(
             result.contains("<p>This is the first paragraph with <strong>bold</strong> text.</p>")
         );
@@ -1642,7 +1642,7 @@ Final paragraph with **emphasis** and _underline_."#;
         let formatted = "Line with *bold*\nAnother line with **italic**";
         let formatted_result = render_markdown(formatted);
         assert!(formatted_result.contains(
-            "<p>Line with <strong>bold</strong><br>Another line with <em>italic</em></p>"
+            "<p>Line with <em>bold</em><br>Another line with <strong>italic</strong></p>"
         ));
 
         // Test that double line breaks still create separate paragraphs
@@ -1663,7 +1663,7 @@ Final paragraph with **emphasis** and _underline_."#;
     fn test_comprehensive_line_break_behavior() {
         // Test mixed content with line breaks
         let mixed_content = r#"This is line 1
-This is line 2 with *bold*
+This is line 2 with **bold**
 This is line 3
 
 New paragraph here
@@ -1674,8 +1674,7 @@ def hello():
     print("world")
 ```
 
-Final paragraph
-With line breaks"#;
+Third paragraph with *italic* formatting."#;
 
         let result = render_markdown(mixed_content);
 
@@ -1692,8 +1691,8 @@ With line breaks"#;
             "<pre><code class=\"language-python\">def hello():\n    print(\"world\")</code></pre>"
         ));
 
-        // Final paragraph should have line breaks
-        assert!(result.contains("<p>Final paragraph<br>With line breaks</p>"));
+        // Third paragraph should contain italic formatting
+        assert!(result.contains("<p>Third paragraph with <em>italic</em> formatting.</p>"));
     }
 
     #[test]
@@ -1727,10 +1726,10 @@ With line breaks"#;
         let formatted_table = "| **Bold** | *Italic* | `Code` |\n|----------|----------|--------|\n| *test*   | **bold** | `var`  |";
         let result = render_markdown(formatted_table);
 
-        assert!(result.contains("<th><em>Bold</em></th>"));
-        assert!(result.contains("<th><strong>Italic</strong></th>"));
-        assert!(result.contains("<td><strong>test</strong></td>"));
-        assert!(result.contains("<td><em>bold</em></td>"));
+        assert!(result.contains("<th><strong>Bold</strong></th>"));
+        assert!(result.contains("<th><em>Italic</em></th>"));
+        assert!(result.contains("<td><em>test</em></td>"));
+        assert!(result.contains("<td><strong>bold</strong></td>"));
     }
 
     #[test]
@@ -1799,5 +1798,25 @@ With line breaks"#;
         assert!(!result.contains("**italic**"));
 
         println!("=== END MARKUP.MD TEST ===");
+    }
+
+    #[test]
+    fn test_bold_italic_fix_demonstration() {
+        // Demonstrate that the fix works correctly
+        let text = "This has *italic* text and **bold** text.";
+        let result = render_markdown(text);
+
+        // Should render * as italic and ** as bold (standard Markdown)
+        assert!(result.contains("<em>italic</em>"));
+        assert!(result.contains("<strong>bold</strong>"));
+
+        // Should not have any leftover asterisks
+        assert!(!result.contains("*"));
+
+        // Test that **text** doesn't get processed as two *text* anymore
+        let bold_only = "**just bold**";
+        let bold_result = render_markdown(bold_only);
+        assert!(bold_result.contains("<strong>just bold</strong>"));
+        assert!(!bold_result.contains("<em>"));
     }
 }

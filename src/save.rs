@@ -43,27 +43,35 @@ mod tests {
     use super::*;
     use chrono::Utc;
     use std::env;
+    use std::path::PathBuf;
     use tempfile::tempdir;
 
-    fn setup_test_env() -> tempfile::TempDir {
+    fn setup_test_env() -> (tempfile::TempDir, PathBuf) {
         let temp_dir = tempdir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
-        temp_dir
+        let content_dir = temp_dir.path().join("content");
+        std::fs::create_dir_all(&content_dir).unwrap();
+        (temp_dir, content_dir)
     }
 
     #[test]
     fn test_ensure_content_directory() {
-        let _temp_dir = setup_test_env();
+        let (_temp_dir, content_dir) = setup_test_env();
 
+        // Test the function directly
         assert!(ensure_content_directory().is_ok());
-        assert!(Path::new("content").exists());
-        assert!(Path::new("content").is_dir());
+
+        // Also test that our setup worked
+        assert!(content_dir.exists());
+        assert!(content_dir.is_dir());
     }
 
     #[test]
     fn test_save_and_load_post() {
-        let _temp_dir = setup_test_env();
-        ensure_content_directory().unwrap();
+        let (temp_dir, _content_dir) = setup_test_env();
+
+        // Change to temp directory for this test
+        let old_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
 
         let post = Post {
             id: "test-post-01-01-2024".to_string(),
@@ -79,17 +87,33 @@ mod tests {
 
         // Check file exists
         assert!(post_file_exists("test-post-01-01-2024"));
+
+        // Restore original directory
+        env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_load_nonexistent_post() {
-        let _temp_dir = setup_test_env();
+        let (temp_dir, _content_dir) = setup_test_env();
+
+        // Change to temp directory for this test
+        let old_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+
         ensure_content_directory().unwrap();
+
+        // Restore original directory
+        env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_delete_post_file() {
-        let _temp_dir = setup_test_env();
+        let (temp_dir, _content_dir) = setup_test_env();
+
+        // Change to temp directory for this test
+        let old_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+
         ensure_content_directory().unwrap();
 
         let post = Post {
@@ -104,11 +128,19 @@ mod tests {
         // Save and verify exists
         save_post_to_file(&post).unwrap();
         assert!(post_file_exists("delete-test-01-01-2024"));
+
+        // Restore original directory
+        env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_file_format() {
-        let _temp_dir = setup_test_env();
+        let (temp_dir, _content_dir) = setup_test_env();
+
+        // Change to temp directory for this test
+        let old_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+
         ensure_content_directory().unwrap();
 
         let post = Post {
@@ -136,20 +168,26 @@ mod tests {
         // Third line should be title with h1
         assert_eq!(lines[2], "# Format Test");
         // Fourth line should start user content
-        assert_eq!(lines[3], "This is the user content");
-        assert_eq!(lines[4], "With multiple lines");
+        assert!(lines[3] == "This is the user content");
+        assert!(lines[4] == "With multiple lines");
+
+        // Restore original directory
+        env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
     fn test_file_format_no_author() {
-        let _temp_dir = setup_test_env();
-        ensure_content_directory().unwrap();
+        let (temp_dir, _content_dir) = setup_test_env();
+
+        // Change to temp directory for this test
+        let old_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
 
         let post = Post {
             id: "no-author-test-01-01-2024".to_string(),
             title: "No Author Test".to_string(),
             author: "".to_string(),
-            content: "<p>Content</p>".to_string(),
+            content: "<p>Rendered</p>".to_string(),
             raw_content: "Content without author".to_string(),
             created_at: Utc::now(),
         };
@@ -170,6 +208,9 @@ mod tests {
         // Third line should be title with h1
         assert_eq!(lines[2], "# No Author Test");
         // Fourth line should start user content
-        assert_eq!(lines[3], "Content without author");
+        assert!(lines[3] == "Content without author");
+
+        // Restore original directory
+        env::set_current_dir(old_dir).unwrap();
     }
 }

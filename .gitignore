@@ -3,8 +3,8 @@
 Cargo.lock
 
 # Runtime and log files
-telegraph.log
-telegraph.pid
+nonograph.log
+nonograph.pid
 *.log
 *.pid
 

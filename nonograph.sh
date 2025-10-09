@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Telegraph-rs Management Script
-# This script helps manage the Telegraph-rs service and Tor hidden service
+# Nonograph Management Script
+# This script helps manage the Nonograph service and Tor hidden service
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 show_header() {
     echo "╔══════════════════════════════════════╗"
-    echo "║         Telegraph-rs Manager         ║"
+    echo "║         Nonograph Manager            ║"
     echo "║    Anonymous Publishing Service      ║"
     echo "╚══════════════════════════════════════╝"
     echo
@@ -19,9 +19,9 @@ show_help() {
     echo "Usage: $0 [command]"
     echo
     echo "Commands:"
-    echo "  start       Start Telegraph-rs service"
-    echo "  stop        Stop Telegraph-rs service"
-    echo "  restart     Restart Telegraph-rs service"
+    echo "  start       Start Nonograph service"
+    echo "  stop        Stop Nonograph service"
+    echo "  restart     Restart Nonograph service"
     echo "  status      Show service status"
     echo "  logs        Show recent logs"
     echo "  onion       Show onion address"
@@ -36,57 +36,57 @@ show_help() {
 }
 
 start_service() {
-    echo "🚀 Starting Telegraph-rs..."
+    echo "🚀 Starting Nonograph..."
 
     # Check if already running
-    if pgrep -f "telegraph-rs" > /dev/null; then
-        echo "⚠️  Telegraph-rs is already running"
+    if pgrep -f "nonograph" > /dev/null; then
+        echo "⚠️  Nonograph is already running"
         return 1
     fi
 
     # Start in background
-    nohup cargo run --release > telegraph.log 2>&1 &
+    nohup cargo run --release > nonograph.log 2>&1 &
 
     # Wait a moment and check if it started
     sleep 3
-    if pgrep -f "telegraph-rs" > /dev/null; then
-        echo "✅ Telegraph-rs started successfully"
+    if pgrep -f "nonograph" > /dev/null; then
+        echo "✅ Nonograph started successfully"
         echo "🌐 Local access: http://localhost:8009"
     else
-        echo "❌ Failed to start Telegraph-rs"
-        echo "📝 Check logs: tail -f telegraph.log"
+        echo "❌ Failed to start Nonograph"
+        echo "📝 Check logs: tail -f nonograph.log"
         return 1
     fi
 }
 
 stop_service() {
-    echo "🛑 Stopping Telegraph-rs..."
+    echo "🛑 Stopping Nonograph..."
 
-    if ! pgrep -f "telegraph-rs" > /dev/null; then
-        echo "⚠️  Telegraph-rs is not running"
+    if ! pgrep -f "nonograph" > /dev/null; then
+        echo "⚠️  Nonograph is not running"
         return 1
     fi
 
-    pkill -f "telegraph-rs"
+    pkill -f "nonograph"
     sleep 2
 
-    if ! pgrep -f "telegraph-rs" > /dev/null; then
-        echo "✅ Telegraph-rs stopped successfully"
+    if ! pgrep -f "nonograph" > /dev/null; then
+        echo "✅ Nonograph stopped successfully"
     else
-        echo "⚠️  Force killing Telegraph-rs..."
-        pkill -9 -f "telegraph-rs"
+        echo "⚠️  Force killing Nonograph..."
+        pkill -9 -f "nonograph"
         sleep 1
-        if ! pgrep -f "telegraph-rs" > /dev/null; then
-            echo "✅ Telegraph-rs force stopped"
+        if ! pgrep -f "nonograph" > /dev/null; then
+            echo "✅ Nonograph force stopped"
         else
-            echo "❌ Failed to stop Telegraph-rs"
+            echo "❌ Failed to stop Nonograph"
             return 1
         fi
     fi
 }
 
 restart_service() {
-    echo "🔄 Restarting Telegraph-rs..."
+    echo "🔄 Restarting Nonograph..."
     stop_service
     sleep 1
     start_service
@@ -98,12 +98,12 @@ show_status() {
     else
         show_header
 
-        # Check Telegraph-rs status
-        TELEGRAPH_PID=$(pgrep -f "telegraph-rs" | head -1)
-        if [ -n "$TELEGRAPH_PID" ]; then
-            echo "✅ Telegraph-rs Status: RUNNING (PID: $TELEGRAPH_PID)"
+        # Check Nonograph status
+        NONOGRAPH_PID=$(pgrep -f "nonograph" | head -1)
+        if [ -n "$NONOGRAPH_PID" ]; then
+            echo "✅ Nonograph Status: RUNNING (PID: $NONOGRAPH_PID)"
         else
-            echo "❌ Telegraph-rs Status: NOT RUNNING"
+            echo "❌ Nonograph Status: NOT RUNNING"
         fi
 
         # Check Tor status
@@ -119,15 +119,15 @@ show_status() {
 }
 
 show_logs() {
-    echo "📝 Recent Telegraph-rs logs:"
+    echo "📝 Recent Nonograph logs:"
     echo "────────────────────────────────────"
-    if [ -f "telegraph.log" ]; then
-        tail -20 telegraph.log
+    if [ -f "nonograph.log" ]; then
+        tail -20 nonograph.log
     else
         echo "No log file found"
     fi
     echo "────────────────────────────────────"
-    echo "💡 Use 'tail -f telegraph.log' to follow logs in real-time"
+    echo "💡 Use 'tail -f nonograph.log' to follow logs in real-time"
 }
 
 show_onion() {
@@ -158,7 +158,7 @@ create_test() {
 
     # Check if service is running
     if ! curl -s --max-time 5 http://localhost:8009 > /dev/null 2>&1; then
-        echo "❌ Telegraph-rs is not accessible"
+        echo "❌ Nonograph is not accessible"
         echo "💡 Make sure the service is running with: $0 start"
         return 1
     fi
@@ -167,7 +167,7 @@ create_test() {
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
     curl -s -X POST http://localhost:8009/create \
         -d "title=Test Post - $TIMESTAMP" \
-        -d "content=This is a test post created at $TIMESTAMP to verify Telegraph-rs is working correctly as a Tor hidden service." \
+        -d "content=This is a test post created at $TIMESTAMP to verify Nonograph is working correctly as a Tor hidden service." \
         -H "Content-Type: application/x-www-form-urlencoded" > /dev/null
 
     if [ $? -eq 0 ]; then
@@ -180,7 +180,7 @@ create_test() {
 }
 
 build_project() {
-    echo "🔨 Building Telegraph-rs..."
+    echo "🔨 Building Nonograph..."
     cargo build --release
     if [ $? -eq 0 ]; then
         echo "✅ Build completed successfully"

@@ -369,7 +369,19 @@ fn view_post(
                     "created_at".to_string(),
                     post.created_at.format("%B %d, %Y").to_string(),
                 );
+                context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
                 context.insert("post_id".to_string(), actual_post_id.to_string());
+
+                // OpenGraph variables
+                context.insert("url".to_string(), format!("/{}", actual_post_id));
+
+                // Create description from first 160 chars of raw content
+                let description = if post.raw_content.len() > 160 {
+                    format!("{}...", &post.raw_content[..160])
+                } else {
+                    post.raw_content.clone()
+                };
+                context.insert("description".to_string(), description);
 
                 match engine.render("post", &context) {
                     Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
@@ -612,7 +624,7 @@ mod tests {
 
     #[test]
     fn test_markdown_bold_formatting() {
-        let input = "This is *bold* text and more *bold text*.";
+        let input = "This is **bold** text and more **bold text**.";
         let output = parser::render_markdown(input);
         assert!(output.contains("<strong>bold</strong>"));
         assert!(output.contains("<strong>bold text</strong>"));

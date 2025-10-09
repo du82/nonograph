@@ -1,18 +1,18 @@
 #!/bin/bash
 
 echo "╔══════════════════════════════════════╗"
-echo "║         Telegraph-rs Status          ║"
+echo "║         Nonograph Status             ║"
 echo "║    Anonymous Publishing Service      ║"
 echo "╚══════════════════════════════════════╝"
 echo
 
-# Check if Telegraph-rs is running
-TELEGRAPH_PID=$(pgrep -f "telegraph-rs" | head -1)
-if [ -n "$TELEGRAPH_PID" ]; then
-    echo "✅ Telegraph-rs Status: RUNNING (PID: $TELEGRAPH_PID)"
+# Check if Nonograph is running
+NONOGRAPH_PID=$(pgrep -f "nonograph" | head -1)
+if [ -n "$NONOGRAPH_PID" ]; then
+    echo "✅ Nonograph Status: RUNNING (PID: $NONOGRAPH_PID)"
     echo "🌐 Local Access: http://localhost:8009"
 else
-    echo "❌ Telegraph-rs Status: NOT RUNNING"
+    echo "❌ Nonograph Status: NOT RUNNING"
 fi
 
 echo
@@ -49,8 +49,8 @@ echo
 
 # Show recent log entries
 echo "📝 Recent Log Entries:"
-if [ -f "telegraph.log" ]; then
-    tail -5 telegraph.log | while read line; do
+if [ -f "nonograph.log" ]; then
+    tail -5 nonograph.log | while read line; do
         echo "   $line"
     done
 else
@@ -77,8 +77,8 @@ fi
 echo
 
 echo "Commands:"
-echo "  Start Telegraph-rs: cargo run --release"
-echo "  Stop Telegraph-rs:  pkill -f telegraph-rs"
+echo "  Start Nonograph: cargo run --release"
+echo "  Stop Nonograph:  pkill -f nonograph"
 echo "  Start Tor:          sudo systemctl start tor"
 echo "  Stop Tor:           sudo systemctl stop tor"
-echo "  View logs:          tail -f telegraph.log"
+echo "  View logs:          tail -f nonograph.log"

@@ -1,9 +1,9 @@
 September 23, 2025
 
-# About Telegraph-rs
+# About Nonograph
 **A Minimalist Publishing Platform**
 
-Telegraph-rs is a clean, simple publishing tool inspired by Telegram's Telegraph service, but in no way legally or code-wise related. Built in Rust with a focus on simplicity, speed, and elegance.
+Nonograph is a clean, simple publishing tool built in Rust with a focus on simplicity, speed, and elegance.
 
 **Philosophy**
 
@@ -40,10 +40,10 @@ Every design decision prioritizes:
 
 **Open Source**
 
-Telegraph-rs is free and open source software. The complete source code is available on GitHub for transparency, contributions, and self-hosting.
+Nonograph is free and open source software. The complete source code is available on GitHub for transparency, contributions, and self-hosting.
 
 **Inspiration**
 
-Inspired by the original Telegraph service's simplicity, reimagined with modern web standards and a focus on sustainable, anonymous, user-respecting design.
+Built with modern web standards and a focus on sustainable, anonymous, user-respecting design.
 
 *Simple tools for thoughtful publishing.*
