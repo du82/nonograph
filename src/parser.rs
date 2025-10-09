@@ -9,8 +9,8 @@ pub fn render_markdown(content: &str) -> String {
     // Process footnotes before text formatting to avoid conflicts with ^ and []
     working_content = process_footnotes(&working_content);
 
-    working_content = safe_replace(&working_content, "**", "**", "<em>", "</em>");
-    working_content = safe_replace(&working_content, "*", "*", "<strong>", "</strong>");
+    working_content = safe_replace(&working_content, "*", "*", "<em>", "</em>");
+    working_content = safe_replace(&working_content, "**", "**", "<strong>", "</strong>");
     working_content = safe_replace(&working_content, "_", "_", "<u>", "</u>");
     working_content = safe_replace(&working_content, "~", "~", "<del>", "</del>");
     working_content = safe_replace(&working_content, "^", "^", "<sup>", "</sup>");
