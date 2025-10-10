@@ -42,6 +42,7 @@ pub fn post_file_exists(post_id: &str) -> bool {
 mod tests {
     use super::*;
     use chrono::Utc;
+    use serial_test::serial;
     use std::env;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -66,6 +67,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_save_and_load_post() {
         let (temp_dir, _content_dir) = setup_test_env();
 
@@ -93,6 +95,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_load_nonexistent_post() {
         let (temp_dir, _content_dir) = setup_test_env();
 
@@ -107,6 +110,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_delete_post_file() {
         let (temp_dir, _content_dir) = setup_test_env();
 
@@ -134,6 +138,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_file_format() {
         let (temp_dir, _content_dir) = setup_test_env();
 
@@ -176,6 +181,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_file_format_no_author() {
         let (temp_dir, _content_dir) = setup_test_env();
 
