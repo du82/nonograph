@@ -50,7 +50,7 @@ impl TemplateEngine {
         let mut full_context = HashMap::new();
 
         // Set default values
-        full_context.insert("title".to_string(), "Telegraph-rs".to_string());
+        full_context.insert("title".to_string(), "Nonograph".to_string());
         full_context.insert("content".to_string(), "".to_string());
         full_context.insert("error".to_string(), "".to_string());
         full_context.insert("success".to_string(), "".to_string());
@@ -117,10 +117,7 @@ mod tests {
         context.insert("content".to_string(), "Custom content".to_string());
 
         let result = engine.render_with_defaults("page", &context).unwrap();
-        assert_eq!(
-            result,
-            "<title>Telegraph-rs</title><div>Custom content</div>"
-        );
+        assert_eq!(result, "<title>Nonograph</title><div>Custom content</div>");
     }
 
     #[test]

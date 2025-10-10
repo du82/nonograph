@@ -353,7 +353,7 @@ show_status() {
     log_info "Service Status:"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-    # Telegraph-rs status
+    # Nonograph status
     if check_existing_service; then
         local pid=$(cat "$PID_FILE" 2>/dev/null)
         echo -e "${GREEN}✅ Nonograph: RUNNING${NC} (PID: $pid)"
@@ -553,7 +553,7 @@ main() {
             # Show final status
             show_status
 
-            log_success "Telegraph-rs is now running as a Tor hidden service!"
+            log_success "Nonograph is now running as a Tor hidden service!"
             if [ "$has_existing_onion" = true ]; then
                 log_success "Reusing previous onion address: $EXISTING_ONION"
             fi

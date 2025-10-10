@@ -23,12 +23,12 @@ if [ "$TOR_STATUS" = "active" ]; then
     echo "✅ Tor Service: RUNNING"
 
     # Check if hidden service directory exists
-    if sudo test -d "/var/lib/tor/telegraph" 2>/dev/null; then
+    if sudo test -d "/var/lib/tor/nonograph" 2>/dev/null; then
         echo "✅ Hidden Service: CONFIGURED"
 
         # Get onion address
-        if sudo test -f "/var/lib/tor/telegraph/hostname" 2>/dev/null; then
-            ONION_ADDRESS=$(sudo cat /var/lib/tor/telegraph/hostname 2>/dev/null)
+        if sudo test -f "/var/lib/tor/nonograph/hostname" 2>/dev/null; then
+            ONION_ADDRESS=$(sudo cat /var/lib/tor/nonograph/hostname 2>/dev/null)
             if [ -n "$ONION_ADDRESS" ]; then
                 echo "🧅 Onion Address: http://$ONION_ADDRESS"
                 echo "📋 Copy command: echo 'http://$ONION_ADDRESS' | xclip -selection clipboard"

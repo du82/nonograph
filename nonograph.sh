@@ -134,8 +134,8 @@ show_onion() {
     echo "🧅 Tor Hidden Service Information:"
     echo "──────────────────────────────────"
 
-    if sudo test -f "/var/lib/tor/telegraph/hostname" 2>/dev/null; then
-        ONION_ADDRESS=$(sudo cat /var/lib/tor/telegraph/hostname 2>/dev/null)
+    if sudo test -f "/var/lib/tor/nonograph/hostname" 2>/dev/null; then
+        ONION_ADDRESS=$(sudo cat /var/lib/tor/nonograph/hostname 2>/dev/null)
         if [ -n "$ONION_ADDRESS" ]; then
             echo "Onion Address: http://$ONION_ADDRESS"
             echo
