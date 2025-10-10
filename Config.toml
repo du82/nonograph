@@ -8,7 +8,7 @@ title_max_length = 128
 alias_max_length = 32
 
 # Maximum content length in characters
-content_max_length = 64_000
+content_max_length = 128_000
 
 # Maximum form data size in KB
 form_data_limit_kb = 512
