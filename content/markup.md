@@ -171,12 +171,20 @@ You can append a filetype immediately after the backticks (on the same line, no 
 
 ada, apache, apex, arduino/ino, asm/assembly, asciidoc/adoc, awk, bash/sh/shell, bibtex/bib, c, clj/clojure, cmake, cobol/cob, coffeescript/coffee, cpp/c++, cr/crystal, cs/csharp, css, d, dart, diff, dockerfile/docker, ejs, elisp/emacs-lisp, elm, erl/erlang, ex/elixir, fsharp/fs, f90/f95/fortran, go/golang, gql/graphql, groovy, handlebars/hbs, hs/haskell, html, ini, jade/pug, java, javascript/js, jl/julia, json, jsx, kt/kotlin, latex/tex, less, lisp, lua, make/makefile, markdown/md, matlab, ml/ocaml, nginx, nim, njk/nunjucks, objc/objective-c, org, pas/pascal, patch, pde/processing, perl, php, pl/prolog, plaintext/text/txt, powershell/ps1, properties, purs/purescript, py/python, r, racket/rkt, re/reason/reasonml, rmarkdown/rmd, rs/rust, rst/restructuredtext, ruby/rb, sass, scad/openscad, scala, scm/scheme, scss, sed, smalltalk/st, sol/solidity, sql, st/smalltalk, svelte, swift, tcl, textile, toml, tsx, typescript/ts, v/vlang, verilog, vhdl, vim/vimscript, vue, xml, yaml/yml, zig
 
+## Comments
+
+```
+// This is a comment
+```
+Comments start with `// ` at the beginning of a line. They appear in the .md version but are hidden from the HTML output. Anyone can append `.md` to any URL and see the comments, so don't leave sensitive things there!
+// You can see this only from the .md version!
+
 ## Secret Text
 
 ```
 #hidden message#
 ```
-Click to reveal hidden text
+Click to reveal #hidden text# which can be in-line or on its own line. These are also commonly known as #spoilers#.
 
 ## Line Breaks
 
@@ -186,7 +194,7 @@ Press Enter twice for a paragraph break
 
 ## Limits
 
-- Posts: 64,000 characters maximum
+- Posts: 128,000 characters maximum
 - Links: 4,096 characters maximum
 - Titles: 128 characters maximum
 - Alias: 32 characters maximum

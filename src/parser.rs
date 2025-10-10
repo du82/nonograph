@@ -6,6 +6,9 @@ pub fn render_markdown(content: &str) -> String {
     let (protected_content, fenced_blocks) = extract_fenced_code_blocks(content);
     let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
 
+    // Process comments before other formatting to remove them from HTML output
+    working_content = process_comments(&working_content);
+
     // Process footnotes before text formatting to avoid conflicts with ^ and []
     working_content = process_footnotes(&working_content);
 
@@ -738,14 +741,31 @@ fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
     result
 }
 
-fn process_footnotes(text: &str) -> String {
+fn process_comments(content: &str) -> String {
+    let lines: Vec<&str> = content.lines().collect();
+    let mut result = Vec::new();
+
+    for line in lines {
+        // Check if line starts with "// " (comment syntax)
+        if line.trim_start().starts_with("// ") {
+            // Skip comment lines - they won't appear in HTML output
+            continue;
+        } else {
+            result.push(line);
+        }
+    }
+
+    result.join("\n")
+}
+
+fn process_footnotes(content: &str) -> String {
     let mut result = String::new();
     let mut footnote_definitions = std::collections::HashMap::new();
     let mut footnote_counter = 0u32;
     let mut inline_footnote_counter = 0u32;
 
     // First pass: extract footnote definitions [^id]: text
-    let lines: Vec<&str> = text.lines().collect();
+    let lines: Vec<&str> = content.lines().collect();
     let mut content_lines = Vec::new();
 
     for line in &lines {
@@ -1798,6 +1818,132 @@ Third paragraph with *italic* formatting."#;
         assert!(!result.contains("**italic**"));
 
         println!("=== END MARKUP.MD TEST ===");
+    }
+
+    #[test]
+    fn test_manual_comment_verification() {
+        let test_content = r#"# Test File for Comment Functionality
+
+This is a test file to verify that comments work correctly in Nonograph.
+
+// This is a comment that should not appear in HTML output
+// But should be visible in the .md version
+
+Here is some **bold text** after a comment.
+
+// Another comment here
+*Italic text* should still work normally.
+
+## Section with Comments
+
+// Comment in a section
+This paragraph contains normal text.
+
+```javascript
+// This is NOT a Nonograph comment, it's JavaScript code
+function hello() {
+    console.log("Hello world");
+}
+```
+
+// But this IS a Nonograph comment outside the code block
+
+Final paragraph with normal text."#;
+
+        let html_output = render_markdown(test_content);
+
+        println!("=== MANUAL TEST OUTPUT ===");
+        println!("{}", html_output);
+
+        // Verify comments are removed from HTML
+        assert!(!html_output.contains("// This is a comment that should not appear"));
+        assert!(!html_output.contains("// But should be visible in the .md version"));
+        assert!(!html_output.contains("// Another comment here"));
+        assert!(!html_output.contains("// Comment in a section"));
+        assert!(!html_output.contains("// But this IS a Nonograph comment"));
+
+        // Verify normal formatting still works
+        assert!(html_output.contains("<strong>bold text</strong>"));
+        assert!(html_output.contains("<em>Italic text</em>"));
+        assert!(html_output.contains("<h1>Test File for Comment Functionality</h1>"));
+        assert!(html_output.contains("<h2>Section with Comments</h2>"));
+
+        // Verify code block comments are preserved (they're inside code blocks)
+        assert!(html_output.contains("// This is NOT a Nonograph comment"));
+
+        println!("✅ All manual verification tests passed!");
+    }
+
+    #[test]
+    fn test_comments_edge_cases() {
+        // Test comment that doesn't start at beginning of line
+        let input1 = "Normal text // not a comment\n// This is a comment";
+        let result1 = render_markdown(input1);
+        assert!(result1.contains("Normal text // not a comment"));
+        assert!(!result1.contains("// This is a comment"));
+
+        // Test comment with only "//" (no space)
+        let input2 = "//No space comment\n// Space comment";
+        let result2 = render_markdown(input2);
+        assert!(result2.contains("//No space comment"));
+        assert!(!result2.contains("// Space comment"));
+
+        // Test empty comment
+        let input3 = "// \n//\nNormal text";
+        let result3 = render_markdown(input3);
+        assert!(!result3.contains("// "));
+        assert!(result3.contains("//"));
+        assert!(result3.contains("Normal text"));
+
+        // Test comment with special characters
+        let input4 = "// Comment with *bold* and [link](url)\nNormal text";
+        let result4 = render_markdown(input4);
+        assert!(!result4.contains("// Comment with"));
+        assert!(result4.contains("Normal text"));
+    }
+
+    #[test]
+    fn test_comments() {
+        let input = "This is normal text\n// This is a comment\nMore normal text\n// Another comment\nFinal text";
+        let result = render_markdown(input);
+
+        // Comments should not appear in HTML output
+        assert!(!result.contains("// This is a comment"));
+        assert!(!result.contains("// Another comment"));
+
+        // Normal text should still be there
+        assert!(result.contains("This is normal text"));
+        assert!(result.contains("More normal text"));
+        assert!(result.contains("Final text"));
+    }
+
+    #[test]
+    fn test_comments_with_indentation() {
+        let input = "Normal line\n    // Indented comment\n**Bold text**";
+        let result = render_markdown(input);
+
+        // Comment should be removed even if indented
+        assert!(!result.contains("// Indented comment"));
+
+        // Other formatting should work
+        assert!(result.contains("<strong>Bold text</strong>"));
+        assert!(result.contains("Normal line"));
+    }
+
+    #[test]
+    fn test_comments_mixed_with_other_features() {
+        let input =
+            "# Header\n\n// This is a comment\n**Bold text**\n\n// Another comment\n> Quote";
+        let result = render_markdown(input);
+
+        // Comments should not appear
+        assert!(!result.contains("// This is a comment"));
+        assert!(!result.contains("// Another comment"));
+
+        // Other features should work normally
+        assert!(result.contains("<h1>Header</h1>"));
+        assert!(result.contains("<strong>Bold text</strong>"));
+        assert!(result.contains("<blockquote>Quote</blockquote>"));
     }
 
     #[test]

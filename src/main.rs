@@ -445,6 +445,11 @@ fn about_page() -> content::RawHtml<String> {
     serve_static_page("about")
 }
 
+#[get("/api")]
+fn api_page() -> content::RawHtml<String> {
+    serve_static_page("api")
+}
+
 fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
     let file_path = format!("content/{}.md", page_name);
 
@@ -462,6 +467,11 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
                 context.insert("title".to_string(), title.to_string());
                 context.insert("content".to_string(), rendered_content);
                 context.insert("created_at".to_string(), lines[0].to_string());
+                context.insert("author".to_string(), String::new());
+                context.insert("author_display".to_string(), String::new());
+                context.insert("created_at_iso".to_string(), String::new());
+                context.insert("url".to_string(), format!("/{}", page_name));
+                context.insert("description".to_string(), String::new());
 
                 match engine.render("post", &context) {
                     Ok(html) => content::RawHtml(html),
@@ -530,7 +540,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 view_post,
                 markup_page,
                 legal_page,
-                about_page
+                about_page,
+                api_page
             ],
         )
 }
@@ -910,5 +921,117 @@ mod tests {
         // Test normal title
         let normal_title = "A Great Article Title";
         assert!(normal_title.len() <= 128);
+    }
+
+    #[test]
+    fn test_static_page_template_rendering() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        // Create temporary directory for templates
+        let temp_dir = tempdir().unwrap();
+        let template_path = temp_dir.path().join("post.html");
+
+        // Create a minimal template that includes all the variables used in static pages
+        let template_content = r#"<html>
+<head><title>{{title}}</title></head>
+<body>
+<h1>{{title}}</h1>
+<div class="meta">{{author_display}}{{created_at}}</div>
+<div class="content">{{content}}</div>
+</body>
+</html>"#;
+
+        fs::write(&template_path, template_content).unwrap();
+
+        // Test the template engine with the same context that static pages use
+        let engine = TemplateEngine::new(temp_dir.path().to_str().unwrap());
+        let mut context = HashMap::new();
+        context.insert("title".to_string(), "Test Page".to_string());
+        context.insert("content".to_string(), "<p>Test content</p>".to_string());
+        context.insert("created_at".to_string(), "October 5, 2025".to_string());
+        context.insert("author".to_string(), String::new());
+        context.insert("author_display".to_string(), String::new());
+        context.insert("created_at_iso".to_string(), String::new());
+        context.insert("url".to_string(), "/test".to_string());
+        context.insert("description".to_string(), String::new());
+
+        let result = engine.render("post", &context).unwrap();
+
+        // Verify no template variables remain unreplaced
+        assert!(!result.contains("{{"));
+        assert!(!result.contains("}}"));
+
+        // Verify content is properly rendered
+        assert!(result.contains("<title>Test Page</title>"));
+        assert!(result.contains("<h1>Test Page</h1>"));
+        assert!(result.contains("<p>Test content</p>"));
+        assert!(result.contains("October 5, 2025"));
+    }
+
+    #[test]
+    fn test_all_static_pages_template_variables() {
+        use std::fs;
+        use tempfile::tempdir;
+
+        // Create temporary directory for templates
+        let temp_dir = tempdir().unwrap();
+        let template_path = temp_dir.path().join("post.html");
+
+        // Create a template that uses all variables that could appear in static pages
+        let template_content = r#"<html>
+<head>
+<title>{{title}}</title>
+<meta property="og:title" content="{{title}}" />
+<meta property="og:url" content="{{url}}" />
+<meta property="og:description" content="{{description}}" />
+<meta property="article:author" content="{{author}}" />
+<meta property="article:published_time" content="{{created_at_iso}}" />
+<meta name="author" content="{{author}}" />
+</head>
+<body>
+<h1>{{title}}</h1>
+<div class="article-meta">{{author_display}}{{created_at}}</div>
+<div class="article-content">{{content}}</div>
+</body>
+</html>"#;
+
+        fs::write(&template_path, template_content).unwrap();
+
+        let engine = TemplateEngine::new(temp_dir.path().to_str().unwrap());
+
+        // Test each static page type
+        let pages = vec!["markup", "legal", "about", "api"];
+
+        for page_name in pages {
+            let mut context = HashMap::new();
+            context.insert("title".to_string(), format!("{} Page", page_name));
+            context.insert("content".to_string(), "<p>Test content</p>".to_string());
+            context.insert("created_at".to_string(), "October 5, 2025".to_string());
+            context.insert("author".to_string(), String::new());
+            context.insert("author_display".to_string(), String::new());
+            context.insert("created_at_iso".to_string(), String::new());
+            context.insert("url".to_string(), format!("/{}", page_name));
+            context.insert("description".to_string(), String::new());
+
+            let result = engine.render("post", &context).unwrap();
+
+            // Verify no template variables remain unreplaced
+            assert!(
+                !result.contains("{{"),
+                "Page {} has unreplaced template variables",
+                page_name
+            );
+            assert!(
+                !result.contains("}}"),
+                "Page {} has unreplaced template variables",
+                page_name
+            );
+
+            // Verify basic structure
+            assert!(result.contains(&format!("<title>{} Page</title>", page_name)));
+            assert!(result.contains(&format!("<h1>{} Page</h1>", page_name)));
+            assert!(result.contains("October 5, 2025"));
+        }
     }
 }

@@ -19,16 +19,6 @@ You can write a description for the image and specify its size.
 
     Square
 
-If you were embedding a hypha called an image hypha, it would look like this:
-
-    img {
-    an image hypha
-    }
-
-If you put just one image, it will be displayed with no decorations:
-
-    img { https://mycorrhiza.wiki/static/favicon.ico }
-
 Gallery layout
 
 Set gallery layout to specify how your gallery is placed.
