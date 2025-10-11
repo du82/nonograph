@@ -17,6 +17,7 @@ pub fn render_markdown(content: &str) -> String {
     working_content = safe_replace(&working_content, "_", "_", "<u>", "</u>");
     working_content = safe_replace(&working_content, "~", "~", "<del>", "</del>");
     working_content = safe_replace(&working_content, "^", "^", "<sup>", "</sup>");
+    working_content = safe_replace(&working_content, "==", "==", "<mark>", "</mark>");
     working_content = safe_replace(
         &working_content,
         "#",
@@ -155,6 +156,7 @@ fn sanitize_html(html: String) -> String {
             "u",
             "del",
             "sup",
+            "mark",
             "span",
             "code",
             "a",
@@ -1077,6 +1079,25 @@ mod tests {
             render_markdown("_underline_ text").contains("<u>underline</u>"),
             true
         );
+        assert_eq!(
+            render_markdown("==highlight== text").contains("<mark>highlight</mark>"),
+            true
+        );
+    }
+
+    #[test]
+    fn test_highlighting_with_mixed_formatting() {
+        // Test highlighting mixed with other formatting
+        let mixed = "This has ==highlighted== text with **bold** and *italic* formatting.";
+        let result = render_markdown(mixed);
+        assert!(result.contains("<mark>highlighted</mark>"));
+        assert!(result.contains("<strong>bold</strong>"));
+        assert!(result.contains("<em>italic</em>"));
+
+        // Test nested highlighting scenarios
+        let complex = "==This is ==nested== highlighting== and normal text.";
+        let complex_result = render_markdown(complex);
+        assert!(complex_result.contains("<mark>"));
     }
 
     #[test]

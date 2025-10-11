@@ -6,57 +6,62 @@ Nonograph supports a limited set of markdown formatting to keep things simple an
 
 ## Text Formatting
 
-```
+```md
 **bold**
 ```
 **Wrap text with single asterisks**
 
-```
+```md
 *italic*
 ```
 *Wrap text with double asterisks*
 
-```
+```md
 _underline_
 ```
 _Wrap text with underscores_
 
-```
+```md
 ~strikethrough~
 ```
 ~Wrap text with tildes~
 
-```
+```md
 ^superscript^
 ```
-^Wrap text with carets^
+You can^Wrap text with carets^ to make it ^superscript!^
 
+```md
+==highlight==
 ```
+==Wrap text with double equals==
+
+```md
 `inline code`
 ```
 `Wrap text with backticks`
 
 ## Headings
 
-```
+```md
 # Heading 1
 ```
 
 # Large heading
 
-```
+```md
 ## Heading 2
 ```
 
 ## Medium heading
 
-```
+```md
 ### Heading 3
 ```
 
 ### Small heading
 
-```
+```md
 #### Heading 4
 ```
 
@@ -64,7 +69,7 @@ _Wrap text with underscores_
 
 ## Blockquotes
 
-```
+```md
 > This is a quoted text
 ```
 
@@ -74,7 +79,7 @@ _Wrap text with underscores_
 
 **Reference footnotes** - mark position with `[^1]` and define at bottom:
 
-```
+```md
 This has a footnote[^1] and another[^2].
 
 [^1]: First footnote definition.
@@ -83,7 +88,7 @@ This has a footnote[^1] and another[^2].
 
 **Inline footnotes** - define directly in text:
 
-```
+```md
 This has an inline footnote^[The footnote text goes here].
 ```
 
@@ -91,12 +96,12 @@ Like the markup you see in someone else's page? Append ".md" to the end of their
 
 ## Links
 
-```
+```md
 [link text](https://example.com)
 ```
 Link with custom text
 
-```
+```md
 [https://example.com]
 ```
 Link showing the URL
@@ -108,12 +113,12 @@ Link showing the URL
 Paste image or video URLs directly and they'll be embedded automatically:
 - Images: .jpg, .jpeg, .png, .gif, .webp
 
-```
+```md
 ![Alt text](https://example.com/image.jpg)
 ```
 Image with alt text
 
-```
+```md
 ![](https://example.com/image.png)
 ```
 Image without alt text
@@ -130,7 +135,7 @@ You can still paste image or video URLs directly and they'll be embedded automat
 
 ## Tables
 
-```
+```md
 | Column 1 | Column 2 | Column 3 |
 |----------|----------|----------|
 | Cell 1   | Cell 2   | Cell 3   |
@@ -146,7 +151,7 @@ Align columns with colons in separator row:
 
 Use triple backticks for code blocks:
 
-````
+````md
 ```language
 your code here
 ```
@@ -154,7 +159,7 @@ your code here
 
 You can append a filetype immediately after the backticks (on the same line, no space) to tell the site what language you're using. Hover over the copy button to reveal it.
 
-````
+````md
 ```json
 {
   "name": "nonograph",
@@ -173,7 +178,7 @@ ada, apache, apex, arduino/ino, asm/assembly, asciidoc/adoc, awk, bash/sh/shell,
 
 ## Comments
 
-```
+```md
 // This is a comment
 ```
 Comments start with `// ` at the beginning of a line. They appear in the .md version but are hidden from the HTML output. Anyone can append `.md` to any URL and see the comments, so don't leave sensitive things there!
@@ -181,7 +186,7 @@ Comments start with `// ` at the beginning of a line. They appear in the .md ver
 
 ## Secret Text
 
-```
+```md
 #hidden message#
 ```
 Click to reveal #hidden text# which can be in-line or on its own line. These are also commonly known as #spoilers#.
