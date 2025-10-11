@@ -1,8 +1,10 @@
-# Nonograph
+<h1 align="center">Nonograph</h1>
 
-**Anonymous publishing for the privacy-conscious web.**
+<p align="center"><b>Anonymous publishing for the privacy-conscious web.</b></p>
 
 Nonograph is a self-hosted anonymous publishing platform. No accounts, no tracking, no data collection. Write anonymously, publish instantly, read privately.
+
+https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
 ## One-Command Deploy
 
