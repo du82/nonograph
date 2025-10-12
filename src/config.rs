@@ -49,7 +49,7 @@ impl Default for Config {
             limits: Limits {
                 title_max_length: 128,
                 alias_max_length: 32,
-                content_max_length: 32000,
+                content_max_length: 128000,
                 form_data_limit_kb: 512,
             },
             server: Server {
