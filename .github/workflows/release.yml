@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary-suffix: ""
+            archive-suffix: ""
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary-suffix: ""
+            archive-suffix: ""
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary-suffix: ""
+            archive-suffix: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary-suffix: ".exe"
+            archive-suffix: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Get OS info (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "OS_VERSION=$(uname -a)" >> $GITHUB_ENV
+          echo "KERNEL_VERSION=$(uname -r)" >> $GITHUB_ENV
+
+      - name: Get OS info (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $osInfo = Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, TotalPhysicalMemory
+          $osVersion = "$($osInfo.WindowsProductName) $($osInfo.WindowsVersion)"
+          echo "OS_VERSION=$osVersion" >> $env:GITHUB_ENV
+
+      - name: Create build info file
+        run: |
+          echo "Build Information for nonograph ${{ github.ref_name }}" > build-info-${{ matrix.target }}.txt
+          echo "=================================================" >> build-info-${{ matrix.target }}.txt
+          echo "Target: ${{ matrix.target }}" >> build-info-${{ matrix.target }}.txt
+          echo "OS: ${{ matrix.os }}" >> build-info-${{ matrix.target }}.txt
+          echo "OS Version: ${{ env.OS_VERSION }}" >> build-info-${{ matrix.target }}.txt
+          echo "Rust Version: $(rustc --version)" >> build-info-${{ matrix.target }}.txt
+          echo "Cargo Version: $(cargo --version)" >> build-info-${{ matrix.target }}.txt
+          echo "Build Date: $(date)" >> build-info-${{ matrix.target }}.txt
+          echo "Release Tag: ${{ github.ref_name }}" >> build-info-${{ matrix.target }}.txt
+          echo "Commit SHA: ${{ github.sha }}" >> build-info-${{ matrix.target }}.txt
+
+      - name: Rename binary for release
+        run: |
+          cp target/${{ matrix.target }}/release/nonograph${{ matrix.binary-suffix }} nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.binary-suffix }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.binary-suffix }}
+          asset_name: nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.binary-suffix }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload build info
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./build-info-${{ matrix.target }}.txt
+          asset_name: build-info-${{ matrix.target }}.txt
+          asset_content_type: text/plain
+
+  create-combined-build-info:
+    name: Create Combined Build Info
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all build info artifacts
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+
+      - name: Create combined build info
+        run: |
+          echo "Combined Build Information for nonograph ${{ github.ref_name }}" > combined-build-info.txt
+          echo "===============================================================" >> combined-build-info.txt
+          echo "Release Date: $(date)" >> combined-build-info.txt
+          echo "Release Tag: ${{ github.ref_name }}" >> combined-build-info.txt
+          echo "Commit SHA: ${{ github.sha }}" >> combined-build-info.txt
+          echo "" >> combined-build-info.txt
+          echo "Supported Platforms:" >> combined-build-info.txt
+          echo "- Linux x86_64 (Ubuntu Latest)" >> combined-build-info.txt
+          echo "- macOS x86_64 (Intel)" >> combined-build-info.txt
+          echo "- macOS aarch64 (Apple Silicon)" >> combined-build-info.txt
+          echo "- Windows x86_64" >> combined-build-info.txt
+          echo "" >> combined-build-info.txt
+          echo "Build Environment Details:" >> combined-build-info.txt
+          echo "- Rust toolchain: stable" >> combined-build-info.txt
+          echo "- GitHub Actions runners used:" >> combined-build-info.txt
+          echo "  * ubuntu-latest" >> combined-build-info.txt
+          echo "  * macos-latest" >> combined-build-info.txt
+          echo "  * windows-latest" >> combined-build-info.txt
+
+      - name: Upload combined build info
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./combined-build-info.txt
+          asset_name: combined-build-info.txt
+          asset_content_type: text/plain
