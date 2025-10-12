@@ -84,7 +84,7 @@ jobs:
           cp target/${{ matrix.target }}/release/nonograph${{ matrix.binary-suffix }} release/nonograph${{ matrix.binary-suffix }}
           cp README.md LICENSE Config.toml release/
           cp -r content templates release/
-          cp nonograph.sh status.sh release/
+          cp run status.sh release/
           cp build-info-${{ matrix.target }}.txt release/
           cd release
           tar -czf ../nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.archive-suffix }} .
