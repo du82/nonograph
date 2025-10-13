@@ -188,6 +188,29 @@ fn sanitize_html(html: String) -> String {
     builder.clean(&html).to_string()
 }
 
+pub fn sanitize_text(text: &str) -> String {
+    let builder = ammonia::Builder::empty();
+    let sanitized = builder.clean(text).to_string();
+    if sanitized.chars().count() > 15 {
+        sanitized.chars().take(15).collect()
+    } else {
+        sanitized
+    }
+}
+
+fn sanitize_language(lang: &str) -> String {
+    let sanitized = lang
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || *c == '+' || *c == '#')
+        .collect::<String>()
+        .to_lowercase();
+    if sanitized.chars().count() > 15 {
+        sanitized.chars().take(15).collect()
+    } else {
+        sanitized
+    }
+}
+
 fn process_single_header(text: &str) -> Option<String> {
     let trimmed = text.trim();
     if trimmed.starts_with("#### ") {
@@ -243,7 +266,7 @@ fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
         if line.starts_with("```") {
             // Count the fence length
             let fence_length = line.chars().take_while(|&c| c == '`').count();
-            let language = line[fence_length..].trim().to_string();
+            let language = sanitize_language(line[fence_length..].trim());
             let mut code_content = String::new();
             let mut found_end = false;
 
@@ -1238,6 +1261,115 @@ mod tests {
         assert!(!complex_result.contains("<a href"));
         assert!(!complex_result.contains("<del>"));
         assert!(!complex_result.contains("<sup>"));
+    }
+
+    #[test]
+    fn test_sanitize_text() {
+        let malicious_text = "<script>alert('xss')</script>Hello World";
+        let sanitized = sanitize_text(&malicious_text);
+        assert_eq!(sanitized, "Hello World");
+
+        let various_tags = "<b>Bold</b><i>Italic</i><script>alert('xss')</script>Clean Text";
+        let sanitized_tags = sanitize_text(&various_tags);
+        assert_eq!(sanitized_tags, "BoldItalicClean");
+
+        let clean_text = "Just normal text";
+        let sanitized_clean = sanitize_text(&clean_text);
+        assert_eq!(sanitized_clean, "Just normal tex");
+
+        // Test truncation
+        let long_text = "This is a very long text that should be truncated";
+        let truncated = sanitize_text(&long_text);
+        assert_eq!(truncated, "This is a very ");
+        assert_eq!(truncated.chars().count(), 15);
+    }
+
+    #[test]
+    fn test_sanitize_language() {
+        assert_eq!(sanitize_language("javascript"), "javascript");
+        assert_eq!(sanitize_language("c++"), "c++");
+        assert_eq!(sanitize_language("c#"), "c#");
+        assert_eq!(sanitize_language("f#"), "f#");
+        assert_eq!(sanitize_language("objective-c"), "objective-c");
+        assert_eq!(sanitize_language("emacs-lisp"), "emacs-lisp");
+
+        assert_eq!(
+            sanitize_language("<script>alert('xss')</script>"),
+            "scriptalertxsss"
+        );
+        assert_eq!(sanitize_language("python; rm -rf /"), "pythonrm-rf");
+        assert_eq!(
+            sanitize_language("js</style><script>evil()</script>"),
+            "jsstylescriptev"
+        );
+        assert_eq!(
+            sanitize_language("bash && curl evil.com"),
+            "bashcurlevilcom"
+        );
+        assert_eq!(sanitize_language("JAVASCRIPT"), "javascript");
+
+        assert_eq!(sanitize_language(""), "");
+        assert_eq!(sanitize_language("   python   "), "python");
+        assert_eq!(sanitize_language("python3.9"), "python39");
+
+        // Test truncation
+        assert_eq!(
+            sanitize_language("verylonglanguagename12345"),
+            "verylonglanguag"
+        );
+        assert_eq!(
+            sanitize_language("superlonglanguagename"),
+            "superlonglangua"
+        );
+    }
+
+    #[test]
+    fn test_malicious_language_code_blocks() {
+        let malicious_code = r#"```<script>alert('xss')</script>
+console.log('test');
+```"#;
+        let result = render_markdown(malicious_code);
+        assert!(result.contains("<pre><code class=\"language-scriptalertxsss\">"));
+        assert!(result.contains("console.log('test');"));
+        assert!(!result.contains("<script>"));
+
+        let injection_code = r#"```python; rm -rf /
+print("hello")
+```"#;
+        let result2 = render_markdown(injection_code);
+        assert!(result2.contains("<pre><code class=\"language-pythonrm-rf\">"));
+        assert!(result2.contains("print(\"hello\")"));
+        assert!(!result2.contains("rm -rf"));
+
+        let html_injection = r#"```js</style><script>evil()</script>
+var x = 1;
+```"#;
+        let result3 = render_markdown(html_injection);
+        assert!(result3.contains("<pre><code class=\"language-jsstylescriptev\">"));
+        assert!(result3.contains("var x = 1;"));
+        assert!(!result3.contains("</style>"));
+        assert!(!result3.contains("<script>evil()"));
+    }
+
+    #[test]
+    fn test_legitimate_special_character_languages() {
+        let valid_langs = [
+            ("c++", "cpp"),
+            ("c#", "csharp"),
+            ("f#", "fsharp"),
+            ("objective-c", "objective-c"),
+            ("emacs-lisp", "emacs-lisp"),
+        ];
+
+        for (input, mapped_output) in valid_langs {
+            let sanitized = sanitize_language(input);
+            assert!(!sanitized.contains("<"));
+            assert!(!sanitized.contains(">"));
+
+            let code = format!("```{}\ntest code\n```", input);
+            let result = render_markdown(&code);
+            assert!(result.contains(&format!("class=\"language-{}\"", mapped_output)));
+        }
     }
 
     #[test]

