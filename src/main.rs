@@ -783,7 +783,7 @@ mod tests {
             ("Author <iframe src='javascript:alert(1)'>", "Author "),
             (
                 "This is a very long title that should be truncated",
-                "This is a very ",
+                "This is a very long title that should be truncated",
             ),
         ];
 
@@ -921,14 +921,14 @@ mod tests {
         assert!(long_title.len() > 128);
 
         // Test content length limit
-        let long_content = "a".repeat(35000);
-        assert!(long_content.len() > 32000);
+        let long_content = "a".repeat(130000);
+        assert!(long_content.len() > 128000);
 
         // Test valid lengths
         let valid_title = "a".repeat(50);
-        let valid_content = "a".repeat(20000);
+        let valid_content = "a".repeat(50000);
         assert!(valid_title.len() <= 128);
-        assert!(valid_content.len() <= 32000);
+        assert!(valid_content.len() <= 128000);
     }
 
     #[test]

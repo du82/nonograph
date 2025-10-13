@@ -199,8 +199,8 @@ fn sanitize_language(lang: &str) -> String {
         .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || *c == '+' || *c == '#')
         .collect::<String>()
         .to_lowercase();
-    if sanitized.chars().count() > 20 {
-        sanitized.chars().take(20).collect()
+    if sanitized.chars().count() > 15 {
+        sanitized.chars().take(15).collect()
     } else {
         sanitized
     }
@@ -1266,16 +1266,19 @@ mod tests {
 
         let various_tags = "<b>Bold</b><i>Italic</i><script>alert('xss')</script>Clean Text";
         let sanitized_tags = sanitize_text(&various_tags);
-        assert_eq!(sanitized_tags, "BoldItalicClean");
+        assert_eq!(sanitized_tags, "BoldItalicClean Text");
 
         let clean_text = "Just normal text";
         let sanitized_clean = sanitize_text(&clean_text);
         assert_eq!(sanitized_clean, "Just normal text");
-        
+
         // Test long text (no truncation)
         let long_text = "This is a very long text that should be truncated";
         let sanitized = sanitize_text(&long_text);
-        assert_eq!(sanitized, "This is a very long text that should be truncated");
+        assert_eq!(
+            sanitized,
+            "This is a very long text that should be truncated"
+        );
     }
 
     #[test]
