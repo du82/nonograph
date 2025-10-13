@@ -190,12 +190,7 @@ fn sanitize_html(html: String) -> String {
 
 pub fn sanitize_text(text: &str) -> String {
     let builder = ammonia::Builder::empty();
-    let sanitized = builder.clean(text).to_string();
-    if sanitized.chars().count() > 15 {
-        sanitized.chars().take(15).collect()
-    } else {
-        sanitized
-    }
+    builder.clean(text).to_string()
 }
 
 fn sanitize_language(lang: &str) -> String {
@@ -204,8 +199,8 @@ fn sanitize_language(lang: &str) -> String {
         .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_' || *c == '+' || *c == '#')
         .collect::<String>()
         .to_lowercase();
-    if sanitized.chars().count() > 15 {
-        sanitized.chars().take(15).collect()
+    if sanitized.chars().count() > 20 {
+        sanitized.chars().take(20).collect()
     } else {
         sanitized
     }
