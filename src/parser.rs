@@ -44,7 +44,7 @@ fn process_images_with_config(text: &str, config: &crate::config::Config) -> Str
     let mut i = 0;
 
     while i < chars.len() {
-        if i < chars.len() - 1 && chars[i] == '!' && chars[i + 1] == '[' {
+        if chars.len() >= 2 && i < chars.len() - 1 && chars[i] == '!' && chars[i + 1] == '[' {
             // Find closing bracket
             let mut bracket_end = None;
             let mut j = i + 2;
@@ -791,7 +791,7 @@ fn process_footnotes(content: &str) -> String {
 
     // Second pass: process footnote references and inline footnotes
     while i < chars.len() {
-        if i < chars.len() - 2 && chars[i] == '^' && chars[i + 1] == '[' {
+        if chars.len() >= 3 && i < chars.len() - 2 && chars[i] == '^' && chars[i + 1] == '[' {
             // Inline footnote: ^[text]
             let mut bracket_end = None;
             let mut j = i + 2;
@@ -823,7 +823,8 @@ fn process_footnotes(content: &str) -> String {
                 i = end_pos + 1;
                 continue;
             }
-        } else if i < chars.len() - 3 && chars[i] == '[' && chars[i + 1] == '^' {
+        } else if chars.len() >= 4 && i < chars.len() - 3 && chars[i] == '[' && chars[i + 1] == '^'
+        {
             // Reference footnote: [^id]
             let mut bracket_end = None;
             let mut j = i + 2;

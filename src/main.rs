@@ -183,7 +183,7 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
         .to_lowercase()
         .chars()
         .filter_map(|c| {
-            if c.is_ascii_alphanumeric() {
+            if c.is_alphanumeric() {
                 Some(c)
             } else if c.is_whitespace() || c == '-' || c == '_' {
                 Some('-')
@@ -198,7 +198,25 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
         .join("-");
 
     if title_slug.is_empty() {
-        return Err("Title must contain at least one alphanumeric character".to_string());
+        // Fallback for emojis and non-ascii
+        let fallback_slug = format!("post-{}", now.timestamp_millis() % 1000000);
+        let posts = storage.lock().unwrap();
+
+        for i in 0..1000 {
+            let post_id = if i == 0 {
+                format!("{}-{}", fallback_slug, date_str)
+            } else {
+                format!("{}-{}-{}", fallback_slug, date_str, i)
+            };
+
+            if !posts.contains_key(&post_id) {
+                return Ok(post_id);
+            }
+        }
+
+        return Err(
+            "All slots for this title and date are taken. Please choose another title.".to_string(),
+        );
     }
 
     let posts = storage.lock().unwrap();
@@ -376,8 +394,9 @@ fn view_post(
                 context.insert("url".to_string(), format!("/{}", actual_post_id));
 
                 // Create description from first 160 chars of raw content
-                let description = if post.raw_content.len() > 160 {
-                    format!("{}...", &post.raw_content[..160])
+                let description = if post.raw_content.chars().count() > 160 {
+                    let truncated: String = post.raw_content.chars().take(160).collect();
+                    format!("{}...", truncated)
                 } else {
                     post.raw_content.clone()
                 };
@@ -774,6 +793,165 @@ mod tests {
     }
 
     #[test]
+    fn test_emoji_handling() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+
+        let emoji_title = "🍆 Test Post with Emojis 🎉";
+        let emoji_content = "🌟 ".repeat(80) + "This is content with lots of emojis! 🎯🔥💯";
+
+        let post_id = generate_post_id(emoji_title, &storage).unwrap();
+        assert!(!post_id.is_empty());
+
+        let post = Post {
+            id: post_id.clone(),
+            title: emoji_title.to_string(),
+            author: "🍆".to_string(),
+            content: parser::render_markdown(&emoji_content),
+            raw_content: emoji_content.clone(),
+            created_at: Utc::now(),
+        };
+
+        let description = if post.raw_content.chars().count() > 160 {
+            let truncated: String = post.raw_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            post.raw_content.clone()
+        };
+
+        assert!(description.len() <= emoji_content.len());
+        assert!(!description.is_empty());
+
+        let char_count = description.chars().count();
+        if emoji_content.chars().count() > 160 {
+            assert!(char_count <= 163);
+        }
+    }
+
+    #[test]
+    fn test_emoji_parsing_edge_cases() {
+        let _result = parser::render_markdown(emoji_content);
+
+        let empty_content = "";
+        let _empty_result = parser::render_markdown(empty_content);
+
+        let single_char = "A";
+        let single_result = parser::render_markdown(single_char);
+        assert!(single_result.contains("A"));
+
+        let boundary_content = "AB";
+        let boundary_result = parser::render_markdown(boundary_content);
+        assert!(boundary_result.contains("AB"));
+
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+        let emoji_title = "🎯";
+        let result = generate_post_id(emoji_title, &storage);
+        assert!(result.is_ok());
+
+        let mixed_title = "Hello 🎯 World";
+        let mixed_result = generate_post_id(mixed_title, &storage);
+        assert!(mixed_result.is_ok());
+    }
+
+    #[test]
+    fn test_truncation_with_200_characters() {
+        let emoji_content = "🎯".repeat(200);
+        assert_eq!(emoji_content.chars().count(), 200);
+
+        let description = if emoji_content.chars().count() > 160 {
+            let truncated: String = emoji_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            emoji_content.clone()
+        };
+
+        assert_eq!(description.chars().count(), 163);
+        assert!(description.ends_with("..."));
+        assert!(description.starts_with("🎯"));
+
+        let random_content =
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".repeat(4);
+        let random_content = &random_content[..200];
+        assert_eq!(random_content.chars().count(), 200);
+
+        let description2 = if random_content.chars().count() > 160 {
+            let truncated: String = random_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            random_content.to_string()
+        };
+
+        assert_eq!(description2.chars().count(), 163);
+        assert!(description2.ends_with("..."));
+
+        let short_content = "🌟".repeat(50);
+        assert_eq!(short_content.chars().count(), 50);
+
+        let description3 = if short_content.chars().count() > 160 {
+            let truncated: String = short_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            short_content.clone()
+        };
+
+        assert_eq!(description3.chars().count(), 50);
+        assert!(!description3.ends_with("..."));
+    }
+
+    #[test]
+    fn test_opengraph_description_integration() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+
+        let long_emoji_content = "🚀🎉🌟💯".repeat(50);
+        let emoji_title = "Emoji Test Post";
+
+        let post_id = generate_post_id(emoji_title, &storage).unwrap();
+        let post = Post {
+            id: post_id.clone(),
+            title: emoji_title.to_string(),
+            author: "test".to_string(),
+            content: parser::render_markdown(&long_emoji_content),
+            raw_content: long_emoji_content.clone(),
+            created_at: Utc::now(),
+        };
+
+        let description = if post.raw_content.chars().count() > 160 {
+            let truncated: String = post.raw_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            post.raw_content.clone()
+        };
+
+        assert_eq!(description.chars().count(), 163);
+        assert!(description.starts_with("🚀🎉🌟💯"));
+        assert!(description.ends_with("..."));
+
+        let long_ascii_content =
+            "This is a very long post content that should be truncated. ".repeat(10);
+        let ascii_title = "Long ASCII Test";
+
+        let post_id2 = generate_post_id(ascii_title, &storage).unwrap();
+        let post2 = Post {
+            id: post_id2.clone(),
+            title: ascii_title.to_string(),
+            author: "test".to_string(),
+            content: parser::render_markdown(&long_ascii_content),
+            raw_content: long_ascii_content.clone(),
+            created_at: Utc::now(),
+        };
+
+        let description2 = if post2.raw_content.chars().count() > 160 {
+            let truncated: String = post2.raw_content.chars().take(160).collect();
+            format!("{}...", truncated)
+        } else {
+            post2.raw_content.clone()
+        };
+
+        assert_eq!(description2.chars().count(), 163);
+        assert!(description2.starts_with("This is a very long"));
+        assert!(description2.ends_with("..."));
+    }
+
+    #[test]
     fn test_template_context_building() {
         let mut context = HashMap::new();
         context.insert("title".to_string(), "Test Title".to_string());
@@ -840,10 +1018,9 @@ mod tests {
         assert!(id.is_ok());
         assert!(id.unwrap().starts_with("a-"));
 
-        // Test titles with only special characters (should fail)
         let special_only = "!@#$%^&*()";
         let result = generate_post_id(special_only, &storage);
-        assert!(result.is_err());
+        assert!(result.is_ok());
 
         // Test numeric titles
         let numeric = "12345";
