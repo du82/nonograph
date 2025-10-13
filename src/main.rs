@@ -829,6 +829,7 @@ mod tests {
 
     #[test]
     fn test_emoji_parsing_edge_cases() {
+        let emoji_content = "🎯";
         let _result = parser::render_markdown(emoji_content);
 
         let empty_content = "";
