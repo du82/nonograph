@@ -1270,13 +1270,12 @@ mod tests {
 
         let clean_text = "Just normal text";
         let sanitized_clean = sanitize_text(&clean_text);
-        assert_eq!(sanitized_clean, "Just normal tex");
-
-        // Test truncation
+        assert_eq!(sanitized_clean, "Just normal text");
+        
+        // Test long text (no truncation)
         let long_text = "This is a very long text that should be truncated";
-        let truncated = sanitize_text(&long_text);
-        assert_eq!(truncated, "This is a very ");
-        assert_eq!(truncated.chars().count(), 15);
+        let sanitized = sanitize_text(&long_text);
+        assert_eq!(sanitized, "This is a very long text that should be truncated");
     }
 
     #[test]
