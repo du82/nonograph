@@ -2,7 +2,9 @@ October 5, 2025
 
 # Markup Help
 
-Nonograph supports a limited set of markdown formatting to keep things simple and clean.
+Nonograph supports a lot of concise markup options to make pages fun and expressive.
+
+You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!
 
 ## Text Formatting
 
@@ -110,28 +112,39 @@ Link showing the URL
 
 ### Images
 
-Paste image or video URLs directly and they'll be embedded automatically:
-- Images: .jpg, .jpeg, .png, .gif, .webp
-
 ```md
 ![Alt text](https://example.com/image.jpg)
 ```
-Image with alt text
+
+When you include alt text, it becomes a caption below the image.
 
 ```md
 ![](https://example.com/image.png)
 ```
-Image without alt text
+
+Images without alt text display with no caption.
+
+Supported formats: .jpg, .jpeg, .png, .gif, .webp
 
 ### Videos
 
-Paste video URLs directly and they'll be embedded automatically:
-- Videos: .mp4, .webm, .ogg
+Videos use the same syntax as images:
 
-### Legacy Media Embedding
+```md
+![Video caption](https://example.com/video.mp4)
+```
+![Video caption](https://example.com/video.mp4)
 
-You can still paste image or video URLs directly and they'll be embedded automatically:
-- Images: .jpg, .jpeg, .png, .gif, .webp
+When you include alt text, it becomes a centered caption below the video.
+
+```md
+![](https://example.com/video.webm)
+```
+![](https://example.com/video.webm)
+
+Videos without alt text display with no caption.
+
+Supported formats: .mp4, .webm, .ogg, .mov, .avi, .mkv
 
 ## Tables
 
