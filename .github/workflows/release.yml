@@ -104,13 +104,13 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir release
-          cp target/${{ matrix.target }}/release/nonograph${{ matrix.binary-suffix }} release/nonograph${{ matrix.binary-suffix }}
-          cp README.md LICENSE Config.toml release/
-          cp -r content templates release/
-          cp build-info-${{ matrix.target }}.txt release/
+          Copy-Item "target\${{ matrix.target }}\release\nonograph${{ matrix.binary-suffix }}" "release\nonograph${{ matrix.binary-suffix }}"
+          Copy-Item README.md, LICENSE, Config.toml -Destination release
+          Copy-Item content, templates -Destination release -Recurse
+          Copy-Item build-info-${{ matrix.target }}.txt -Destination release
           cd release
           Compress-Archive -Path * -DestinationPath ../nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.archive-suffix }}
-
+    
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -126,7 +126,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download all build info artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         continue-on-error: true
 
       - name: Create combined build info
