@@ -1,16 +1,13 @@
 October 05, 2025
 
 # API Documentation
-
 Nonograph provides a simple HTTP API for programmatically publishing articles.
 
 ## Publishing a Post
-
-**Endpoint:** `POST /create`  
+**Endpoint:** `POST /create`
 **Content-Type:** `application/x-www-form-urlencoded`
 
 ### Parameters
-
 | Field | Type | Required | Max Length | Description |
 |-------|------|----------|------------|-------------|
 | `title` | string | Yes | 128 chars | Article title |
@@ -18,7 +15,6 @@ Nonograph provides a simple HTTP API for programmatically publishing articles.
 | `alias` | string | No | 32 chars | Alias name (optional) |
 
 ### Example Request
-
 ```bash
 curl -X POST http://localhost:8000/create \
   -H "Content-Type: application/x-www-form-urlencoded" \
@@ -44,14 +40,12 @@ def hello_world():
 ```
 
 ### Successful Response
-
-**Status:** `302 Found`  
+**Status:** `302 Found`
 **Location:** `/{post-id}`
 
 The API redirects to the published article URL. Extract the post ID from the Location header.
 
 ### Error Responses
-
 **Status:** `302 Found` (redirect to home with error parameter)
 
 | Error Parameter | Description |
@@ -64,17 +58,14 @@ The API redirects to the published article URL. Extract the post ID from the Loc
 | `?error=no_available_slots` | No available post ID slots (rare) |
 
 ## Post URLs
-
 Published posts are accessible at: `/{post-id}`
 
 Post IDs are generated from the title and date: `title-slug-mm-dd-yyyy`
 
 ## Raw Markdown Access
-
 Access the original markdown by appending `.md`: `/{post-id}.md`
 
 ## Supported Content
-
 All standard Nonograph markdown features are supported:
 
 - **Text formatting:** bold, italic, underline, strikethrough, superscript
@@ -85,11 +76,9 @@ All standard Nonograph markdown features are supported:
 - **Secret text:** `#hidden text#` - click to reveal
 
 ## Rate Limiting
-
 No rate limiting is currently implemented. Please use responsibly.
 
 ## Examples
-
 ### Python
 
 ```python
@@ -119,7 +108,6 @@ if response.status_code == 200:
 ```
 
 ### JavaScript (Node.js)
-
 ```javascript
 const axios = require('axios');
 
@@ -146,7 +134,6 @@ axios.post('http://localhost:8000/create', data)
 ```
 
 ### Shell Script
-
 ```bash
 #!/bin/bash
 
@@ -178,7 +165,6 @@ curl -X POST http://localhost:8000/create \
 ```
 
 ## Notes
-
 - Posts are stored as markdown files and cached in memory
 - No authentication required - posts are public once published
 - Content is sanitized for security but preserves intended formatting

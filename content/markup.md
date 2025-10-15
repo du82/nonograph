@@ -1,13 +1,11 @@
 October 5, 2025
 
 # Markup Help
-
 Nonograph supports a lot of concise markup options to make pages fun and expressive.
 
 You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!
 
 ## Text Formatting
-
 ```md
 **bold**
 ```
@@ -44,7 +42,6 @@ You can^Wrap text with carets^ to make it ^superscript!^
 `Wrap text with backticks`
 
 ## Headings
-
 ```md
 # Heading 1
 ```
@@ -70,7 +67,6 @@ You can^Wrap text with carets^ to make it ^superscript!^
 #### Smaller heading
 
 ## Blockquotes
-
 ```md
 > This is a quoted text
 ```
@@ -78,7 +74,6 @@ You can^Wrap text with carets^ to make it ^superscript!^
 > Creates an indented quote block
 
 ## Footnotes
-
 **Reference footnotes** - mark position with `[^1]` and define at bottom:
 
 ```md
@@ -97,7 +92,6 @@ This has an inline footnote^[The footnote text goes here].
 Like the markup you see in someone else's page? Append ".md" to the end of their URL to get the raw markdown!
 
 ## Links
-
 ```md
 [link text](https://example.com)
 ```
@@ -109,7 +103,6 @@ Link with custom text
 Link showing the URL
 
 ## Media
-
 ### Images
 
 ```md
@@ -127,7 +120,6 @@ Images without alt text display with no caption.
 Supported formats: .jpg, .jpeg, .png, .gif, .webp
 
 ### Videos
-
 Videos use the same syntax as images:
 
 ```md
@@ -147,7 +139,6 @@ Videos without alt text display with no caption.
 Supported formats: .mp4, .webm, .ogg, .mov, .avi, .mkv
 
 ## Tables
-
 ```md
 | Column 1 | Column 2 | Column 3 |
 |----------|----------|----------|
@@ -161,7 +152,6 @@ Align columns with colons in separator row:
 - `---:` Right align
 
 ## Code Blocks
-
 Use triple backticks for code blocks:
 
 ````md
@@ -190,7 +180,6 @@ You can append a filetype immediately after the backticks (on the same line, no 
 ada, apache, apex, arduino/ino, asm/assembly, asciidoc/adoc, awk, bash/sh/shell, bibtex/bib, c, clj/clojure, cmake, cobol/cob, coffeescript/coffee, cpp/c++, cr/crystal, cs/csharp, css, d, dart, diff, dockerfile/docker, ejs, elisp/emacs-lisp, elm, erl/erlang, ex/elixir, fsharp/fs, f90/f95/fortran, go/golang, gql/graphql, groovy, handlebars/hbs, hs/haskell, html, ini, jade/pug, java, javascript/js, jl/julia, json, jsx, kt/kotlin, latex/tex, less, lisp, lua, make/makefile, markdown/md, matlab, ml/ocaml, nginx, nim, njk/nunjucks, objc/objective-c, org, pas/pascal, patch, pde/processing, perl, php, pl/prolog, plaintext/text/txt, powershell/ps1, properties, purs/purescript, py/python, r, racket/rkt, re/reason/reasonml, rmarkdown/rmd, rs/rust, rst/restructuredtext, ruby/rb, sass, scad/openscad, scala, scm/scheme, scss, sed, smalltalk/st, sol/solidity, sql, st/smalltalk, svelte, swift, tcl, textile, toml, tsx, typescript/ts, v/vlang, verilog, vhdl, vim/vimscript, vue, xml, yaml/yml, zig
 
 ## Comments
-
 ```md
 // This is a comment
 ```
@@ -198,25 +187,21 @@ Comments start with `// ` at the beginning of a line. They appear in the .md ver
 // You can see this only from the .md version!
 
 ## Secret Text
-
 ```md
 #hidden message#
 ```
 Click to reveal #hidden text# which can be in-line or on its own line. These are also commonly known as #spoilers#.
 
 ## Line Breaks
-
 Press Enter once for a line break
 
 Press Enter twice for a paragraph break
 
 ## Limits
-
 - Posts: 128,000 characters maximum
 - Links: 4,096 characters maximum
 - Titles: 128 characters maximum
 - Alias: 32 characters maximum
 
 ## What's NOT Supported
-
 No nested formatting. Keep it simple and focused.

@@ -530,7 +530,9 @@ fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) ->
 fn format_paragraphs(text: &str) -> String {
     let mut result = String::with_capacity(text.len() + (text.len() / 10));
 
-    let parts: Vec<&str> = text.split("\n\n").collect();
+    // Preprocess text to ensure headers are properly separated
+    let preprocessed = preprocess_headers_for_paragraphs(text);
+    let parts: Vec<&str> = preprocessed.split("\n\n").collect();
 
     for (i, part) in parts.iter().enumerate() {
         let trimmed = part.trim();
@@ -628,6 +630,39 @@ fn format_paragraphs(text: &str) -> String {
         result = result.replace("<br><table>", "<table>");
         result = result.replace("<br>\n<table>", "\n<table>");
         iterations += 1;
+    }
+
+    result
+}
+
+fn preprocess_headers_for_paragraphs(text: &str) -> String {
+    let mut result = String::new();
+    let lines: Vec<&str> = text.lines().collect();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i];
+        let trimmed = line.trim();
+
+        // Check if this line is a header
+        if trimmed.starts_with("# ")
+            || trimmed.starts_with("## ")
+            || trimmed.starts_with("### ")
+            || trimmed.starts_with("#### ")
+        {
+            // Add the header line
+            result.push_str(line);
+            result.push('\n');
+
+            // Always add an extra newline after headers to ensure proper separation
+            // This forces headers to be in their own paragraph blocks
+            result.push('\n');
+        } else {
+            result.push_str(line);
+            result.push('\n');
+        }
+
+        i += 1;
     }
 
     result
@@ -1935,6 +1970,49 @@ And a video with caption:
     }
 
     #[test]
+    fn test_header_edge_cases() {
+        // Test headers followed by other block elements
+        let edge_cases = r#"# Header Before Code
+```rust
+let x = 5;
+```
+
+## Header Before List
+- Item 1
+- Item 2
+
+### Header Before Blockquote
+> This is a quote
+
+#### Header Before Table
+| Col 1 | Col 2 |
+|-------|-------|
+| A     | B     |
+
+# Header at End"#;
+
+        let result = render_markdown(edge_cases);
+
+        // Check that headers are processed correctly
+        assert!(result.contains("<h1>Header Before Code</h1>"));
+        assert!(result.contains("<h2>Header Before List</h2>"));
+        assert!(result.contains("<h3>Header Before Blockquote</h3>"));
+        assert!(result.contains("<h4>Header Before Table</h4>"));
+        assert!(result.contains("<h1>Header at End</h1>"));
+
+        // Check that the following elements are still processed correctly
+        assert!(result.contains("<pre><code"));
+        assert!(result.contains("let x = 5;"));
+        assert!(result.contains("<blockquote"));
+        assert!(result.contains("<table"));
+
+        // Verify headers are not inside other elements
+        assert!(!result.contains("<p><h"));
+        assert!(!result.contains("<blockquote><h"));
+        assert!(!result.contains("<code><h"));
+    }
+
+    #[test]
     fn test_footnotes() {
         // Test reference footnotes
         let reference_text = "This has a footnote[^1] and another[^2].\n\n[^1]: First footnote text.\n[^2]: Second footnote text.";
@@ -2249,13 +2327,27 @@ Third paragraph with *italic* formatting."#;
 
     #[test]
     fn test_headers() {
-        let text = "# Header 1\n\n## Header 2\n\n### Header 3\n\n#### Header 4";
-        let result = render_markdown(text);
+        // Test headers with blank lines (traditional)
+        let text_with_blanks = "# Header 1\n\n## Header 2\n\n### Header 3\n\n#### Header 4";
+        let result = render_markdown(text_with_blanks);
 
         assert!(result.contains("<h1>Header 1</h1>"));
         assert!(result.contains("<h2>Header 2</h2>"));
         assert!(result.contains("<h3>Header 3</h3>"));
         assert!(result.contains("<h4>Header 4</h4>"));
+
+        // Test headers without blank lines
+        let text_without_blanks = "# Main Header\nThis paragraph follows immediately.\n\n## Sub Header\nAnother paragraph right after.";
+        let result2 = render_markdown(text_without_blanks);
+
+        assert!(result2.contains("<h1>Main Header</h1>"));
+        assert!(result2.contains("<h2>Sub Header</h2>"));
+        assert!(result2.contains("<p>This paragraph follows immediately.</p>"));
+        assert!(result2.contains("<p>Another paragraph right after.</p>"));
+
+        // Verify headers are not wrapped in paragraphs
+        assert!(!result2.contains("<p><h1>"));
+        assert!(!result2.contains("<p><h2>"));
     }
 
     #[test]
