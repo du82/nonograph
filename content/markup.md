@@ -95,12 +95,12 @@ Like the markup you see in someone else's page? Append ".md" to the end of their
 ```md
 [link text](https://example.com)
 ```
-Link with custom text
+[link text](https://example.com)
 
 ```md
 [https://example.com]
 ```
-Link showing the URL
+[https://example.com]
 
 ## Media
 ### Images
