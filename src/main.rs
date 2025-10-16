@@ -325,8 +325,8 @@ fn is_valid_csrf_token(token: &str) -> bool {
             .unwrap()
             .as_secs();
 
-        // Token is valid for 1 hour (3600 seconds)
-        current_time - timestamp < 3600
+        // Token is valid for 24 hours
+        current_time - timestamp < 86400
     } else {
         false
     }
