@@ -1,3 +1,4 @@
+use crate::parser::html_attr_escape;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -28,7 +29,12 @@ impl TemplateEngine {
         // Replace all {{variable}} patterns with values from context
         for (key, value) in context {
             let pattern = format!("{{{{{}}}}}", key);
-            result = result.replace(&pattern, value);
+            let escaped_value = if key == "content" {
+                value.clone()
+            } else {
+                html_attr_escape(value)
+            };
+            result = result.replace(&pattern, &escaped_value);
         }
 
         // Check for any remaining unreplaced variables and warn

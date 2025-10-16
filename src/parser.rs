@@ -2,6 +2,76 @@ fn process_images(text: &str) -> String {
     process_images_with_config(text, &crate::config::Config::default())
 }
 
+fn is_safe_url(url: &str) -> bool {
+    if !url.contains("://") {
+        return true;
+    }
+
+    // Block dangerous protocols
+    if url.starts_with("javascript:")
+        || url.starts_with("data:")
+        || url.starts_with("file:")
+        || url.starts_with("ftp:")
+    {
+        return false;
+    }
+
+    // Only allow http and https for absolute URLs
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return false;
+    }
+
+    // Parse URL to extract host
+    if let Some(host_start) = url.find("://").map(|i| i + 3) {
+        let remaining = &url[host_start..];
+        let host = if let Some(slash_pos) = remaining.find('/') {
+            &remaining[..slash_pos]
+        } else {
+            remaining
+        };
+
+        // Remove port if present
+        let host = if let Some(colon_pos) = host.find(':') {
+            &host[..colon_pos]
+        } else {
+            host
+        };
+
+        // Block localhost variations
+        if host == "localhost" || host == "127.0.0.1" || host.starts_with("127.") {
+            return false;
+        }
+
+        // Block private IP ranges
+        if host.starts_with("192.168.") || host.starts_with("10.") || host.starts_with("172.") {
+            // Check if it's in 172.16.0.0/12 range
+            if host.starts_with("172.") {
+                if let Some(third_octet_start) = host[4..].find('.') {
+                    if let Ok(second_octet) = host[4..4 + third_octet_start].parse::<u8>() {
+                        if second_octet >= 16 && second_octet <= 31 {
+                            return false;
+                        }
+                    }
+                }
+            } else {
+                return false;
+            }
+        }
+
+        // Block link-local addresses (169.254.0.0/16)
+        if host.starts_with("169.254.") {
+            return false;
+        }
+
+        // Block other internal addresses
+        if host == "0.0.0.0" || host.starts_with("0.") {
+            return false;
+        }
+    }
+
+    true
+}
+
 pub fn render_markdown(content: &str) -> String {
     let (protected_content, fenced_blocks) = extract_fenced_code_blocks(content);
     let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
@@ -75,6 +145,7 @@ fn process_images_with_config(text: &str, config: &crate::config::Config) -> Str
 
                         if !image_url.is_empty()
                             && image_url.len() <= config.security.max_url_length
+                            && is_safe_url(&image_url)
                         {
                             let is_video = is_video_url(&image_url);
 
@@ -256,6 +327,17 @@ fn sanitize_html(html: String) -> String {
 pub fn sanitize_text(text: &str) -> String {
     let builder = ammonia::Builder::empty();
     builder.clean(text).to_string()
+}
+
+// Thanks for the code. You know who you are.
+pub fn html_attr_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+        .replace('\n', " ") // Replace newlines with space, not entity
+        .replace('\r', "") // Remove carriage returns
 }
 
 fn sanitize_language(lang: &str) -> String {
@@ -2532,5 +2614,54 @@ Final paragraph with normal text."#;
         let bold_result = render_markdown(bold_only);
         assert!(bold_result.contains("<strong>just bold</strong>"));
         assert!(!bold_result.contains("<em>"));
+    }
+
+    #[test]
+    fn test_ssrf_protection() {
+        // Test that dangerous URLs are blocked
+        let dangerous_urls = vec![
+            "http://192.168.1.1/admin",
+            "http://10.0.0.1/config",
+            "http://localhost:8009/admin",
+            "http://127.0.0.1/secret",
+            "http://169.254.169.254/latest/meta-data/",
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "file:///etc/passwd",
+        ];
+
+        for dangerous_url in dangerous_urls {
+            let content = format!("![test]({})", dangerous_url);
+            let result = render_markdown(&content);
+
+            // Dangerous URLs should not appear in img src attributes
+            assert!(
+                !result.contains(&format!("src=\"{}\"", dangerous_url)),
+                "Dangerous URL {} was not blocked",
+                dangerous_url
+            );
+        }
+
+        // Test that safe URLs are allowed
+        let safe_urls = vec![
+            "https://example.com/image.jpg",
+            "https://cdn.example.com/photo.png",
+            "http://example.com/video.mp4",
+            "relative-image.jpg",
+            "./local/image.png",
+            "../parent/image.gif",
+        ];
+
+        for safe_url in safe_urls {
+            let content = format!("![test]({})", safe_url);
+            let result = render_markdown(&content);
+
+            // Safe URLs should appear in img src attributes
+            assert!(
+                result.contains(&format!("src=\"{}\"", safe_url)),
+                "Safe URL {} was incorrectly blocked",
+                safe_url
+            );
+        }
     }
 }
