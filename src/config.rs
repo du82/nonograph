@@ -41,6 +41,7 @@ pub struct Performance {
 pub struct Security {
     pub max_url_length: usize,
     pub external_link_security: bool,
+    pub csrf_protection_enabled: bool,
 }
 
 impl Default for Config {
@@ -67,6 +68,7 @@ impl Default for Config {
             security: Security {
                 max_url_length: 4096,
                 external_link_security: true,
+                csrf_protection_enabled: true,
             },
         }
     }
@@ -209,5 +211,18 @@ mod tests {
                 .unwrap_err(),
             "alias_too_long"
         );
+    }
+
+    #[test]
+    fn test_csrf_configuration() {
+        let default_config = Config::default();
+
+        // Default should have CSRF protection enabled
+        assert!(default_config.security.csrf_protection_enabled);
+
+        // Test that all security settings have expected defaults
+        assert_eq!(default_config.security.max_url_length, 4096);
+        assert!(default_config.security.external_link_security);
+        assert!(default_config.security.csrf_protection_enabled);
     }
 }

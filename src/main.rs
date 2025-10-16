@@ -164,6 +164,13 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
         config.limits.content_max_length.to_string(),
     );
 
+    let csrf_token = if config.security.csrf_protection_enabled {
+        generate_csrf_token_with_timestamp()
+    } else {
+        String::new()
+    };
+    context.insert("csrf_token".to_string(), csrf_token);
+
     match engine.render_with_defaults("home", &context) {
         Ok(html) => content::RawHtml(html),
         Err(e) => content::RawHtml(format!("Template error: {}", e)),
@@ -175,6 +182,7 @@ struct NewPost {
     title: String,
     content: String,
     alias: String,
+    csrf_token: String,
 }
 
 struct CsrfProtected;
@@ -183,15 +191,7 @@ struct CsrfProtected;
 impl<'r> FromRequest<'r> for CsrfProtected {
     type Error = ();
 
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        // Temporarily allow requests without CSRF header for testing
-        // TODO: Re-enable strict CSRF protection after frontend is updated
-        if let Some(csrf_header) = request.headers().get_one("X-Nonograph-Submit") {
-            if csrf_header == "true" {
-                return Outcome::Success(CsrfProtected);
-            }
-        }
-        // For now, allow all requests to pass
+    async fn from_request(_request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         Outcome::Success(CsrfProtected)
     }
 }
@@ -260,6 +260,78 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
     Err("All slots for this title and date are taken. Please choose another title.".to_string())
 }
 
+fn generate_csrf_token() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    (0..32)
+        .map(|_| format!("{:02x}", rng.gen::<u8>()))
+        .collect::<String>()
+}
+
+fn generate_csrf_token_with_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let random_part = generate_csrf_token();
+    let combined = format!("{}:{}", timestamp, random_part);
+
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    combined.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    format!("{}.{:x}", combined, hash)
+}
+
+fn is_valid_csrf_token(token: &str) -> bool {
+    if token.is_empty() {
+        return false;
+    }
+
+    // Split token into data and hash parts
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+
+    let data = parts[0];
+    let provided_hash = parts[1];
+
+    // Recreate hash from data
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    let expected_hash = format!("{:x}", hasher.finish());
+
+    // Verify hash matches
+    if provided_hash != expected_hash {
+        return false;
+    }
+
+    // Check timestamp (token expires after 1 hour)
+    let data_parts: Vec<&str> = data.split(':').collect();
+    if data_parts.len() != 2 {
+        return false;
+    }
+
+    if let Ok(timestamp) = data_parts[0].parse::<u64>() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Token is valid for 1 hour (3600 seconds)
+        current_time - timestamp < 3600
+    } else {
+        false
+    }
+}
+
 #[post("/create", data = "<form>")]
 fn create_post(
     _csrf: CsrfProtected,
@@ -268,6 +340,13 @@ fn create_post(
     file_queue: &State<FileSaveQueue>,
     config: &State<Config>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
+    if config.security.csrf_protection_enabled {
+        if !is_valid_csrf_token(&form.csrf_token) {
+            let error_url = format!("/?error=csrf_token_invalid");
+            return Ok(rocket::response::Redirect::to(error_url));
+        }
+    }
+
     let alias = if form.alias.trim().is_empty() {
         None
     } else {

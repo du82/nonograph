@@ -40,3 +40,7 @@ max_url_length = 4096
 
 # Enable/disable external link security attributes
 external_link_security = true
+
+# Enable/disable CSRF protection
+# For production deployments, this should always be 'true'
+csrf_protection_enabled = true
