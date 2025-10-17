@@ -244,6 +244,45 @@
                 font-style: italic;
                 text-align: center;
             }
+            /* Divider Styles */
+            .article-content .divider-stars {
+                text-align: center;
+                margin: 30px 0;
+                font-size: 1.5em;
+                color: #666;
+                letter-spacing: 0.2em;
+                font-weight: bold;
+            }
+            .article-content .divider-asterisk {
+                text-align: center;
+                margin: 25px 0;
+                font-size: 1.8em;
+                color: #888;
+                font-weight: normal;
+            }
+            .article-content hr.divider-thin {
+                border: none;
+                height: 1px;
+                background-color: #ddd;
+                margin: 25px 0;
+                width: 100%;
+            }
+            .article-content hr.divider-double {
+                border: none;
+                height: 3px;
+                background: linear-gradient(
+                    to bottom,
+                    #ddd 0px,
+                    #ddd 1px,
+                    transparent 1px,
+                    transparent 2px,
+                    #ddd 2px,
+                    #ddd 3px
+                );
+                margin: 30px 0;
+                width: 100%;
+            }
+
             .secret {
                 background: #000;
                 color: #000;
@@ -285,6 +324,22 @@
                 .secret {
                     padding: 6px 12px;
                     min-height: 44px;
+                }
+                /* Tablet divider styles */
+                .article-content .divider-stars {
+                    margin: 25px 0;
+                    font-size: 1.3em;
+                    text-indent: -0.15em;
+                }
+                .article-content .divider-asterisk {
+                    margin: 22px 0;
+                    font-size: 1.6em;
+                }
+                .article-content hr.divider-thin {
+                    margin: 22px 0;
+                }
+                .article-content hr.divider-double {
+                    margin: 25px 0;
                 }
             }
 
@@ -353,6 +408,23 @@
                     padding: 8px 16px;
                     min-height: 48px;
                     font-size: 16px;
+                }
+                /* Mobile divider styles */
+                .article-content .divider-stars {
+                    margin: 20px 0;
+                    font-size: 1.2em;
+                    letter-spacing: 0.15em;
+                    text-indent: -0.15em;
+                }
+                .article-content .divider-asterisk {
+                    margin: 18px 0;
+                    font-size: 1.4em;
+                }
+                .article-content hr.divider-thin {
+                    margin: 18px 0;
+                }
+                .article-content hr.divider-double {
+                    margin: 20px 0;
                 }
             }
             .article-content table {

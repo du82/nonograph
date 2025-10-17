@@ -192,6 +192,37 @@ Comments start with `// ` at the beginning of a line. They appear in the .md ver
 ```
 Click to reveal #hidden text# which can be in-line or on its own line. These are also commonly known as #spoilers#.
 
+## Dividers
+Create visual separators between content sections:
+
+```md
+***
+```
+***
+
+Creates a centered three-star divider
+
+```md
+-*-
+```
+-*-
+
+Creates a centered single-asterisk divider
+
+```md
+---
+```
+---
+
+Creates a thin horizontal line divider
+
+```md
+===
+```
+===
+
+Creates a double-line horizontal divider
+
 ## Line Breaks
 Press Enter once for a line break
 

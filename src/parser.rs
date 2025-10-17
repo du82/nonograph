@@ -99,6 +99,7 @@ pub fn render_markdown(content: &str) -> String {
     working_content = process_images(&working_content);
     working_content = process_links(&working_content);
     working_content = process_tables(&working_content);
+    working_content = process_dividers(&working_content);
     working_content = format_paragraphs(&working_content);
     working_content = restore_fenced_code_blocks(&working_content, &fenced_blocks);
     working_content = restore_code_blocks(&working_content, &code_blocks);
@@ -317,6 +318,7 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("td", &["style"])
         .add_tag_attributes("a", &["href", "target", "id", "class"])
         .add_tag_attributes("div", &["class"])
+        .add_tag_attributes("hr", &["class"])
         .add_tag_attributes("li", &["id"])
         .add_tag_attributes("sup", &["id"])
         .link_rel(Some("noopener noreferrer"));
@@ -712,6 +714,33 @@ fn format_paragraphs(text: &str) -> String {
         result = result.replace("<br><table>", "<table>");
         result = result.replace("<br>\n<table>", "\n<table>");
         iterations += 1;
+    }
+
+    result
+}
+
+fn process_dividers(content: &str) -> String {
+    let mut result = String::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed == "***" {
+            // Three stars divider - centered asterisks
+            result.push_str("<div class=\"divider-stars\">***</div>");
+        } else if trimmed == "-*-" {
+            // Single asterisk divider - centered single asterisk
+            result.push_str("<div class=\"divider-asterisk\">*</div>");
+        } else if trimmed == "---" {
+            // Horizontal thin divider
+            result.push_str("<hr class=\"divider-thin\">");
+        } else if trimmed == "===" {
+            // Horizontal double-line divider
+            result.push_str("<hr class=\"divider-double\">");
+        } else {
+            result.push_str(line);
+        }
+        result.push('\n');
     }
 
     result
@@ -2663,5 +2692,45 @@ Final paragraph with normal text."#;
                 safe_url
             );
         }
+    }
+
+    #[test]
+    fn test_dividers() {
+        // Test three stars divider
+        let stars_text = "Some text\n***\nMore text";
+        let stars_result = render_markdown(stars_text);
+        assert!(stars_result.contains("<div class=\"divider-stars\">***</div>"));
+
+        // Test single asterisk divider
+        let asterisk_text = "Some text\n-*-\nMore text";
+        let asterisk_result = render_markdown(asterisk_text);
+        assert!(asterisk_result.contains("<div class=\"divider-asterisk\">*</div>"));
+
+        // Test horizontal thin divider
+        let thin_text = "Some text\n---\nMore text";
+        let thin_result = render_markdown(thin_text);
+        assert!(thin_result.contains("<hr class=\"divider-thin\">"));
+
+        // Test horizontal double-line divider
+        let double_text = "Some text\n===\nMore text";
+        let double_result = render_markdown(double_text);
+        assert!(double_result.contains("<hr class=\"divider-double\">"));
+
+        // Test that dividers work with surrounding whitespace
+        let whitespace_text = "   ***   ";
+        let whitespace_result = render_markdown(whitespace_text);
+        assert!(whitespace_result.contains("<div class=\"divider-stars\">***</div>"));
+
+        // Test that partial matches don't trigger dividers
+        let partial_text = "This has *** in the middle of text";
+        let partial_result = render_markdown(partial_text);
+        assert!(!partial_result.contains("<div class=\"divider-stars\">***</div>"));
+
+        // Test multiple dividers
+        let multiple_text = "Text\n***\nMore text\n---\nEven more\n===\nFinal text";
+        let multiple_result = render_markdown(multiple_text);
+        assert!(multiple_result.contains("<div class=\"divider-stars\">***</div>"));
+        assert!(multiple_result.contains("<hr class=\"divider-thin\">"));
+        assert!(multiple_result.contains("<hr class=\"divider-double\">"));
     }
 }
