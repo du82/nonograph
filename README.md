@@ -98,14 +98,14 @@ After running `./run`:
 
 Runs perfectly on a Raspberry Pi or cheap VPS.
 
-## Security Features
+## Naming rationale
+`anonymous` + `monograph` + `telegraph` = `nonograph`
+* Pseudonymity is the use of a fictitious name or alias instead of a person's real name, often to protect their identity and privacy while engaging in various activities, especially online.
+* A monograph is generally a long-form work on one subject, or one aspect of a subject, typically created by a single author or artist.
+* Telegraphy is the long-distance transmission of messages where the sender uses symbolic codes, known to the recipient, rather than a physical exchange of an object bearing the message.
 
-- Content stored as plain files (no database to compromise)
-- Automatic Tor hidden service configuration
-- HTML sanitization prevents XSS attacks
-- No user-uploaded files (security by design)
-- Minimal attack surface (single Rust binary)
-- No external network calls after setup
+Therefore, a Nonograph would be:
+* Nonograph (noun): A pseudonymous or anonymous written work, typically long-form, transmitted remotely without physical exchange and designed to protect the author's identity.
 
 ---
 
