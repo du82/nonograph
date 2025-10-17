@@ -543,13 +543,18 @@
                 {
                     label: "Footnote Reference",
                     format: "[^1]",
-                    cursorOffset: -2,
+                    shortcut: "Ctrl+Shift+R",
+                    key: "r",
+                    shiftKey: true,
                     inline: true,
                 },
                 {
                     label: "Inline Footnote",
                     format: "^[]",
                     cursorOffset: -1,
+                    shortcut: "Ctrl+Shift+F",
+                    key: "f",
+                    shiftKey: true,
                     inline: true,
                 },
                 {
@@ -565,11 +570,26 @@
                     blockLevel: true,
                 },
                 {
-                    label: "Divider",
+                    label: "Thin Line Divider",
                     format: "\n---\n",
                     shortcut: "Ctrl+Shift+D",
                     key: "d",
                     shiftKey: true,
+                    blockLevel: true,
+                },
+                {
+                    label: "Double Line Divider",
+                    format: "\n===\n",
+                    blockLevel: true,
+                },
+                {
+                    label: "Single Asterisk Divider",
+                    format: "\n-*-\n",
+                    blockLevel: true,
+                },
+                {
+                    label: "Three Stars Divider",
+                    format: "\n***\n",
                     blockLevel: true,
                 },
             ];

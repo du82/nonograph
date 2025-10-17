@@ -1103,7 +1103,7 @@ fn process_footnotes(content: &str) -> String {
     for i in 1..=inline_footnote_counter {
         let placeholder = format!("XFOOTNOTEINLINEX{}XENDX", i);
         let replacement = format!(
-            "<sup><a href=\"XHASHXIFN{}\" id=\"ifn{}ref\">{}</a></sup>",
+            "<sup><a href=\"XHASHXifn{}\" id=\"ifn{}ref\">{}</a></sup>",
             i, i, i
         );
         result = result.replace(&placeholder, &replacement);
@@ -2150,8 +2150,8 @@ let x = 5;
         let inline_result = render_markdown(inline_text);
 
         // Check that inline footnotes are created
-        assert!(inline_result.contains("<sup><a href=\"#IFN1\""));
-        assert!(inline_result.contains("<sup><a href=\"#IFN2\""));
+        assert!(inline_result.contains("<sup><a href=\"#ifn1\""));
+        assert!(inline_result.contains("<sup><a href=\"#ifn2\""));
         assert!(inline_result.contains("This is inline"));
         assert!(inline_result.contains("Second inline"));
         assert!(inline_result.contains("href=\"#ifn1ref\""));
@@ -2162,7 +2162,7 @@ let x = 5;
         let mixed_result = render_markdown(mixed_text);
 
         assert!(mixed_result.contains("href=\"#FN1\""));
-        assert!(mixed_result.contains("href=\"#IFN1\""));
+        assert!(mixed_result.contains("href=\"#ifn1\""));
         assert!(mixed_result.contains("Reference text."));
         assert!(mixed_result.contains("Inline text"));
 
@@ -2204,8 +2204,8 @@ let x = 42;
         assert!(result.contains("href=\"#FN3\""));
 
         // Check that inline footnotes work
-        assert!(result.contains("href=\"#IFN1\""));
-        assert!(result.contains("href=\"#IFN2\""));
+        assert!(result.contains("href=\"#ifn1\""));
+        assert!(result.contains("href=\"#ifn2\""));
 
         // Check footnotes section exists
         assert!(result.contains("<div class=\"footnotes\">"));
