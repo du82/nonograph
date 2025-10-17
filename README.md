@@ -20,7 +20,7 @@ Nonograph is a self-hosted anonymous publishing platform. No accounts, no tracki
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
-## One-Command Deploy
+## Deploy on Tor wtih one command!
 
 ```bash
 ./run
@@ -28,6 +28,7 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
 This single command:
 - Installs all dependencies (Rust, Tor)
+- Sets up the web server and configures ports
 - Configures Tor hidden service with persistent `.onion` address
 - Builds and launches Nonograph
 - Sets up best-practice security for your new hidden service
@@ -90,10 +91,10 @@ After running `./run`:
 
 ## System Requirements
 
-- Any Debian-based Linux (Raspberry Pi OS, KDE Neon, Pop_OS, etc.)
+- Any Debian-based Linux (Raspberry Pi OS, KDE Neon, Pop_OS, etc. NOT Ubuntu)
 - 512MB RAM minimum
-- 100MB disk space
-- Internet connection for initial setup
+- 25MB disk space minimum
+- Internet connection if you wish to host on Tor
 
 Runs perfectly on a Raspberry Pi or cheap VPS.
 
