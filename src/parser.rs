@@ -725,16 +725,20 @@ fn process_dividers(content: &str) -> String {
     for line in content.lines() {
         let trimmed = line.trim();
 
-        if trimmed == "***" {
+        if trimmed == "***" && line.chars().all(|c| c == '*' || c.is_whitespace()) {
             // Three stars divider - centered asterisks
-            result.push_str("<div class=\"divider-stars\">***</div>");
-        } else if trimmed == "-*-" {
+            result.push_str("<div class=\"divider-stars\"><div class=\"asterisk\"><div class=\"center\"></div></div><div class=\"asterisk\"><div class=\"center\"></div></div><div class=\"asterisk\"><div class=\"center\"></div></div></div>");
+        } else if trimmed == "-*-"
+            && line
+                .chars()
+                .all(|c| c == '-' || c == '*' || c.is_whitespace())
+        {
             // Single asterisk divider - centered single asterisk
-            result.push_str("<div class=\"divider-asterisk\">*</div>");
-        } else if trimmed == "---" {
+            result.push_str("<div class=\"divider-asterisk\"><div class=\"center\"></div></div>");
+        } else if trimmed == "---" && line.chars().all(|c| c == '-' || c.is_whitespace()) {
             // Horizontal thin divider
             result.push_str("<hr class=\"divider-thin\">");
-        } else if trimmed == "===" {
+        } else if trimmed == "===" && line.chars().all(|c| c == '=' || c.is_whitespace()) {
             // Horizontal double-line divider
             result.push_str("<hr class=\"divider-double\">");
         } else {
@@ -2699,12 +2703,14 @@ Final paragraph with normal text."#;
         // Test three stars divider
         let stars_text = "Some text\n***\nMore text";
         let stars_result = render_markdown(stars_text);
-        assert!(stars_result.contains("<div class=\"divider-stars\">***</div>"));
+        assert!(stars_result.contains("<div class=\"divider-stars\">"));
+        assert!(stars_result.contains("<div class=\"asterisk\"><div class=\"center\"></div></div>"));
 
         // Test single asterisk divider
         let asterisk_text = "Some text\n-*-\nMore text";
         let asterisk_result = render_markdown(asterisk_text);
-        assert!(asterisk_result.contains("<div class=\"divider-asterisk\">*</div>"));
+        assert!(asterisk_result
+            .contains("<div class=\"divider-asterisk\"><div class=\"center\"></div></div>"));
 
         // Test horizontal thin divider
         let thin_text = "Some text\n---\nMore text";
@@ -2719,17 +2725,42 @@ Final paragraph with normal text."#;
         // Test that dividers work with surrounding whitespace
         let whitespace_text = "   ***   ";
         let whitespace_result = render_markdown(whitespace_text);
-        assert!(whitespace_result.contains("<div class=\"divider-stars\">***</div>"));
+        assert!(whitespace_result.contains("<div class=\"divider-stars\">"));
+        assert!(whitespace_result
+            .contains("<div class=\"asterisk\"><div class=\"center\"></div></div>"));
 
         // Test that partial matches don't trigger dividers
         let partial_text = "This has *** in the middle of text";
         let partial_result = render_markdown(partial_text);
-        assert!(!partial_result.contains("<div class=\"divider-stars\">***</div>"));
+        assert!(!partial_result.contains("<div class=\"divider-stars\">"));
+
+        // Test dividers mixed with other content on same line don't trigger
+        let mixed_content_tests = vec![
+            "Here is some *** text after",
+            "Before text --- and after",
+            "Some === content here",
+            "Text -*-  more text",
+            "# Header with *** stars",
+            "## Another --- header",
+            "**Bold *** text**",
+            "*Italic -*- text*",
+        ];
+
+        for mixed_text in mixed_content_tests {
+            let mixed_result = render_markdown(mixed_text);
+            assert!(!mixed_result.contains("<div class=\"divider-stars\">"));
+            assert!(!mixed_result.contains("<div class=\"divider-asterisk\">"));
+            assert!(!mixed_result.contains("<hr class=\"divider-thin\">"));
+            assert!(!mixed_result.contains("<hr class=\"divider-double\">"));
+        }
 
         // Test multiple dividers
         let multiple_text = "Text\n***\nMore text\n---\nEven more\n===\nFinal text";
         let multiple_result = render_markdown(multiple_text);
-        assert!(multiple_result.contains("<div class=\"divider-stars\">***</div>"));
+        assert!(multiple_result.contains("<div class=\"divider-stars\">"));
+        assert!(
+            multiple_result.contains("<div class=\"asterisk\"><div class=\"center\"></div></div>")
+        );
         assert!(multiple_result.contains("<hr class=\"divider-thin\">"));
         assert!(multiple_result.contains("<hr class=\"divider-double\">"));
     }
