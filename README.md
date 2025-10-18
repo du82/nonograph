@@ -92,7 +92,7 @@ After running `./run`:
 ## System Requirements
 
 - Any Debian-based Linux (Raspberry Pi OS, KDE Neon, Pop_OS, etc. NOT Ubuntu)
-- 512MB RAM minimum
+- 128MB RAM minimum
 - 25MB disk space minimum
 - Internet connection if you wish to host on Tor
 
