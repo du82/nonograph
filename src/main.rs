@@ -145,6 +145,76 @@ impl PostCache {
 type PostStorage = Arc<Mutex<PostCache>>;
 type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
+#[derive(Debug, Clone)]
+struct PostSummary {
+    id: String,
+    title: String,
+    author: String,
+    created_at: DateTime<Utc>,
+}
+
+fn get_recent_posts(limit: usize) -> Vec<PostSummary> {
+    use std::fs;
+
+    let content_dir = std::path::Path::new("content");
+    if !content_dir.exists() {
+        return Vec::new();
+    }
+
+    let mut posts: Vec<PostSummary> = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(content_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                // Skip static pages
+                let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+                if filename == "markup" || filename == "legal" || filename == "about" || filename == "api" {
+                    continue;
+                }
+
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let lines: Vec<&str> = content.splitn(4, '\n').collect();
+                    if lines.len() >= 3 {
+                        // Parse date and author from first line
+                        let first_line = lines[0];
+                        let (date_str, author) = if let Some(pipe_pos) = first_line.find(" | ") {
+                            (&first_line[..pipe_pos], first_line[(pipe_pos + 3)..].to_string())
+                        } else {
+                            (first_line, String::new())
+                        };
+
+                        // Parse title from third line
+                        let title = lines[2]
+                            .strip_prefix("# ")
+                            .unwrap_or("Untitled")
+                            .to_string();
+
+                        // Try to parse the date
+                        if let Ok(created_at) = chrono::NaiveDate::parse_from_str(date_str, "%B %d, %Y") {
+                            let datetime = created_at.and_hms_opt(0, 0, 0)
+                                .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                                .unwrap_or_else(Utc::now);
+
+                            posts.push(PostSummary {
+                                id: filename.to_string(),
+                                title,
+                                author,
+                                created_at: datetime,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by date, newest first
+    posts.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    posts.truncate(limit);
+    posts
+}
+
 #[get("/")]
 fn index(config: &State<Config>) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
@@ -171,6 +241,30 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
     };
     context.insert("csrf_token".to_string(), csrf_token);
 
+    // Get recent posts for homepage
+    let recent_posts = get_recent_posts(5);
+    let mut recent_posts_html = String::new();
+    if !recent_posts.is_empty() {
+        recent_posts_html.push_str("<div class=\"recent-posts\"><h2>Recent Posts</h2><ul>");
+        for post in recent_posts {
+            let author_text = if post.author.is_empty() {
+                String::new()
+            } else {
+                format!(" by {}", parser::html_attr_escape(&post.author))
+            };
+            let date_text = post.created_at.format("%B %d, %Y");
+            recent_posts_html.push_str(&format!(
+                "<li><a href=\"/{}\">{}</a>{} - {}</li>",
+                parser::html_attr_escape(&post.id),
+                parser::html_attr_escape(&post.title),
+                author_text,
+                date_text
+            ));
+        }
+        recent_posts_html.push_str("</ul></div>");
+    }
+    context.insert("recent_posts".to_string(), recent_posts_html);
+
     match engine.render_with_defaults("home", &context) {
         Ok(html) => content::RawHtml(html),
         Err(e) => content::RawHtml(format!("Template error: {}", e)),
@@ -194,6 +288,20 @@ impl<'r> FromRequest<'r> for CsrfProtected {
     async fn from_request(_request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         Outcome::Success(CsrfProtected)
     }
+}
+
+fn is_valid_post_id(id: &str) -> bool {
+    if id.is_empty() || id.len() > 256 {
+        return false;
+    }
+
+    // Only allow alphanumeric, hyphens, and underscores
+    // Block any path traversal attempts
+    if id.contains("..") || id.contains('/') || id.contains('\\') {
+        return false;
+    }
+
+    id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
 }
 
 fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String> {
@@ -268,8 +376,25 @@ fn generate_csrf_token() -> String {
         .collect::<String>()
 }
 
+fn get_csrf_secret() -> String {
+    use std::sync::OnceLock;
+    static CSRF_SECRET: OnceLock<String> = OnceLock::new();
+
+    CSRF_SECRET.get_or_init(|| {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        // Generate a 64-byte (512-bit) random secret key
+        (0..64)
+            .map(|_| format!("{:02x}", rng.gen::<u8>()))
+            .collect::<String>()
+    }).clone()
+}
+
 fn generate_csrf_token_with_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -277,16 +402,23 @@ fn generate_csrf_token_with_timestamp() -> String {
     let random_part = generate_csrf_token();
     let combined = format!("{}:{}", timestamp, random_part);
 
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    combined.hash(&mut hasher);
-    let hash = hasher.finish();
+    // Use HMAC-SHA256 for cryptographically secure token generation
+    type HmacSha256 = Hmac<Sha256>;
+    let secret_key = get_csrf_secret();
+    let mut mac = HmacSha256::new_from_slice(secret_key.as_bytes())
+        .expect("HMAC can take key of any size");
+    mac.update(combined.as_bytes());
+    let result = mac.finalize();
+    let hash_bytes = result.into_bytes();
+    let hash = hex::encode(hash_bytes);
 
-    format!("{}.{:x}", combined, hash)
+    format!("{}.{}", combined, hash)
 }
 
 fn is_valid_csrf_token(token: &str) -> bool {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
     if token.is_empty() {
         return false;
     }
@@ -300,14 +432,17 @@ fn is_valid_csrf_token(token: &str) -> bool {
     let data = parts[0];
     let provided_hash = parts[1];
 
-    // Recreate hash from data
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    data.hash(&mut hasher);
-    let expected_hash = format!("{:x}", hasher.finish());
+    // Recreate HMAC from data using the secret key
+    type HmacSha256 = Hmac<Sha256>;
+    let secret_key = get_csrf_secret();
+    let mut mac = HmacSha256::new_from_slice(secret_key.as_bytes())
+        .expect("HMAC can take key of any size");
+    mac.update(data.as_bytes());
+    let result = mac.finalize();
+    let hash_bytes = result.into_bytes();
+    let expected_hash = hex::encode(hash_bytes);
 
-    // Verify hash matches
+    // Verify hash matches using constant-time comparison
     if provided_hash != expected_hash {
         return false;
     }
@@ -403,6 +538,13 @@ fn view_post(
     } else {
         &post_id
     };
+
+    // Validate post_id to prevent path traversal attacks
+    if !is_valid_post_id(actual_post_id) {
+        return Err(rocket::response::status::NotFound(
+            "Invalid post ID".to_string(),
+        ));
+    }
 
     // Try to load from memory first with minimal lock time
     let post_from_memory = {
@@ -527,27 +669,120 @@ fn view_post(
             } else {
                 Ok(rocket::Either::Left(content::RawHtml(
                     r#"<!doctype html>
-<html>
+<html lang="en">
 <head>
     <title>404 - Post not found</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             max-width: 720px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 80px 20px;
             text-align: center;
             color: #333;
+            background: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
-        h1 { font-weight: 300; margin-bottom: 16px; }
-        a { color: #333; }
+        h1 {
+            font-size: 64px;
+            font-weight: 300;
+            margin-bottom: 8px;
+            color: #999;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 32px;
+            color: #666;
+        }
+        p {
+            margin-bottom: 16px;
+            color: #666;
+            line-height: 1.6;
+        }
+        .links {
+            display: flex;
+            gap: 24px;
+            margin-top: 32px;
+        }
+        a {
+            color: #333;
+            text-decoration: none;
+            padding: 12px 24px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        a:hover {
+            background: #f5f5f5;
+            border-color: #ccc;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1a1a1a;
+                color: #e0e0e0;
+            }
+            h1 {
+                color: #666;
+            }
+            h2 {
+                color: #999;
+            }
+            p {
+                color: #999;
+            }
+            a {
+                color: #e0e0e0;
+                border-color: #333;
+            }
+            a:hover {
+                background: #2a2a2a;
+                border-color: #444;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 60px 20px;
+            }
+            h1 {
+                font-size: 48px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+            .links {
+                flex-direction: column;
+                gap: 12px;
+                width: 100%;
+                max-width: 300px;
+            }
+            a {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>404 - Post Not Found</h1>
-    <p><a href="/">← Create New Article</a></p>
+    <h1>404</h1>
+    <h2>Post Not Found</h2>
+    <p>The post you're looking for doesn't exist or has been removed.</p>
+    <div class="links">
+        <a href="/">Create New Post</a>
+        <a href="/archive">Browse Archive</a>
+    </div>
 </body>
 </html>"#
                         .to_string(),
@@ -577,7 +812,247 @@ fn api_page() -> content::RawHtml<String> {
     serve_static_page("api")
 }
 
+#[get("/feed.xml")]
+fn rss_feed(config: &State<Config>) -> (rocket::http::ContentType, String) {
+    let posts = get_recent_posts(20); // Last 20 posts for RSS feed
+
+    let site_url = format!("http://{}:{}", config.server.address, config.server.port);
+    let mut rss = String::new();
+
+    rss.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    rss.push_str("<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n");
+    rss.push_str("<channel>\n");
+    rss.push_str("<title>Nonograph</title>\n");
+    rss.push_str(&format!("<link>{}</link>\n", parser::html_attr_escape(&site_url)));
+    rss.push_str("<description>Anonymous publishing platform</description>\n");
+    rss.push_str("<language>en</language>\n");
+    rss.push_str(&format!("<atom:link href=\"{}/feed.xml\" rel=\"self\" type=\"application/rss+xml\" />\n",
+        parser::html_attr_escape(&site_url)));
+
+    if let Some(latest_post) = posts.first() {
+        rss.push_str(&format!("<lastBuildDate>{}</lastBuildDate>\n",
+            latest_post.created_at.to_rfc2822()));
+    }
+
+    for post in posts {
+        rss.push_str("<item>\n");
+        rss.push_str(&format!("<title>{}</title>\n", parser::html_attr_escape(&post.title)));
+        rss.push_str(&format!("<link>{}/{}</link>\n",
+            parser::html_attr_escape(&site_url),
+            parser::html_attr_escape(&post.id)));
+        rss.push_str(&format!("<guid>{}/{}</guid>\n",
+            parser::html_attr_escape(&site_url),
+            parser::html_attr_escape(&post.id)));
+        rss.push_str(&format!("<pubDate>{}</pubDate>\n", post.created_at.to_rfc2822()));
+
+        if !post.author.is_empty() {
+            rss.push_str(&format!("<author>{}</author>\n",
+                parser::html_attr_escape(&post.author)));
+        }
+
+        rss.push_str("</item>\n");
+    }
+
+    rss.push_str("</channel>\n");
+    rss.push_str("</rss>");
+
+    (rocket::http::ContentType::XML, rss)
+}
+
+#[get("/search?<q>")]
+fn search_page(q: Option<String>) -> content::RawHtml<String> {
+    let query = q.unwrap_or_default();
+    let query_lower = query.to_lowercase();
+
+    let mut results: Vec<(PostSummary, usize)> = Vec::new();
+
+    if !query.trim().is_empty() && query.trim().len() >= 2 {
+        let all_posts = get_recent_posts(1000);
+
+        for post in all_posts {
+            let title_lower = post.title.to_lowercase();
+            let author_lower = post.author.to_lowercase();
+
+            let mut score = 0;
+
+            // Title matches are worth more
+            if title_lower.contains(&query_lower) {
+                score += 10;
+            }
+
+            // Author matches
+            if author_lower.contains(&query_lower) {
+                score += 5;
+            }
+
+            // Try to load content and search in it
+            if let Ok(content) = std::fs::read_to_string(format!("content/{}.md", post.id)) {
+                let content_lower = content.to_lowercase();
+                if content_lower.contains(&query_lower) {
+                    score += 1;
+                }
+            }
+
+            if score > 0 {
+                results.push((post, score));
+            }
+        }
+
+        // Sort by score (highest first), then by date (newest first)
+        results.sort_by(|a, b| {
+            b.1.cmp(&a.1).then_with(|| b.0.created_at.cmp(&a.0.created_at))
+        });
+    }
+
+    let mut html = String::new();
+    html.push_str("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" />");
+    html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />");
+    html.push_str("<title>Search - Nonograph</title>");
+    html.push_str("<style>* { margin: 0; padding: 0; box-sizing: border-box; }");
+    html.push_str("body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;");
+    html.push_str("padding: 40px; line-height: 1.6; background: #ffffff; color: #333; }");
+    html.push_str(".container { max-width: 800px; margin: 0 auto; }");
+    html.push_str("h1 { font-size: 32px; font-weight: 600; margin-bottom: 24px; }");
+    html.push_str(".search-form { margin-bottom: 32px; display: flex; gap: 8px; }");
+    html.push_str(".search-input { flex: 1; padding: 12px; font-size: 16px; border: 1px solid #e0e0e0;");
+    html.push_str("border-radius: 4px; font-family: inherit; }");
+    html.push_str(".search-button { padding: 12px 24px; background: #333; color: white; border: none;");
+    html.push_str("border-radius: 4px; cursor: pointer; font-size: 16px; }");
+    html.push_str(".search-button:hover { background: #000; }");
+    html.push_str(".search-info { color: #666; margin-bottom: 24px; font-size: 14px; }");
+    html.push_str(".results-list { list-style: none; }");
+    html.push_str(".result-item { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e0e0e0; }");
+    html.push_str(".result-item:last-child { border-bottom: none; }");
+    html.push_str(".result-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }");
+    html.push_str(".result-title a { color: #333; text-decoration: none; }");
+    html.push_str(".result-title a:hover { text-decoration: underline; }");
+    html.push_str(".result-meta { font-size: 14px; color: #666; }");
+    html.push_str(".back-link { display: inline-block; margin-bottom: 24px; color: #666; text-decoration: none; }");
+    html.push_str(".back-link:hover { color: #333; text-decoration: underline; }");
+    html.push_str("@media (prefers-color-scheme: dark) {");
+    html.push_str("body { background: #1a1a1a; color: #e0e0e0; }");
+    html.push_str("h1 { color: #e0e0e0; }");
+    html.push_str(".search-input { background: #2a2a2a; border-color: #444; color: #e0e0e0; }");
+    html.push_str(".search-button { background: #e0e0e0; color: #1a1a1a; }");
+    html.push_str(".search-button:hover { background: #fff; }");
+    html.push_str(".search-info { color: #999; }");
+    html.push_str(".result-item { border-bottom-color: #333; }");
+    html.push_str(".result-title a { color: #e0e0e0; }");
+    html.push_str(".result-meta { color: #999; }");
+    html.push_str(".back-link { color: #999; }");
+    html.push_str(".back-link:hover { color: #e0e0e0; }");
+    html.push_str("}");
+    html.push_str("@media (max-width: 768px) { body { padding: 20px; }");
+    html.push_str("h1 { font-size: 28px; } .search-form { flex-direction: column; }");
+    html.push_str(".result-title { font-size: 18px; } }</style></head><body>");
+    html.push_str("<div class=\"container\"><a href=\"/\" class=\"back-link\">← Home</a>");
+    html.push_str("<h1>Search</h1>");
+    html.push_str("<form method=\"get\" action=\"/search\" class=\"search-form\">");
+    html.push_str("<input type=\"text\" name=\"q\" placeholder=\"Search posts...\" class=\"search-input\" value=\"");
+    html.push_str(&parser::html_attr_escape(&query));
+    html.push_str("\" autofocus><button type=\"submit\" class=\"search-button\">Search</button>");
+    html.push_str("</form>");
+
+    if !query.trim().is_empty() {
+        if query.trim().len() < 2 {
+            html.push_str("<p class=\"search-info\">Search query must be at least 2 characters.</p>");
+        } else {
+            html.push_str(&format!("<p class=\"search-info\">Found {} result{} for \"{}\"</p>",
+                results.len(),
+                if results.len() == 1 { "" } else { "s" },
+                parser::html_attr_escape(&query)));
+
+            if results.is_empty() {
+                html.push_str("<p>No posts found matching your search. Try different keywords.</p>");
+            } else {
+                html.push_str("<ul class=\"results-list\">");
+                for (post, _score) in results {
+                    html.push_str("<li class=\"result-item\"><div class=\"result-title\"><a href=\"/");
+                    html.push_str(&parser::html_attr_escape(&post.id));
+                    html.push_str("\">");
+                    html.push_str(&parser::html_attr_escape(&post.title));
+                    html.push_str("</a></div><div class=\"result-meta\">");
+                    if !post.author.is_empty() {
+                        html.push_str("by ");
+                        html.push_str(&parser::html_attr_escape(&post.author));
+                        html.push_str(" - ");
+                    }
+                    html.push_str(&post.created_at.format("%B %d, %Y").to_string());
+                    html.push_str("</div></li>");
+                }
+                html.push_str("</ul>");
+            }
+        }
+    } else {
+        html.push_str("<p class=\"search-info\">Enter a search query to find posts.</p>");
+    }
+
+    html.push_str("</div></body></html>");
+    content::RawHtml(html)
+}
+
+#[get("/archive")]
+fn archive_page() -> content::RawHtml<String> {
+    let posts = get_recent_posts(1000); // Get all posts, practically unlimited
+
+    let mut posts_html = String::new();
+    posts_html.push_str("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" />");
+    posts_html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />");
+    posts_html.push_str("<title>Archive - Nonograph</title>");
+    posts_html.push_str("<style>* { margin: 0; padding: 0; box-sizing: border-box; }");
+    posts_html.push_str("body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;");
+    posts_html.push_str("padding: 40px; line-height: 1.6; background: #ffffff; color: #333; }");
+    posts_html.push_str(".container { max-width: 800px; margin: 0 auto; }");
+    posts_html.push_str("h1 { font-size: 32px; font-weight: 600; margin-bottom: 32px; }");
+    posts_html.push_str(".post-list { list-style: none; }");
+    posts_html.push_str(".post-item { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e0e0e0; }");
+    posts_html.push_str(".post-item:last-child { border-bottom: none; }");
+    posts_html.push_str(".post-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }");
+    posts_html.push_str(".post-title a { color: #333; text-decoration: none; }");
+    posts_html.push_str(".post-title a:hover { text-decoration: underline; }");
+    posts_html.push_str(".post-meta { font-size: 14px; color: #666; }");
+    posts_html.push_str(".back-link { display: inline-block; margin-bottom: 32px; color: #666; text-decoration: none; }");
+    posts_html.push_str(".back-link:hover { color: #333; text-decoration: underline; }");
+    posts_html.push_str("@media (max-width: 768px) { body { padding: 20px; }");
+    posts_html.push_str("h1 { font-size: 28px; margin-bottom: 24px; }");
+    posts_html.push_str(".post-title { font-size: 18px; } }</style></head><body>");
+    posts_html.push_str("<div class=\"container\"><a href=\"/\" class=\"back-link\">← Home</a>");
+    posts_html.push_str("<h1>Archive</h1>");
+
+    if posts.is_empty() {
+        posts_html.push_str("<p>No posts yet. Be the first to publish something!</p>");
+    } else {
+        posts_html.push_str("<ul class=\"post-list\">");
+        for post in posts {
+            posts_html.push_str("<li class=\"post-item\"><div class=\"post-title\"><a href=\"/");
+            posts_html.push_str(&parser::html_attr_escape(&post.id));
+            posts_html.push_str("\">");
+            posts_html.push_str(&parser::html_attr_escape(&post.title));
+            posts_html.push_str("</a></div><div class=\"post-meta\">");
+            if !post.author.is_empty() {
+                posts_html.push_str("by ");
+                posts_html.push_str(&parser::html_attr_escape(&post.author));
+                posts_html.push_str(" - ");
+            }
+            posts_html.push_str(&post.created_at.format("%B %d, %Y").to_string());
+            posts_html.push_str("</div></li>");
+        }
+        posts_html.push_str("</ul>");
+    }
+
+    posts_html.push_str("</div></body></html>");
+    content::RawHtml(posts_html)
+}
+
 fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
+    // Whitelist allowed static pages to prevent path traversal
+    let allowed_pages = ["markup", "legal", "about", "api"];
+    if !allowed_pages.contains(&page_name) || !is_valid_post_id(page_name) {
+        return content::RawHtml(
+            "<h1>Page Not Found</h1><p>The requested page doesn't exist.</p><p><a href=\"/\">← Home</a></p>".to_string()
+        );
+    }
+
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
@@ -668,7 +1143,10 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 markup_page,
                 legal_page,
                 about_page,
-                api_page
+                api_page,
+                archive_page,
+                search_page,
+                rss_feed
             ],
         )
 }
@@ -1458,5 +1936,72 @@ mod tests {
             assert!(result.contains(&format!("<h1>{} Page</h1>", page_name)));
             assert!(result.contains("October 5, 2025"));
         }
+    }
+
+    #[test]
+    fn test_post_id_validation_security() {
+        // Test valid post IDs
+        assert!(is_valid_post_id("hello-world-01-01-2024"));
+        assert!(is_valid_post_id("test123"));
+        assert!(is_valid_post_id("my_post"));
+        assert!(is_valid_post_id("a-b-c-123"));
+
+        // Test path traversal attempts - should be rejected
+        assert!(!is_valid_post_id("../etc/passwd"));
+        assert!(!is_valid_post_id("..\\windows\\system32"));
+        assert!(!is_valid_post_id("../../secret"));
+        assert!(!is_valid_post_id("test/../etc/passwd"));
+
+        // Test directory separators - should be rejected
+        assert!(!is_valid_post_id("foo/bar"));
+        assert!(!is_valid_post_id("foo\\bar"));
+        assert!(!is_valid_post_id("/etc/passwd"));
+        assert!(!is_valid_post_id("C:\\Windows"));
+
+        // Test empty and too long
+        assert!(!is_valid_post_id(""));
+        assert!(!is_valid_post_id(&"a".repeat(257)));
+
+        // Test special characters - should be rejected
+        assert!(!is_valid_post_id("hello world"));
+        assert!(!is_valid_post_id("test@example"));
+        assert!(!is_valid_post_id("post#123"));
+    }
+
+    #[test]
+    fn test_csrf_token_generation_and_validation() {
+        // Generate a token
+        let token = generate_csrf_token_with_timestamp();
+
+        // Token should have the expected format: timestamp:random.hash
+        assert!(token.contains('.'));
+        assert!(token.contains(':'));
+
+        // Valid token should pass validation
+        assert!(is_valid_csrf_token(&token));
+
+        // Modified token should fail validation
+        let mut modified = token.clone();
+        modified.push('x');
+        assert!(!is_valid_csrf_token(&modified));
+
+        // Empty token should fail
+        assert!(!is_valid_csrf_token(""));
+
+        // Malformed tokens should fail
+        assert!(!is_valid_csrf_token("invalid"));
+        assert!(!is_valid_csrf_token("no-dot-here"));
+        assert!(!is_valid_csrf_token("timestamp:random"));
+    }
+
+    #[test]
+    fn test_csrf_secret_consistency() {
+        // The secret should be consistent across calls
+        let secret1 = get_csrf_secret();
+        let secret2 = get_csrf_secret();
+        assert_eq!(secret1, secret2);
+
+        // Secret should be long enough (64 bytes = 128 hex chars)
+        assert_eq!(secret1.len(), 128);
     }
 }

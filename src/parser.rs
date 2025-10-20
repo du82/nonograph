@@ -3,6 +3,11 @@ fn process_images(text: &str) -> String {
 }
 
 fn is_safe_url(url: &str) -> bool {
+    // Block path traversal attempts in relative URLs
+    if url.contains("..") {
+        return false;
+    }
+
     if !url.contains("://") {
         return true;
     }
@@ -2682,7 +2687,6 @@ Final paragraph with normal text."#;
             "http://example.com/video.mp4",
             "relative-image.jpg",
             "./local/image.png",
-            "../parent/image.gif",
         ];
 
         for safe_url in safe_urls {
@@ -2694,6 +2698,25 @@ Final paragraph with normal text."#;
                 result.contains(&format!("src=\"{}\"", safe_url)),
                 "Safe URL {} was incorrectly blocked",
                 safe_url
+            );
+        }
+
+        // Test that relative paths with .. are blocked (path traversal protection)
+        let path_traversal_urls = vec![
+            "../parent/image.gif",
+            "../../etc/passwd",
+            "../../../secret.png",
+        ];
+
+        for dangerous_url in path_traversal_urls {
+            let content = format!("![test]({})", dangerous_url);
+            let result = render_markdown(&content);
+
+            // Path traversal URLs should not appear in img src attributes
+            assert!(
+                !result.contains(&format!("src=\"{}\"", dangerous_url)),
+                "Path traversal URL {} was not blocked",
+                dangerous_url
             );
         }
     }
