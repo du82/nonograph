@@ -55,6 +55,21 @@ Your brand new hidden service can be up and running in under 30 seconds with a s
 - **Tor-native** - Built-in hidden service support
 - **Local storage** - All data stays on your server
 - **Open source** - Audit the privacy claims yourself
+- **Zero JavaScript** - 100% JavaScript-free for maximum security and privacy
+- **Dark mode** - Automatic dark mode based on system preferences
+
+## Security
+
+Nonograph takes security seriously and implements multiple layers of protection:
+
+- **Input validation** - All post IDs and user input are validated to prevent injection attacks
+- **XSS protection** - HTML sanitization using Ammonia to block malicious scripts
+- **CSRF protection** - Cryptographically secure tokens using HMAC-SHA256
+- **Path traversal prevention** - File operations are protected against directory traversal
+- **URL validation** - Dangerous protocols and private IPs are blocked
+- **No authentication vulnerabilities** - No passwords or sessions means no credential-based attacks
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
 
 ## For Writers
 
@@ -72,6 +87,10 @@ Your brand new hidden service can be up and running in under 30 seconds with a s
 - **Mobile friendly** - Works on any device
 - **Tor accessible** - Read via `.onion` addresses
 - **Share freely** - Links work on both clearnet and Tor
+- **RSS feed** - Follow sites without visiting them directly at `/feed.xml`
+- **Archive page** - Browse all posts chronologically at `/archive`
+- **Recent posts** - See the latest content right on the homepage
+- **Search** - Find posts by searching titles, authors, and content at `/search`
 
 ## Access Your Platform
 
