@@ -602,6 +602,85 @@
                     margin: 0 8px;
                 }
             }
+
+            /* Dark Mode Support */
+            @media (prefers-color-scheme: dark) {
+                body {
+                    background: #1a1a1a;
+                    color: #e0e0e0;
+                }
+                h1 {
+                    color: #e0e0e0;
+                }
+                .article-meta {
+                    color: #999;
+                }
+                .article-meta a {
+                    color: #e0e0e0;
+                }
+                .article-content {
+                    color: #e0e0e0;
+                }
+                .article-content code {
+                    background: #2a2a2a;
+                    color: #e0e0e0;
+                }
+                .article-content pre {
+                    background: #252525;
+                    border-color: #333;
+                }
+                .article-content a {
+                    color: #e0e0e0;
+                }
+                .article-content a:hover {
+                    color: #fff;
+                }
+                .article-content blockquote {
+                    border-left-color: #444;
+                    color: #999;
+                }
+                .article-content .footnotes {
+                    border-top-color: #333;
+                    color: #999;
+                }
+                .article-content table {
+                    border-color: #333;
+                }
+                .article-content th,
+                .article-content td {
+                    border-color: #333;
+                }
+                .article-content th {
+                    background: #252525;
+                }
+                .article-content mark {
+                    background: #4a4a00;
+                    color: #e0e0e0;
+                }
+                .footer {
+                    border-top-color: #333;
+                }
+                .footer a {
+                    color: #999;
+                }
+                .footer a:hover {
+                    color: #e0e0e0;
+                }
+                .secret {
+                    background: #2a2a2a;
+                }
+                .secret:hover {
+                    background: #333;
+                }
+                .copy-button {
+                    background: #2a2a2a;
+                    border-color: #444;
+                    color: #999;
+                }
+                .code-header:hover {
+                    background: #2a2a2a;
+                }
+            }
         </style>
     </head>
     <body>
@@ -621,73 +700,5 @@
                 >source code</a
             >
         </div>
-        <!-- Scripts for revealing secret text and copying code -->
-        <script>
-            document.querySelectorAll(".secret").forEach(function (secret) {
-                secret.addEventListener("click", function () {
-                    this.classList.toggle("revealed");
-                });
-            });
-
-            // Add copy functionality and language labels to code blocks
-            document.querySelectorAll("pre code").forEach(function (codeBlock) {
-                const pre = codeBlock.parentElement;
-                const className = codeBlock.className;
-                let language = "";
-
-                // Extract language from class name
-                if (className && className.includes("language-")) {
-                    language = className.replace("language-", "");
-                }
-
-                // Create header with language and copy button
-                const header = document.createElement("div");
-                header.className = "code-header";
-
-                // Create language label first (for CSS ordering)
-                if (language) {
-                    const langLabel = document.createElement("span");
-                    langLabel.className = "code-language";
-                    langLabel.textContent = language.toUpperCase();
-                    header.appendChild(langLabel);
-                }
-
-                const copyButton = document.createElement("button");
-                copyButton.className = "copy-button";
-                copyButton.textContent = "Copy";
-                copyButton.addEventListener("click", function () {
-                    navigator.clipboard
-                        .writeText(codeBlock.textContent)
-                        .then(function () {
-                            copyButton.textContent = "Copied!";
-                            copyButton.classList.add("copied");
-                            setTimeout(function () {
-                                copyButton.textContent = "Copy";
-                                copyButton.classList.remove("copied");
-                            }, 2000);
-                        })
-                        .catch(function () {
-                            // Fallback for older browsers
-                            const textArea = document.createElement("textarea");
-                            textArea.value = codeBlock.textContent;
-                            document.body.appendChild(textArea);
-                            textArea.select();
-                            document.execCommand("copy");
-                            document.body.removeChild(textArea);
-                            copyButton.textContent = "Copied!";
-                            copyButton.classList.add("copied");
-                            setTimeout(function () {
-                                copyButton.textContent = "Copy";
-                                copyButton.classList.remove("copied");
-                            }, 2000);
-                        });
-                });
-
-                header.appendChild(copyButton);
-
-                pre.appendChild(header);
-            });
-        </script>
     </body>
-    <!-- Published with Nonograph, an open-source writing service -->
 </html>

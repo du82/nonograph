@@ -4,6 +4,7 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Nonograph - Anonymous Publishing Service</title>
+        <link rel="alternate" type="application/rss+xml" title="Nonograph RSS Feed" href="/feed.xml" />
         <style>
             * {
                 margin: 0;
@@ -19,6 +20,67 @@
                 background: #ffffff;
                 color: #333;
             }
+
+            /* Dark Mode Support */
+            @media (prefers-color-scheme: dark) {
+                body {
+                    background: #1a1a1a;
+                    color: #e0e0e0;
+                }
+                input[type="text"],
+                textarea {
+                    color: #e0e0e0;
+                    background: #1a1a1a;
+                }
+                input[type="text"]::placeholder,
+                textarea::placeholder {
+                    color: #666;
+                }
+                input[type="text"].author-input {
+                    color: #999;
+                }
+                button {
+                    background: #e0e0e0;
+                    color: #1a1a1a;
+                }
+                button:hover {
+                    background: #fff;
+                }
+                button:active {
+                    background: #ccc;
+                }
+                button:disabled {
+                    background: #444;
+                    color: #666;
+                }
+                .char-info,
+                .markdown-help,
+                .markdown-help-label {
+                    color: #999;
+                }
+                .markdown-help code {
+                    background: #2a2a2a;
+                }
+                .markdown-help a {
+                    color: #999 !important;
+                }
+                .links a {
+                    color: #999;
+                }
+                .links a:hover {
+                    color: #e0e0e0;
+                }
+                .recent-posts {
+                    border-top-color: #333;
+                }
+                .recent-posts h2 {
+                    color: #e0e0e0;
+                }
+                .recent-posts a {
+                    color: #e0e0e0;
+                }
+            }
+
             .container {
                 position: relative;
                 max-width: 1000px;
@@ -77,9 +139,9 @@
                 color: #666;
             }
             textarea {
-                min-height: 100px;
+                min-height: 500px;
                 font-size: 18px;
-                resize: none;
+                resize: vertical;
                 line-height: 1.6;
                 -webkit-overflow-scrolling: touch;
             }
@@ -111,13 +173,41 @@
                 background: #999;
                 cursor: not-allowed;
             }
-            .char-count {
+            .char-info {
                 font-size: 11px;
                 color: #999;
                 margin-bottom: 16px;
             }
-            .char-count.over-limit {
-                color: #e74c3c;
+            .markdown-help {
+                font-size: 11px;
+                color: #999;
+                margin-top: 12px;
+                line-height: 1.5;
+                display: none;
+            }
+            .markdown-help-toggle {
+                display: none;
+            }
+            .markdown-help-toggle:checked ~ .markdown-help {
+                display: block;
+            }
+            .markdown-help-label {
+                font-size: 11px;
+                color: #666;
+                text-decoration: underline;
+                cursor: pointer;
+                display: inline-block;
+                margin-bottom: 8px;
+            }
+            .markdown-help-label:hover {
+                color: #333;
+            }
+            .markdown-help code {
+                background: #f5f5f5;
+                padding: 1px 4px;
+                border-radius: 2px;
+                font-family: monospace;
+                font-size: 10px;
             }
             label {
                 display: block;
@@ -140,64 +230,33 @@
                 text-decoration: underline;
             }
 
-            /* Editor Menu Styles */
-            .editor-menu {
-                position: absolute;
-                background: white;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-                padding: 4px;
-                z-index: 1000;
-                display: none;
-                max-height: 300px;
-                overflow-y: auto;
-                min-width: 200px;
+            /* Recent Posts Styles */
+            .recent-posts {
+                max-width: 700px;
+                margin: 60px auto 0;
+                padding-top: 40px;
+                border-top: 1px solid #e0e0e0;
             }
-            .editor-menu.active {
-                display: block;
-            }
-            .editor-menu::-webkit-scrollbar {
-                width: 8px;
-            }
-            .editor-menu::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 4px;
-            }
-            .editor-menu::-webkit-scrollbar-thumb {
-                background: #ccc;
-                border-radius: 4px;
-            }
-            .editor-menu::-webkit-scrollbar-thumb:hover {
-                background: #999;
-            }
-            .menu-item {
-                padding: 4px 12px;
-                cursor: pointer;
-                font-size: 14px;
-                font-family:
-                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                    sans-serif;
+            .recent-posts h2 {
+                font-size: 18px;
+                font-weight: 600;
+                margin-bottom: 20px;
                 color: #333;
-                border-radius: 2px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                white-space: nowrap;
             }
-            .menu-item:hover {
-                background: #f5f5f5;
+            .recent-posts ul {
+                list-style: none;
             }
-            .menu-item.selected {
-                background: #e8e8e8;
+            .recent-posts li {
+                margin-bottom: 12px;
+                line-height: 1.5;
             }
-            .menu-label {
+            .recent-posts a {
+                color: #333;
+                text-decoration: none;
                 font-weight: 500;
             }
-            .menu-shortcut {
-                font-size: 12px;
-                color: #999;
-                margin-left: auto;
+            .recent-posts a:hover {
+                text-decoration: underline;
             }
 
             /* Mobile Styles */
@@ -248,7 +307,7 @@
                 textarea {
                     font-size: 16px;
                     line-height: 1.5;
-                    min-height: 200px;
+                    min-height: 400px;
                 }
                 .sidebar {
                     margin-top: 24px;
@@ -290,7 +349,7 @@
                 }
                 textarea {
                     font-size: 16px;
-                    min-height: 180px;
+                    min-height: 350px;
                 }
                 .sidebar button {
                     width: 100%;
@@ -342,7 +401,14 @@
                     />
                     <textarea
                         name="content"
-                        placeholder="Write something with markdown or type / for formatting options..."
+                        placeholder="Write something with markdown...
+
+Examples:
+# Heading
+**bold** *italic* _underline_
+[link](url) ![image](url)
+> quote
+- list"
                         maxlength="128000"
                         title="Mind your opsec, be careful what you share."
                         required
@@ -357,8 +423,25 @@
 
             <div class="sidebar">
                 <button type="submit" form="publishForm">Publish</button>
-                <div class="char-count" id="charCount">0 / 128,000</div>
+                <div class="char-info">Limit: 128,000 characters</div>
+
+                <input type="checkbox" id="markdownHelp" class="markdown-help-toggle" />
+                <label for="markdownHelp" class="markdown-help-label">Markdown formatting help</label>
+                <div class="markdown-help">
+                    <strong>Headings:</strong> <code># H1</code> <code>## H2</code> <code>### H3</code><br>
+                    <strong>Text:</strong> <code>**bold**</code> <code>*italic*</code> <code>_underline_</code> <code>~strike~</code><br>
+                    <strong>Links:</strong> <code>[text](url)</code><br>
+                    <strong>Images:</strong> <code>![alt](url)</code><br>
+                    <strong>Code:</strong> <code>`inline`</code> or <code>```block```</code><br>
+                    <strong>Quote:</strong> <code>> quote text</code><br>
+                    <strong>Lists:</strong> <code>- item</code> or <code>1. item</code><br>
+                    <strong>More:</strong> <a href="/markup" style="color: #666;">Full guide</a>
+                </div>
+
                 <div class="links">
+                    <a href="/search">search</a>
+                    <a href="/archive">archive</a>
+                    <a href="/feed.xml">rss feed</a>
                     <a href="/markup" target="_blank">markup guide</a>
                     <a href="/legal" target="_blank">legal &amp; privacy</a>
                     <a href="https://github.com/du82/nonograph" target="_blank"
@@ -366,775 +449,8 @@
                     >
                 </div>
             </div>
+
+            {{recent_posts}}
         </div>
-
-        <!-- Slash Command Menu -->
-        <div class="editor-menu" id="slashMenu"></div>
-
-        <script>
-            const textarea = document.querySelector('textarea[name="content"]');
-            const charCount = document.getElementById("charCount");
-            const form = document.getElementById("publishForm");
-            const slashMenu = document.getElementById("slashMenu");
-
-            let slashMenuActive = false;
-            let slashPosition = -1;
-            let selectedMenuIndex = 0;
-            let slashQuery = "";
-
-            const menuItems = [
-                {
-                    label: "Heading 1",
-                    format: "# ",
-                    shortcut: "Ctrl+Alt+1",
-                    key: "1",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 2",
-                    format: "## ",
-                    shortcut: "Ctrl+Alt+2",
-                    key: "2",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 3",
-                    format: "### ",
-                    shortcut: "Ctrl+Alt+3",
-                    key: "3",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 4",
-                    format: "#### ",
-                    shortcut: "Ctrl+Alt+4",
-                    key: "4",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Bold",
-                    format: "****",
-                    cursorOffset: -2,
-                    shortcut: "Ctrl+B",
-                    key: "b",
-                    inline: true,
-                },
-                {
-                    label: "Italic",
-                    format: "**",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+I",
-                    key: "i",
-                    inline: true,
-                },
-                {
-                    label: "Underline",
-                    format: "__",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+U",
-                    key: "u",
-                    inline: true,
-                },
-                {
-                    label: "Strikethrough",
-                    format: "~~",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+X",
-                    key: "x",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Superscript",
-                    format: "^^",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+P",
-                    key: "p",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Highlight",
-                    format: "====",
-                    cursorOffset: -2,
-                    shortcut: "Ctrl+H",
-                    key: "h",
-                    inline: true,
-                },
-                {
-                    label: "Inline Code",
-                    format: "``",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+E",
-                    key: "e",
-                    inline: true,
-                },
-                {
-                    label: "Code Block",
-                    format: "\n```\n\n```",
-                    cursorOffset: -4,
-                    shortcut: "Ctrl+Shift+C",
-                    key: "c",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Link",
-                    format: "[](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+K",
-                    key: "k",
-                    inline: true,
-                },
-                {
-                    label: "Image",
-                    format: "![](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+Shift+I",
-                    key: "i",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Video",
-                    format: "![](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+Shift+V",
-                    key: "v",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Blockquote",
-                    format: "> ",
-                    shortcut: "Ctrl+Shift+9",
-                    key: "9",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Bullet List",
-                    format: "- ",
-                    shortcut: "Ctrl+Shift+8",
-                    key: "8",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Numbered List",
-                    format: "1. ",
-                    shortcut: "Ctrl+Shift+7",
-                    key: "7",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Table",
-                    format: "| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |",
-                    cursorOffset: -47,
-                    shortcut: "Ctrl+T",
-                    key: "t",
-                    blockLevel: true,
-                },
-                {
-                    label: "Footnote Reference",
-                    format: "[^1]",
-                    shortcut: "Ctrl+Shift+R",
-                    key: "r",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Inline Footnote",
-                    format: "^[]",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+F",
-                    key: "f",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Hidden Text",
-                    format: "##",
-                    cursorOffset: -1,
-                    inline: true,
-                },
-                {
-                    label: "Comment",
-                    format: "// ",
-                    shortcut: "Ctrl+/",
-                    blockLevel: true,
-                },
-                {
-                    label: "Thin Line Divider",
-                    format: "\n---\n",
-                    shortcut: "Ctrl+Shift+D",
-                    key: "d",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Double Line Divider",
-                    format: "\n===\n",
-                    blockLevel: true,
-                },
-                {
-                    label: "Single Asterisk Divider",
-                    format: "\n-*-\n",
-                    blockLevel: true,
-                },
-                {
-                    label: "Three Stars Divider",
-                    format: "\n***\n",
-                    blockLevel: true,
-                },
-            ];
-
-            function isAtLineStart() {
-                // When slash menu is active, use slash position for context
-                const checkPos = slashMenuActive
-                    ? slashPosition
-                    : textarea.selectionStart;
-                const textBeforeCheck = textarea.value.substring(0, checkPos);
-
-                if (checkPos === 0) return true;
-
-                const lastChar = textBeforeCheck.charAt(
-                    textBeforeCheck.length - 1,
-                );
-
-                // At line start if previous char is newline or we're at document start
-                return lastChar === "\n" || textBeforeCheck.length === 0;
-            }
-
-            function getContextualMenuItems() {
-                const atLineStart = isAtLineStart();
-
-                let filteredItems = menuItems.filter((item) => {
-                    // Always show items that work both inline and at line start
-                    if (!item.blockLevel && !item.inline) return true;
-
-                    // At line start: show all items
-                    if (atLineStart) return true;
-
-                    // In middle of line: only show inline items
-                    return item.inline === true;
-                });
-
-                // Further filter by search query if there's text after slash
-                if (slashQuery.trim()) {
-                    filteredItems = filteredItems.filter((item) =>
-                        item.label
-                            .toLowerCase()
-                            .includes(slashQuery.toLowerCase()),
-                    );
-                }
-
-                return filteredItems;
-            }
-
-            function autoResize(element) {
-                element.style.height = "auto";
-                element.style.height = element.scrollHeight + "px";
-            }
-
-            function updateCharCount() {
-                const count = textarea.value.length;
-                const button = document.querySelector('button[type="submit"]');
-                const limit = 128000;
-                charCount.textContent =
-                    count.toLocaleString() + " / " + limit.toLocaleString();
-
-                if (count > limit) {
-                    charCount.classList.add("over-limit");
-                    button.disabled = true;
-                } else {
-                    charCount.classList.remove("over-limit");
-                    button.disabled = false;
-                }
-            }
-
-            function getCursorHorizontalPosition() {
-                const cursorPos = textarea.selectionStart;
-                const textUpToCursor = textarea.value.substring(0, cursorPos);
-                const lines = textUpToCursor.split("\n");
-                const currentLineText = lines[lines.length - 1];
-
-                // Get textarea positioning and styling
-                const rect = textarea.getBoundingClientRect();
-                const styles = window.getComputedStyle(textarea);
-                const paddingLeft = parseFloat(styles.paddingLeft);
-
-                // Create temporary element to measure text width
-                const measurer = document.createElement("span");
-                measurer.style.font = styles.font;
-                measurer.style.fontSize = styles.fontSize;
-                measurer.style.fontFamily = styles.fontFamily;
-                measurer.style.visibility = "hidden";
-                measurer.style.position = "absolute";
-                measurer.style.whiteSpace = "pre";
-                measurer.textContent = currentLineText;
-                document.body.appendChild(measurer);
-
-                const textWidth = measurer.getBoundingClientRect().width;
-                document.body.removeChild(measurer);
-
-                // Calculate horizontal cursor position
-                return rect.left + paddingLeft + textWidth;
-            }
-
-            function showSlashMenu(x, y) {
-                slashMenuActive = true; // Set this first so isAtLineStart() works correctly
-                const contextualItems = getContextualMenuItems();
-                slashMenu.innerHTML = "";
-                contextualItems.forEach((item, index) => {
-                    const div = document.createElement("div");
-                    div.className =
-                        "menu-item" + (index === 0 ? " selected" : "");
-                    div.innerHTML = `
-                    <span class="menu-label">${item.label}</span>
-                    ${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ""}
-                `;
-                    div.addEventListener("click", () => applyFormat(item));
-                    slashMenu.appendChild(div);
-                });
-
-                // Get horizontal cursor position and textarea bounds
-                const cursorX = getCursorHorizontalPosition();
-                const textareaRect = textarea.getBoundingClientRect();
-
-                // Calculate optimal position
-                const menuWidth = 300;
-                const menuHeight = Math.min(
-                    contextualItems.length * 40 + 10,
-                    300,
-                );
-                // Use fixed height for positioning to maintain consistency
-                const positioningHeight = 50; // Height of single item for positioning
-                const padding = 10;
-
-                // Use actual cursor X position, but keep within textarea bounds
-                let menuX = cursorX;
-                if (menuX + menuWidth > textareaRect.right - padding) {
-                    menuX = textareaRect.right - menuWidth - padding;
-                }
-                if (menuX < textareaRect.left + padding) {
-                    menuX = textareaRect.left + padding;
-                }
-
-                // Always position menu below the cursor line
-                let menuY = y + 35; // Fixed offset below cursor line
-
-                // Only adjust if menu would go completely outside textarea
-                // Use fixed positioning height so position is consistent
-                if (menuY + positioningHeight > textareaRect.bottom) {
-                    // If menu is too tall for textarea, position at bottom and let it scroll
-                    menuY = Math.max(
-                        y - positioningHeight - 15,
-                        textareaRect.top + padding,
-                    );
-                }
-
-                slashMenu.style.left = menuX + "px";
-                slashMenu.style.top = menuY + "px";
-                slashMenu.classList.add("active");
-                selectedMenuIndex = 0;
-
-                // Reset scroll position to top
-                slashMenu.scrollTop = 0;
-            }
-
-            function hideSlashMenu() {
-                slashMenu.classList.remove("active");
-                slashMenuActive = false;
-                slashPosition = -1;
-                slashQuery = "";
-            }
-
-            function updateMenuSelection() {
-                const items = slashMenu.querySelectorAll(".menu-item");
-                const contextualItems = getContextualMenuItems();
-
-                items.forEach((item, index) => {
-                    if (index === selectedMenuIndex) {
-                        item.classList.add("selected");
-                        // Scroll the selected item into view
-                        item.scrollIntoView({
-                            block: "nearest",
-                            behavior: "smooth",
-                        });
-                    } else {
-                        item.classList.remove("selected");
-                    }
-                });
-            }
-
-            function applyFormat(item, selectedText = null) {
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const text = textarea.value;
-
-                if (slashMenuActive) {
-                    // Remove the slash and any search query
-                    const before = text.substring(0, slashPosition);
-                    const after = text.substring(start);
-                    const newText = before + item.format + after;
-                    textarea.value = newText;
-
-                    const cursorPos =
-                        slashPosition +
-                        item.format.length +
-                        (item.cursorOffset || 0);
-                    textarea.setSelectionRange(cursorPos, cursorPos);
-                    hideSlashMenu();
-                } else {
-                    // Apply to selection or insert at cursor
-                    selectedText = selectedText || text.substring(start, end);
-                    const hasSelection = start !== end;
-                    let newText, cursorPos;
-
-                    if (item.label === "Bold") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                selectedText +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "****" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Italic") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "*" +
-                                selectedText +
-                                "*" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Underline") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "_" +
-                                selectedText +
-                                "_" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "__" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Strikethrough") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "~" +
-                                selectedText +
-                                "~" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "~~" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Superscript") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "^" +
-                                selectedText +
-                                "^" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "^^" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Highlight") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "==" +
-                                selectedText +
-                                "==" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "====" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Inline Code") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "`" +
-                                selectedText +
-                                "`" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "``" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Code Block") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n" +
-                                selectedText +
-                                "\n```" +
-                                text.substring(end);
-                            cursorPos = end + 8;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n\n```" +
-                                text.substring(end);
-                            cursorPos = start + 4;
-                        }
-                    } else if (item.label === "Link") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "[" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 3;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "[](url)" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Image") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "![" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "![](url)" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else {
-                        // Generic handling for other formats
-                        newText =
-                            text.substring(0, start) +
-                            item.format +
-                            text.substring(end);
-                        cursorPos =
-                            start +
-                            item.format.length +
-                            (item.cursorOffset || 0);
-                    }
-
-                    textarea.value = newText;
-                    textarea.setSelectionRange(cursorPos, cursorPos);
-                }
-
-                updateCharCount();
-                autoResize(textarea);
-                textarea.focus();
-            }
-
-            // Selection menu functions removed - no longer needed
-
-            // Textarea event listeners
-            textarea.addEventListener("input", function (e) {
-                const cursorPos = this.selectionStart;
-                const textBeforeCursor = this.value.substring(0, cursorPos);
-                const lastChar = textBeforeCursor.charAt(
-                    textBeforeCursor.length - 1,
-                );
-
-                if (
-                    lastChar === "/" &&
-                    (cursorPos === 1 ||
-                        textBeforeCursor.charAt(cursorPos - 2) === "\n" ||
-                        textBeforeCursor.charAt(cursorPos - 2) === " ")
-                ) {
-                    const rect = this.getBoundingClientRect();
-                    const lines = textBeforeCursor.split("\n");
-                    const currentLine = lines.length;
-                    const lineHeight = 28.8;
-                    const styles = window.getComputedStyle(this);
-                    const paddingTop = parseFloat(styles.paddingTop);
-
-                    slashPosition = cursorPos - 1;
-                    slashQuery = "";
-
-                    // Calculate cursor Y position within textarea
-                    const cursorY =
-                        rect.top + paddingTop + (currentLine - 1) * lineHeight;
-
-                    showSlashMenu(rect.left, cursorY);
-                } else if (slashMenuActive) {
-                    // Check if we're still typing after the slash
-                    const textAfterSlash = textBeforeCursor.substring(
-                        slashPosition + 1,
-                    );
-
-                    // If cursor is still after the slash and no spaces/newlines, update query
-                    if (
-                        cursorPos > slashPosition &&
-                        !textAfterSlash.includes(" ") &&
-                        !textAfterSlash.includes("\n")
-                    ) {
-                        slashQuery = textAfterSlash;
-                        selectedMenuIndex = 0; // Reset to first item
-
-                        const rect = this.getBoundingClientRect();
-                        const lines = textBeforeCursor.split("\n");
-                        const currentLine = lines.length;
-                        const lineHeight = 28.8;
-                        const styles = window.getComputedStyle(this);
-                        const paddingTop = parseFloat(styles.paddingTop);
-
-                        // Calculate cursor Y position within textarea
-                        const cursorY =
-                            rect.top +
-                            paddingTop +
-                            (currentLine - 1) * lineHeight;
-
-                        showSlashMenu(rect.left, cursorY);
-                    } else {
-                        hideSlashMenu();
-                    }
-                }
-
-                updateCharCount();
-                autoResize(this);
-            });
-
-            textarea.addEventListener("keydown", function (e) {
-                if (slashMenuActive) {
-                    const contextualItems = getContextualMenuItems();
-
-                    // If no items match the search, close menu
-                    if (contextualItems.length === 0) {
-                        if (e.key === "Escape" || e.key === "Backspace") {
-                            e.preventDefault();
-                            hideSlashMenu();
-                        }
-                        return;
-                    }
-
-                    if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex + 1) % contextualItems.length;
-                        updateMenuSelection();
-                    } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex - 1 + contextualItems.length) %
-                            contextualItems.length;
-                        updateMenuSelection();
-                    } else if (e.key === "Enter" || e.key === "Tab") {
-                        e.preventDefault();
-                        applyFormat(contextualItems[selectedMenuIndex]);
-                    } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        hideSlashMenu();
-                    } else if (e.key === "Backspace") {
-                        // If backspacing and we're at the slash, close menu
-                        const cursorPos = this.selectionStart;
-                        if (cursorPos <= slashPosition + 1) {
-                            hideSlashMenu();
-                        }
-                    }
-                } else {
-                    // Keyboard shortcuts
-                    const item = menuItems.find((item) => {
-                        if (!item.key) return false;
-
-                        const keyMatches =
-                            e.key.toLowerCase() === item.key.toLowerCase();
-                        const ctrlMatches = e.ctrlKey || e.metaKey;
-                        const shiftMatches = item.shiftKey
-                            ? e.shiftKey
-                            : !e.shiftKey;
-                        const altMatches = item.altKey ? e.altKey : !e.altKey;
-
-                        return (
-                            keyMatches &&
-                            ctrlMatches &&
-                            shiftMatches &&
-                            altMatches
-                        );
-                    });
-
-                    if (item) {
-                        e.preventDefault();
-                        applyFormat(item);
-                    }
-                }
-            });
-
-            // Removed selection menu functionality - no longer needed
-
-            // Click outside to close menus
-            document.addEventListener("click", function (e) {
-                if (!slashMenu.contains(e.target) && e.target !== textarea) {
-                    hideSlashMenu();
-                }
-            });
-
-            form.addEventListener("submit", function (e) {
-                const limit = 128000;
-                if (textarea.value.length > limit) {
-                    e.preventDefault();
-                    alert(
-                        "Content exceeds " +
-                            limit.toLocaleString() +
-                            " character limit.",
-                    );
-                    return false;
-                }
-            });
-
-            updateCharCount();
-        </script>
     </body>
 </html>
