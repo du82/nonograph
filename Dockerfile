@@ -33,7 +33,7 @@ RUN echo "DataDirectory /var/lib/tor" > /etc/tor/torrc && \
 
 
 
-RUN useradd -r -s /bin/false nonograph
+RUN useradd -r -s /bin/false -u 1000 nonograph
 RUN mkdir -p /app/content /app/templates /var/lib/tor && \
     mkdir -p /var/lib/tor/hidden_service && \
     chmod 700 /var/lib/tor && \
