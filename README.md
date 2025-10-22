@@ -36,6 +36,16 @@ This single command:
 
 Your brand new hidden service can be up and running in under 30 seconds with a single command!
 
+## Run with docker
+
+```bash
+make up        # Start
+make tor       # Get .onion address
+make status    # Check status
+make down      # Stop
+make clean     # Completely remove container
+```
+
 <img width="919" height="841" alt="Screenshot_20251017_000750" src="https://github.com/user-attachments/assets/c52b14d7-c0ec-4b6c-90e8-a340cd1adcb1" />
 
 ## Why Self-Host?
