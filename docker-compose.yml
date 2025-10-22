@@ -1,0 +1,27 @@
+services:
+  nonograph:
+    build: .
+    container_name: nonograph_app
+    ports:
+      - "8009:8009"
+    volumes:
+      - ./content:/app/content
+      - tor_data:/var/lib/tor
+    environment:
+      - ROCKET_ADDRESS=0.0.0.0
+      - ROCKET_PORT=8009
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - nonograph_network
+
+volumes:
+  tor_data:
+
+networks:
+  nonograph_network:
