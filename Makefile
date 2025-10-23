@@ -1,4 +1,4 @@
-.PHONY: help build up down logs clean dev dev-down dev-logs test restart status onion check-docker install-docker
+.PHONY: help build up down logs clean dev dev-down dev-logs test restart status onion check-docker install-docker remove-docker
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "Docker Management:"
 	@echo "  check-docker     - Check if Docker is installed"
 	@echo "  install-docker   - Install Docker on this system"
+	@echo "  remove-docker    - Completely remove Docker from this system"
 	@echo ""
 	@echo "Note: All commands will automatically check for Docker and offer to install it if missing."
 
@@ -51,38 +52,19 @@ check-docker:
 # Install Docker (works on most Linux distributions)
 install-docker:
 	@echo "Installing Docker..."
-	@if command -v apt >/dev/null 2>&1; then \
-		echo "Detected Debian/Ubuntu system, installing via apt..."; \
-		sudo apt update && \
-		sudo apt install -y ca-certificates curl gnupg lsb-release && \
-		sudo mkdir -p /etc/apt/keyrings && \
-		curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-		echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-		sudo apt update && \
-		sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
-		sudo usermod -aG docker $$USER && \
-		echo "✅ Docker installed successfully! Please log out and back in to use Docker without sudo."; \
-	elif command -v yum >/dev/null 2>&1; then \
-		echo "Detected RHEL/CentOS/Fedora system, installing via yum..."; \
-		sudo yum install -y yum-utils && \
-		sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && \
-		sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
-		sudo systemctl start docker && \
-		sudo systemctl enable docker && \
-		sudo usermod -aG docker $$USER && \
-		echo "✅ Docker installed successfully! Please log out and back in to use Docker without sudo."; \
-	elif command -v pacman >/dev/null 2>&1; then \
-		echo "Detected Arch Linux system, installing via pacman..."; \
-		sudo pacman -S --noconfirm docker docker-compose && \
-		sudo systemctl start docker && \
-		sudo systemctl enable docker && \
-		sudo usermod -aG docker $$USER && \
-		echo "✅ Docker installed successfully! Please log out and back in to use Docker without sudo."; \
-	else \
-		echo "❌ Unsupported package manager. Please install Docker manually:"; \
-		echo "Visit: https://docs.docker.com/get-docker/"; \
-		exit 1; \
-	fi
+	@echo "Using Docker's official installation script for maximum compatibility..."; \
+	curl -fsSL https://get.docker.com -o get-docker.sh && \
+	sudo sh get-docker.sh && \
+	rm get-docker.sh && \
+	sudo usermod -aG docker $$USER && \
+	if ! command -v docker compose >/dev/null 2>&1; then \
+		echo "Installing Docker Compose plugin..."; \
+		sudo apt update && sudo apt install -y docker-compose-plugin 2>/dev/null || \
+		sudo yum install -y docker-compose-plugin 2>/dev/null || \
+		sudo pacman -S --noconfirm docker-compose 2>/dev/null || \
+		$(MAKE) install-docker-compose; \
+	fi && \
+	echo "✅ Docker installed successfully! Please log out and back in to use Docker without sudo."
 
 # Install Docker Compose (fallback for systems without compose plugin)
 install-docker-compose:
@@ -156,6 +138,63 @@ clean: check-docker
 	sudo docker system prune -a -f --volumes
 	sudo docker builder prune -a -f
 	@echo "Complete cleanup finished - all Docker containers, images, volumes, and cache removed!"
+
+# Remove Docker completely from the system
+remove-docker:
+	@echo "⚠️  WARNING: This will completely remove Docker and all containers, images, and data!"
+	@echo "Are you sure you want to proceed? (y/N)"
+	@read -r response; \
+	if [ "$$response" = "y" ] || [ "$$response" = "Y" ]; then \
+		echo "Stopping all Docker containers..."; \
+		sudo docker stop $$(sudo docker ps -aq) 2>/dev/null || true; \
+		echo "Removing all Docker containers..."; \
+		sudo docker rm $$(sudo docker ps -aq) 2>/dev/null || true; \
+		echo "Removing all Docker images..."; \
+		sudo docker rmi $$(sudo docker images -q) 2>/dev/null || true; \
+		echo "Removing all Docker volumes..."; \
+		sudo docker volume rm $$(sudo docker volume ls -q) 2>/dev/null || true; \
+		echo "Removing all Docker networks..."; \
+		sudo docker network rm $$(sudo docker network ls -q) 2>/dev/null || true; \
+		echo "Purging Docker system..."; \
+		sudo docker system prune -a -f --volumes 2>/dev/null || true; \
+		echo "Stopping Docker service..."; \
+		sudo systemctl stop docker 2>/dev/null || true; \
+		sudo systemctl stop containerd 2>/dev/null || true; \
+		sudo systemctl disable docker 2>/dev/null || true; \
+		sudo systemctl disable containerd 2>/dev/null || true; \
+		if command -v apt >/dev/null 2>&1; then \
+			echo "Removing Docker packages (Debian/Ubuntu)..."; \
+			sudo apt purge -y docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-ce-rootless-extras 2>/dev/null || true; \
+			sudo apt purge -y docker.io docker-compose 2>/dev/null || true; \
+			sudo apt autoremove -y; \
+			sudo apt autoclean; \
+		elif command -v yum >/dev/null 2>&1; then \
+			echo "Removing Docker packages (RHEL/CentOS/Fedora)..."; \
+			sudo yum remove -y docker-ce docker-ce-cli containerd.io docker-compose-plugin 2>/dev/null || true; \
+			sudo yum remove -y docker docker-common docker-selinux docker-engine 2>/dev/null || true; \
+		elif command -v pacman >/dev/null 2>&1; then \
+			echo "Removing Docker packages (Arch Linux)..."; \
+			sudo pacman -Rns --noconfirm docker docker-compose 2>/dev/null || true; \
+		fi; \
+		echo "Removing Docker directories and files..."; \
+		sudo rm -rf /var/lib/docker 2>/dev/null || true; \
+		sudo rm -rf /var/lib/containerd 2>/dev/null || true; \
+		sudo rm -rf /etc/docker 2>/dev/null || true; \
+		sudo rm -rf /etc/systemd/system/docker.service.d 2>/dev/null || true; \
+		sudo rm -f /etc/apt/sources.list.d/docker.list 2>/dev/null || true; \
+		sudo rm -f /etc/apt/keyrings/docker.gpg 2>/dev/null || true; \
+		sudo rm -f /usr/local/bin/docker-compose 2>/dev/null || true; \
+		echo "Removing Docker group..."; \
+		sudo groupdel docker 2>/dev/null || true; \
+		echo "Removing user from Docker group..."; \
+		sudo gpasswd -d $$USER docker 2>/dev/null || true; \
+		echo "Reloading systemd daemon..."; \
+		sudo systemctl daemon-reload 2>/dev/null || true; \
+		echo "✅ Docker has been completely removed from your system!"; \
+		echo "You may want to log out and back in to refresh group memberships."; \
+	else \
+		echo "Docker removal cancelled."; \
+	fi
 
 # Show .onion address
 onion: check-docker
