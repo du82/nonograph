@@ -20,33 +20,32 @@ Nonograph is a self-hosted anonymous publishing platform. No accounts, no tracki
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
-## Deploy on Tor wtih one command!
+## Deploy as a hidden service on Tor with Docker!
 
 ```bash
-./run
+git clone https://github.com/du82/nonograph
+cd nonograph
+make up
 ```
 
-This single command:
-- Installs all dependencies (Rust, Tor)
-- Sets up the web server and configures ports
-- Configures Tor hidden service with persistent `.onion` address
-- Builds and launches Nonograph
-- Sets up best-practice security for your new hidden service
-- Works on any Debian system (NOT Ubuntu)
+This single `make up` command:
+- Installs Docker if it's not installed
+- Spins up a Debian container with the project, Tor, and all security taken care of
+- Starts the service and provides you with an onion address
 
-Your brand new hidden service can be up and running in under 30 seconds with a single command!
+Your brand new hidden service can be up and running in under a minute with a single command!
 
-## Run with docker
+Or, run `make` to view all options:
 
 ```bash
-make up        # Start
+make up        # Start the service on Tor
 make tor       # Get .onion address
 make status    # Check status
-make down      # Stop
+make down      # Stop all nonograph containers
 make clean     # Completely remove container
 ```
 
-<img width="919" height="841" alt="Screenshot_20251017_000750" src="https://github.com/user-attachments/assets/c52b14d7-c0ec-4b6c-90e8-a340cd1adcb1" />
+If you prefer, you can run `./run` to compile and run without docker
 
 ## Why Self-Host?
 
@@ -82,22 +81,6 @@ make clean     # Completely remove container
 - **Mobile friendly** - Works on any device
 - **Tor accessible** - Read via `.onion` addresses
 - **Share freely** - Links work on both clearnet and Tor
-
-## Access Your Platform
-
-After running `./run`:
-- **Local**: `http://localhost:8009`
-- **Tor**: Your persistent `.onion` address (shown in terminal)
-- **Persistent**: Same onion address survives restarts and reboots
-
-## Management
-
-```bash
-./run status    # Show onion address and service status
-./run stop      # Stop the service
-./run restart   # Restart the service
-./run logs      # View logs
-```
 
 ## System Requirements
 
