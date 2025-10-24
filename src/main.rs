@@ -424,11 +424,23 @@ fn view_post(
                 {
                     let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
                     if lines.len() >= 4 {
-                        let author = if let Some(pipe_pos) = lines[0].find(" | ") {
-                            lines[0][(pipe_pos + 3)..].to_string()
+                        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
+                            (
+                                lines[0][..pipe_pos].to_string(),
+                                lines[0][(pipe_pos + 3)..].to_string(),
+                            )
                         } else {
-                            "".to_string()
+                            (lines[0].to_string(), "".to_string())
                         };
+
+                        // Parse the stored date, fallback to current time if parsing fails
+                        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+                            .ok()
+                            .and_then(|date| date.and_hms_opt(0, 0, 0))
+                            .map(|datetime| {
+                                DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc)
+                            })
+                            .unwrap_or_else(|| Utc::now());
 
                         let title = lines[2]
                             .strip_prefix("# ")
@@ -442,7 +454,7 @@ fn view_post(
                             author,
                             content: parser::render_markdown(&raw_content),
                             raw_content,
-                            created_at: Utc::now(),
+                            created_at,
                         };
 
                         {
@@ -1143,6 +1155,57 @@ mod tests {
 
         assert_eq!(description3.chars().count(), 50);
         assert!(!description3.ends_with("..."));
+    }
+
+    #[test]
+    fn test_date_parsing_from_file() {
+        // Test the date parsing logic directly
+        let file_content = "January 15, 2024 | Test Author\n\n# Test Post\nThis is test content";
+        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+
+        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
+            (
+                lines[0][..pipe_pos].to_string(),
+                lines[0][(pipe_pos + 3)..].to_string(),
+            )
+        } else {
+            (lines[0].to_string(), "".to_string())
+        };
+
+        // Parse the stored date, fallback to current time if parsing fails
+        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+            .ok()
+            .and_then(|date| date.and_hms_opt(0, 0, 0))
+            .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+            .unwrap_or_else(|| Utc::now());
+
+        // Verify the date was parsed correctly
+        let formatted_date = created_at.format("%B %d, %Y").to_string();
+        assert_eq!(formatted_date, "January 15, 2024");
+        assert_eq!(author, "Test Author");
+
+        // Test date without author
+        let file_content_no_author = "March 22, 2023\n\n# Test Post\nContent";
+        let lines: Vec<&str> = file_content_no_author.splitn(4, '\n').collect();
+
+        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
+            (
+                lines[0][..pipe_pos].to_string(),
+                lines[0][(pipe_pos + 3)..].to_string(),
+            )
+        } else {
+            (lines[0].to_string(), "".to_string())
+        };
+
+        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+            .ok()
+            .and_then(|date| date.and_hms_opt(0, 0, 0))
+            .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+            .unwrap_or_else(|| Utc::now());
+
+        let formatted_date = created_at.format("%B %d, %Y").to_string();
+        assert_eq!(formatted_date, "March 22, 2023");
+        assert_eq!(author, "");
     }
 
     #[test]
