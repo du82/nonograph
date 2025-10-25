@@ -24,6 +24,7 @@
                 min-height: 100vh;
                 display: flex;
                 flex-direction: column;
+                overflow-x: hidden;
             }
             .container {
                 padding: 40px;
@@ -32,6 +33,7 @@
             .content {
                 width: 700px;
                 margin: 0 auto;
+                box-sizing: border-box;
             }
             h1 {
                 font-size: 30px;
@@ -137,6 +139,8 @@
                 overflow-x: auto;
                 line-height: 1.4;
                 position: relative;
+                max-width: 100%;
+                box-sizing: border-box;
             }
             .article-content pre code {
                 background: transparent;
@@ -583,6 +587,8 @@
                 width: 100%;
                 margin: 20px 0;
                 font-size: 16px;
+                max-width: 100%;
+                table-layout: fixed;
             }
             .article-content th,
             .article-content td {
