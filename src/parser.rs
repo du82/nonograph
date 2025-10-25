@@ -100,7 +100,7 @@ pub fn render_markdown(content: &str) -> String {
     working_content = process_links(&working_content);
     working_content = process_tables(&working_content);
     working_content = process_dividers(&working_content);
-    working_content = format_paragraphs(&working_content);
+    working_content = format_paragraphs_with_headers(&working_content);
     working_content = restore_fenced_code_blocks(&working_content, &fenced_blocks);
     working_content = restore_code_blocks(&working_content, &code_blocks);
     working_content = restore_footnotes(&working_content);
@@ -321,6 +321,10 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("hr", &["class"])
         .add_tag_attributes("li", &["id"])
         .add_tag_attributes("sup", &["id"])
+        .add_tag_attributes("h1", &["id"])
+        .add_tag_attributes("h2", &["id"])
+        .add_tag_attributes("h3", &["id"])
+        .add_tag_attributes("h4", &["id"])
         .link_rel(Some("noopener noreferrer"));
 
     builder.clean(&html).to_string()
@@ -355,20 +359,36 @@ fn sanitize_language(lang: &str) -> String {
     }
 }
 
-fn process_single_header(text: &str) -> Option<String> {
+fn process_single_header(text: &str, header_count: &mut usize) -> Option<String> {
     let trimmed = text.trim();
     if trimmed.starts_with("#### ") {
         let header_text = &trimmed[5..];
-        Some(format!("<h4>{}</h4>", header_text))
+        *header_count += 1;
+        Some(format!(
+            "<h4 id=\"h{}\">{}<a href=\"#h{}\" class=\"header-anchor\">#</a></h4>",
+            *header_count, header_text, *header_count
+        ))
     } else if trimmed.starts_with("### ") {
         let header_text = &trimmed[4..];
-        Some(format!("<h3>{}</h3>", header_text))
+        *header_count += 1;
+        Some(format!(
+            "<h3 id=\"h{}\">{}<a href=\"#h{}\" class=\"header-anchor\">#</a></h3>",
+            *header_count, header_text, *header_count
+        ))
     } else if trimmed.starts_with("## ") {
         let header_text = &trimmed[3..];
-        Some(format!("<h2>{}</h2>", header_text))
+        *header_count += 1;
+        Some(format!(
+            "<h2 id=\"h{}\">{}<a href=\"#h{}\" class=\"header-anchor\">#</a></h2>",
+            *header_count, header_text, *header_count
+        ))
     } else if trimmed.starts_with("# ") {
         let header_text = &trimmed[2..];
-        Some(format!("<h1>{}</h1>", header_text))
+        *header_count += 1;
+        Some(format!(
+            "<h1 id=\"h{}\">{}<a href=\"#h{}\" class=\"header-anchor\">#</a></h1>",
+            *header_count, header_text, *header_count
+        ))
     } else {
         None
     }
@@ -611,8 +631,9 @@ fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) ->
     result
 }
 
-fn format_paragraphs(text: &str) -> String {
+fn format_paragraphs_with_headers(text: &str) -> String {
     let mut result = String::with_capacity(text.len() + (text.len() / 10));
+    let mut header_count = 0;
 
     // Preprocess text to ensure headers are properly separated
     let preprocessed = preprocess_headers_for_paragraphs(text);
@@ -626,7 +647,7 @@ fn format_paragraphs(text: &str) -> String {
         }
 
         // Check for headers first
-        if let Some(header) = process_single_header(trimmed) {
+        if let Some(header) = process_single_header(trimmed, &mut header_count) {
             result.push_str(&header);
         }
         // Check for blockquotes
@@ -2109,11 +2130,21 @@ let x = 5;
         let result = render_markdown(edge_cases);
 
         // Check that headers are processed correctly
-        assert!(result.contains("<h1>Header Before Code</h1>"));
-        assert!(result.contains("<h2>Header Before List</h2>"));
-        assert!(result.contains("<h3>Header Before Blockquote</h3>"));
-        assert!(result.contains("<h4>Header Before Table</h4>"));
-        assert!(result.contains("<h1>Header at End</h1>"));
+        assert!(result.contains(
+            "<h1 id=\"h1\">Header Before Code<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
+        assert!(result.contains(
+            "<h2 id=\"h2\">Header Before List<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"
+        ));
+        assert!(result.contains(
+            "<h3 id=\"h3\">Header Before Blockquote<a href=\"#h3\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h3>"
+        ));
+        assert!(result.contains(
+            "<h4 id=\"h4\">Header Before Table<a href=\"#h4\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h4>"
+        ));
+        assert!(result.contains(
+            "<h1 id=\"h5\">Header at End<a href=\"#h5\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
 
         // Check that the following elements are still processed correctly
         assert!(result.contains("<pre><code"));
@@ -2220,7 +2251,10 @@ let x = 42;
         assert!(!result.contains("href=\"#FN4\""));
 
         // Check that other markdown still works (with correct formatting)
-        assert!(result.contains("<h1>"));
+        assert!(result.contains("<h1 id=\"h1\">"));
+        assert!(result.contains(
+            "<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
         assert!(result.contains("<strong>bold</strong>")); // ** is bold, * is italic in this parser
         assert!(result.contains("<em>italic</em>"));
         assert!(result.contains("<blockquote>"));
@@ -2446,17 +2480,25 @@ Third paragraph with *italic* formatting."#;
         let text_with_blanks = "# Header 1\n\n## Header 2\n\n### Header 3\n\n#### Header 4";
         let result = render_markdown(text_with_blanks);
 
-        assert!(result.contains("<h1>Header 1</h1>"));
-        assert!(result.contains("<h2>Header 2</h2>"));
-        assert!(result.contains("<h3>Header 3</h3>"));
-        assert!(result.contains("<h4>Header 4</h4>"));
+        assert!(result
+            .contains("<h1 id=\"h1\">Header 1<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"));
+        assert!(result
+            .contains("<h2 id=\"h2\">Header 2<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"));
+        assert!(result
+            .contains("<h3 id=\"h3\">Header 3<a href=\"#h3\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h3>"));
+        assert!(result
+            .contains("<h4 id=\"h4\">Header 4<a href=\"#h4\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h4>"));
 
         // Test headers without blank lines
         let text_without_blanks = "# Main Header\nThis paragraph follows immediately.\n\n## Sub Header\nAnother paragraph right after.";
         let result2 = render_markdown(text_without_blanks);
 
-        assert!(result2.contains("<h1>Main Header</h1>"));
-        assert!(result2.contains("<h2>Sub Header</h2>"));
+        assert!(result2.contains(
+            "<h1 id=\"h1\">Main Header<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
+        assert!(result2.contains(
+            "<h2 id=\"h2\">Sub Header<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"
+        ));
         assert!(result2.contains("<p>This paragraph follows immediately.</p>"));
         assert!(result2.contains("<p>Another paragraph right after.</p>"));
 
@@ -2479,9 +2521,11 @@ Third paragraph with *italic* formatting."#;
         let text = "# Title\n\n> A quote\n\n## Subtitle\n\nNormal text";
         let result = render_markdown(text);
 
-        assert!(result.contains("<h1>Title</h1>"));
+        assert!(result
+            .contains("<h1 id=\"h1\">Title<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"));
         assert!(result.contains("<blockquote>A quote</blockquote>"));
-        assert!(result.contains("<h2>Subtitle</h2>"));
+        assert!(result
+            .contains("<h2 id=\"h2\">Subtitle<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"));
         assert!(result.contains("<p>Normal text</p>"));
     }
 
@@ -2548,8 +2592,10 @@ Final paragraph with normal text."#;
         // Verify normal formatting still works
         assert!(html_output.contains("<strong>bold text</strong>"));
         assert!(html_output.contains("<em>Italic text</em>"));
-        assert!(html_output.contains("<h1>Test File for Comment Functionality</h1>"));
-        assert!(html_output.contains("<h2>Section with Comments</h2>"));
+        assert!(html_output.contains("<h1 id=\"h1\">Test File for Comment Functionality<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"));
+        assert!(html_output.contains(
+            "<h2 id=\"h2\">Section with Comments<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"
+        ));
 
         // Verify code block comments are preserved (they're inside code blocks)
         assert!(html_output.contains("// This is NOT a Nonograph comment"));
@@ -2624,7 +2670,8 @@ Final paragraph with normal text."#;
         assert!(!result.contains("// Another comment"));
 
         // Other features should work normally
-        assert!(result.contains("<h1>Header</h1>"));
+        assert!(result
+            .contains("<h1 id=\"h1\">Header<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"));
         assert!(result.contains("<strong>Bold text</strong>"));
         assert!(result.contains("<blockquote>Quote</blockquote>"));
     }
@@ -2696,6 +2743,48 @@ Final paragraph with normal text."#;
                 safe_url
             );
         }
+    }
+
+    #[test]
+    fn test_header_anchor_functionality() {
+        // Test that headers get proper anchor links with sequential numbering
+        let content = "# First Header\n\nSome content\n\n## Second Header\n\nMore content\n\n### Third Header\n\n#### Fourth Header";
+        let result = render_markdown(content);
+
+        // Check that each header gets the correct sequential ID
+        assert!(result.contains(
+            "<h1 id=\"h1\">First Header<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
+        assert!(result.contains(
+            "<h2 id=\"h2\">Second Header<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"
+        ));
+        assert!(result.contains(
+            "<h3 id=\"h3\">Third Header<a href=\"#h3\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h3>"
+        ));
+        assert!(result.contains(
+            "<h4 id=\"h4\">Fourth Header<a href=\"#h4\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h4>"
+        ));
+
+        // Test that numbering is consistent across multiple renders of same content
+        let result2 = render_markdown(content);
+        assert_eq!(result, result2);
+
+        // Test mixed header levels maintain correct numbering
+        let mixed_content = "## Starting with H2\n\n# Then H1\n\n#### Then H4\n\n### Then H3";
+        let mixed_result = render_markdown(mixed_content);
+
+        assert!(mixed_result.contains(
+            "<h2 id=\"h1\">Starting with H2<a href=\"#h1\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h2>"
+        ));
+        assert!(mixed_result.contains(
+            "<h1 id=\"h2\">Then H1<a href=\"#h2\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h1>"
+        ));
+        assert!(mixed_result.contains(
+            "<h4 id=\"h3\">Then H4<a href=\"#h3\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h4>"
+        ));
+        assert!(mixed_result.contains(
+            "<h3 id=\"h4\">Then H3<a href=\"#h4\" class=\"header-anchor\" rel=\"noopener noreferrer\">#</a></h3>"
+        ));
     }
 
     #[test]

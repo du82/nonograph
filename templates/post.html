@@ -44,6 +44,44 @@
                 -moz-box-shadow: none;
             }
 
+            /* Header anchor styles */
+            .header-anchor {
+                opacity: 0;
+                color: #ccc;
+                text-decoration: none;
+                font-size: 0.8em;
+                margin-left: 8px;
+                transition: opacity 0.2s ease;
+            }
+
+            .article-content h1:hover .header-anchor,
+            .article-content h2:hover .header-anchor,
+            .article-content h3:hover .header-anchor,
+            .article-content h4:hover .header-anchor {
+                opacity: 1;
+            }
+
+            .header-anchor:hover {
+                color: #333;
+                text-decoration: none;
+            }
+
+            /* Show header anchors on tap for mobile */
+            @media (max-width: 768px) {
+                .header-anchor {
+                    opacity: 0.6;
+                    font-size: 0.7em;
+                    margin-left: 6px;
+                }
+
+                .article-content h1:active .header-anchor,
+                .article-content h2:active .header-anchor,
+                .article-content h3:active .header-anchor,
+                .article-content h4:active .header-anchor {
+                    opacity: 1;
+                }
+            }
+
             .article-meta {
                 color: #666;
                 font-size: 14px;
@@ -519,6 +557,7 @@
                     margin-top: 6px;
                     font-size: 0.85em;
                 }
+
                 .secret {
                     padding: 8px 16px;
                     min-height: 48px;
