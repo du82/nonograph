@@ -541,12 +541,11 @@ fn view_post(
                     r#"<!doctype html>
 <html>
 <head>
-    <title>404 - Post not found</title>
+    <title>404 - Nonograph not found</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             max-width: 720px;
             margin: 0 auto;
             padding: 40px 20px;
@@ -558,8 +557,8 @@ fn view_post(
     </style>
 </head>
 <body>
-    <h1>404 - Post Not Found</h1>
-    <p><a href="/">← Create New Article</a></p>
+    <h1>404 - Nonograph Not Found</h1>
+    <p><a href="/">← Write Your Own</a></p>
 </body>
 </html>"#
                         .to_string(),

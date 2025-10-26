@@ -1138,7 +1138,7 @@ fn process_footnotes(content: &str) -> String {
         for (footnote_id, number) in footnote_references {
             if let Some(definition) = footnote_definitions.get(&footnote_id) {
                 result.push_str(&format!(
-                    "<li id=\"fn{}\">{} <a href=\"XHASHXfnref{}\" class=\"footnote-backref\">↩</a></li>\n",
+                    "<li id=\"fn{}\">{} <a href=\"XHASHXfnref{}\" class=\"footnote-backref\">↩</a></li>",
                     number, definition, number
                 ));
             }
@@ -1147,7 +1147,7 @@ fn process_footnotes(content: &str) -> String {
         // Add inline footnotes
         for (footnote_id, footnote_text) in inline_footnotes.iter() {
             result.push_str(&format!(
-                "<li id=\"{}\">{} <a href=\"XHASHX{}ref\" class=\"footnote-backref\">↩</a></li>\n",
+                "<li id=\"{}\">{} <a href=\"XHASHX{}ref\" class=\"footnote-backref\">↩</a></li>",
                 footnote_id, footnote_text, footnote_id
             ));
         }
