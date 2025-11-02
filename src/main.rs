@@ -12,6 +12,7 @@ use std::thread;
 
 use chrono::{DateTime, Utc};
 use rocket::{
+    http::Status,
     request::{FromRequest, Outcome},
     response::content,
     Request, State,
@@ -395,7 +396,10 @@ fn view_post(
     _config: &State<Config>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
-    rocket::response::status::NotFound<String>,
+    (
+        Status,
+        rocket::Either<content::RawText<String>, content::RawHtml<String>>,
+    ),
 > {
     let is_raw_request = post_id.ends_with(".md");
     let actual_post_id = if is_raw_request {
@@ -532,13 +536,7 @@ fn view_post(
             }
         }
         None => {
-            if is_raw_request {
-                Err(rocket::response::status::NotFound(
-                    "Post not found".to_string(),
-                ))
-            } else {
-                Ok(rocket::Either::Left(content::RawHtml(
-                    r#"<!doctype html>
+            let html_404 = r#"<!doctype html>
 <html>
 <head>
     <title>404 - Nonograph not found</title>
@@ -560,9 +558,18 @@ fn view_post(
     <h1>404 - Nonograph Not Found</h1>
     <p><a href="/">← Write Your Own</a></p>
 </body>
-</html>"#
-                        .to_string(),
-                )))
+</html>"#;
+
+            if is_raw_request {
+                Err((
+                    Status::NotFound,
+                    rocket::Either::Left(content::RawText("Post not found".to_string())),
+                ))
+            } else {
+                Err((
+                    Status::NotFound,
+                    rocket::Either::Right(content::RawHtml(html_404.to_string())),
+                ))
             }
         }
     }
