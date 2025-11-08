@@ -14,6 +14,9 @@ We store only the words you write. Specifically, we store the text content you c
 **For People Who Read Content:**
 We collect nothing from readers. While the server receives your request to serve the page, no IP addresses, cookies, tracking, analytics, or identifying information is stored or logged. Your request only informs an in-memory cache that keeps frequently accessed pages saved in memory faster response times. The cache system never writes to disk and doesn't store any specifics.
 
+**JavaScript-free Option:**
+For additional privacy, you can access any page through our JavaScript-free endpoint by adding `/nojs/` to the beginning of any address. For example, `domain.onion/nojs` for the home page or `domain.onion/nojs/your-post-id` for individual posts. This strips all client-side JavaScript on the server side before serving the webpage.
+
 ## Important: Service Privacy Is Not Anonymity
 This service protects your privacy from us, but cannot protect your anonymity from others. Your writing creates a unique "fingerprint" through topics, style, word choices, idioms, sentence patterns, cultural references, and experiences. Additionally, metadata from files or websites you link to may contain identifying information. The service is not a magic bullet for anonymity - you are responsible for your own operational security.
 

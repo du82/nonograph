@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod config;
+mod nojs;
 mod parser;
 mod save;
 mod template;
@@ -595,6 +596,99 @@ fn api_page() -> content::RawHtml<String> {
     serve_static_page("api")
 }
 
+#[get("/nojs")]
+fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
+    let html = index(config).0;
+    let clean_html = nojs::strip_javascript(&html);
+    // Update form action to point to /nojs/create
+    let nojs_html = clean_html.replace(r#"action="/create""#, r#"action="/nojs/create""#);
+    content::RawHtml(nojs_html)
+}
+
+#[get("/nojs/<post_id>")]
+fn nojs_view_post(
+    post_id: &str,
+    storage: &State<PostStorage>,
+    config: &State<Config>,
+) -> Result<
+    rocket::Either<content::RawHtml<String>, content::RawText<String>>,
+    (
+        Status,
+        rocket::Either<content::RawText<String>, content::RawHtml<String>>,
+    ),
+> {
+    match view_post(post_id, storage, config) {
+        Ok(rocket::Either::Left(content::RawHtml(html))) => {
+            let clean_html = nojs::strip_javascript(&html);
+            Ok(rocket::Either::Left(content::RawHtml(clean_html)))
+        }
+        Ok(rocket::Either::Right(raw_text)) => {
+            Ok(rocket::Either::Right(raw_text))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+#[post("/nojs/create", data = "<form>")]
+fn nojs_create_post(
+    _csrf: CsrfProtected,
+    form: rocket::form::Form<NewPost>,
+    storage: &State<PostStorage>,
+    file_queue: &State<FileSaveQueue>,
+    config: &State<Config>,
+) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
+    if config.security.csrf_protection_enabled {
+        if !is_valid_csrf_token(&form.csrf_token) {
+            let error_url = format!("/nojs/?error=csrf_token_invalid");
+            return Ok(rocket::response::Redirect::to(error_url));
+        }
+    }
+
+    let alias = if form.alias.trim().is_empty() {
+        None
+    } else {
+        Some(form.alias.as_str())
+    };
+    if let Err(error) = config.validate_post(&form.title, &form.content, alias) {
+        let error_url = format!("/nojs/?error={}", error);
+        return Ok(rocket::response::Redirect::to(error_url));
+    }
+
+    let post_id = match generate_post_id(&form.title, storage) {
+        Ok(id) => id,
+        Err(_) => {
+            return Ok(rocket::response::Redirect::to(
+                "/nojs/?error=no_available_slots",
+            ))
+        }
+    };
+
+    let rendered_content = parser::render_markdown(&form.content);
+
+    let post = Post {
+        id: post_id.clone(),
+        title: parser::sanitize_text(&form.title),
+        author: parser::sanitize_text(&form.alias),
+        content: rendered_content,
+        raw_content: form.content.clone(),
+        created_at: Utc::now(),
+    };
+
+    let post_for_file = post.clone();
+    {
+        let mut posts = storage.lock().unwrap();
+        posts.insert(post_id.clone(), post); // Move post here
+    }
+
+    if let Ok(tx) = file_queue.lock() {
+        if let Err(_) = tx.send(post_for_file) {
+            eprintln!("Failed to queue post for background save: {}", post_id);
+        }
+    }
+
+    Ok(rocket::response::Redirect::to(format!("/nojs/{}", post_id)))
+}
+
 fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
     let file_path = format!("content/{}.md", page_name);
 
@@ -686,7 +780,10 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 markup_page,
                 legal_page,
                 about_page,
-                api_page
+                api_page,
+                nojs_index,
+                nojs_view_post,
+                nojs_create_post
             ],
         )
 }
@@ -1527,5 +1624,96 @@ mod tests {
             assert!(result.contains(&format!("<h1>{} Page</h1>", page_name)));
             assert!(result.contains("October 5, 2025"));
         }
+    }
+
+    #[test]
+    fn test_nojs_strip_javascript_from_template() {
+        let html_with_js = r#"<html>
+        <head><title>Test</title></head>
+        <body>
+            <p>Content before script</p>
+            <script>
+                const x = 1;
+                alert('hello');
+            </script>
+            <p>Content after script</p>
+        </body>
+        </html>"#;
+
+        let result = nojs::strip_javascript(html_with_js);
+
+        assert!(!result.contains("<script"));
+        assert!(!result.contains("const x = 1"));
+        assert!(!result.contains("alert('hello')"));
+
+        assert!(result.contains("Content before script"));
+        assert!(result.contains("Content after script"));
+        assert!(result.contains("<title>Test</title>"));
+    }
+
+    #[test]
+    fn test_nojs_form_action_replacement() {
+        let html_with_form = r#"<form action="/create" method="post" id="publishForm">
+            <input type="text" name="title">
+            <button type="submit">Submit</button>
+        </form>"#;
+
+        let result = html_with_form.replace(r#"action="/create""#, r#"action="/nojs/create""#);
+
+        assert!(result.contains(r#"action="/nojs/create""#));
+        assert!(!result.contains(r#"action="/create""#));
+
+        // Verify other form elements are preserved
+        assert!(result.contains(r#"method="post""#));
+        assert!(result.contains(r#"id="publishForm""#));
+        assert!(result.contains(r#"name="title""#));
+    }
+
+    #[test]
+    fn test_nojs_post_creation_flow() {
+        use std::env;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let original_dir = env::current_dir().unwrap();
+        env::set_current_dir(temp_dir.path()).unwrap();
+
+        std::fs::create_dir_all("content").unwrap();
+
+        // Test data
+        let post_title = "Test NoJS Post";
+        let _post_content = "This is a test post created via nojs endpoint";
+        let _post_alias = "testauthor";
+
+        let post_id = format!(
+            "{}-{}",
+            post_title
+                .to_lowercase()
+                .chars()
+                .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+                .collect::<String>()
+                .split_whitespace()
+                .take(6)
+                .collect::<Vec<_>>()
+                .join("-"),
+            "test"
+        );
+
+        // Verify that error URLs include /nojs/ prefix
+        let csrf_error = format!("/nojs/?error=csrf_token_invalid");
+        let validation_error = format!("/nojs/?error=content_too_long");
+        let slots_error = "/nojs/?error=no_available_slots";
+
+        assert!(csrf_error.starts_with("/nojs/"));
+        assert!(validation_error.starts_with("/nojs/"));
+        assert!(slots_error.starts_with("/nojs/"));
+
+        // Verify successful redirect includes /nojs/ prefix
+        let success_redirect = format!("/nojs/{}", post_id);
+        assert!(success_redirect.starts_with("/nojs/"));
+        assert!(success_redirect.contains(&post_id));
+
+        // Restore original directory
+        env::set_current_dir(original_dir).unwrap();
     }
 }
