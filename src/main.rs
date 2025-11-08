@@ -620,11 +620,15 @@ fn nojs_view_post(
     match view_post(post_id, storage, config) {
         Ok(rocket::Either::Left(content::RawHtml(html))) => {
             let clean_html = nojs::strip_javascript(&html);
-            Ok(rocket::Either::Left(content::RawHtml(clean_html)))
+            let fixed_html = clean_html
+                .replace(
+                    &format!(r#"href="/nojs/{}"#, post_id),
+                    &format!(r#"href="/{}"#, post_id),
+                )
+                .replace(r#"target="_blank">nojs</a>"#, r#"target="_blank">js</a>"#);
+            Ok(rocket::Either::Left(content::RawHtml(fixed_html)))
         }
-        Ok(rocket::Either::Right(raw_text)) => {
-            Ok(rocket::Either::Right(raw_text))
-        }
+        Ok(rocket::Either::Right(raw_text)) => Ok(rocket::Either::Right(raw_text)),
         Err(error) => Err(error),
     }
 }
@@ -1715,5 +1719,40 @@ mod tests {
 
         // Restore original directory
         env::set_current_dir(original_dir).unwrap();
+    }
+
+    #[test]
+    fn test_nojs_footer_link_replacement() {
+        let post_id = "test-post-123";
+        let html_with_footer = format!(
+            r#"<div class="footer">
+            <a href="/" target="_blank">write your own</a>
+            <a href="/legal" target="_blank">legal</a>
+            <a href="/api" target="_blank">api</a>
+            <a href="/nojs/{}" target="_blank">nojs</a>
+            <a href="https://github.com/du82/nonograph" target="_blank">source code</a>
+        </div>"#,
+            post_id
+        );
+
+        let result = html_with_footer
+            .replace(
+                &format!(r#"href="/nojs/{}"#, post_id),
+                &format!(r#"href="/{}"#, post_id),
+            )
+            .replace(r#"target="_blank">nojs</a>"#, r#"target="_blank">js</a>"#);
+
+        assert!(result.contains(&format!(r#"href="/{}"#, post_id)));
+        assert!(!result.contains(&format!(r#"href="/nojs/{}"#, post_id)));
+
+        assert!(result.contains(r#"target="_blank">js</a>"#));
+        assert!(!result.contains(r#"target="_blank">nojs</a>"#));
+
+        assert!(result.contains(r#"href="/" target="_blank">write your own</a>"#));
+        assert!(result.contains(r#"href="/legal" target="_blank">legal</a>"#));
+        assert!(result.contains(r#"href="/api" target="_blank">api</a>"#));
+        assert!(result.contains(
+            r#"href="https://github.com/du82/nonograph" target="_blank">source code</a>"#
+        ));
     }
 }
