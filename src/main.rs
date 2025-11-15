@@ -6,10 +6,10 @@ mod nojs;
 mod parser;
 mod save;
 mod template;
+mod theme;
 
 use config::Config;
-use std::sync::mpsc;
-use std::thread;
+use theme::{Theme, ThemeManager};
 
 use chrono::{DateTime, Utc};
 use rocket::{
@@ -32,6 +32,7 @@ struct Post {
     content: String,
     raw_content: String,
     created_at: DateTime<Utc>,
+    theme: Option<String>,
 }
 
 impl Post {
@@ -145,10 +146,9 @@ impl PostCache {
 }
 
 type PostStorage = Arc<Mutex<PostCache>>;
-type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
 #[get("/")]
-fn index(config: &State<Config>) -> content::RawHtml<String> {
+fn index(config: &State<Config>, theme_manager: &State<ThemeManager>) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
     let mut context = HashMap::new();
     context.insert("error".to_string(), "".to_string());
@@ -173,6 +173,11 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
     };
     context.insert("csrf_token".to_string(), csrf_token);
 
+    // Add theme data as JSON for frontend consumption
+    let themes_json = serde_json::to_string(&theme_manager.get_frontend_themes())
+        .unwrap_or_else(|_| "[]".to_string());
+    context.insert("themes_json".to_string(), themes_json);
+
     match engine.render_with_defaults("home", &context) {
         Ok(html) => content::RawHtml(html),
         Err(e) => content::RawHtml(format!("Template error: {}", e)),
@@ -184,6 +189,7 @@ struct NewPost {
     title: String,
     content: String,
     alias: String,
+    theme: String,
     csrf_token: String,
 }
 
@@ -339,8 +345,8 @@ fn create_post(
     _csrf: CsrfProtected,
     form: rocket::form::Form<NewPost>,
     storage: &State<PostStorage>,
-    file_queue: &State<FileSaveQueue>,
     config: &State<Config>,
+    theme_manager: &State<ThemeManager>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
         if !is_valid_csrf_token(&form.csrf_token) {
@@ -359,6 +365,18 @@ fn create_post(
         return Ok(rocket::response::Redirect::to(error_url));
     }
 
+    // Validate theme if provided - accepts both theme names and indices
+    let validated_theme = if !form.theme.trim().is_empty() {
+        if let Some(theme_name) = theme_manager.is_valid_theme_input(&form.theme) {
+            Some(theme_name)
+        } else {
+            let error_url = format!("/?error=invalid_theme");
+            return Ok(rocket::response::Redirect::to(error_url));
+        }
+    } else {
+        None
+    };
+
     let post_id = match generate_post_id(&form.title, storage) {
         Ok(id) => id,
         Err(_) => return Ok(rocket::response::Redirect::to("/?error=no_available_slots")),
@@ -373,18 +391,20 @@ fn create_post(
         content: rendered_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
+        theme: validated_theme,
     };
 
-    let post_for_file = post.clone();
-    {
-        let mut posts = storage.lock().unwrap();
-        posts.insert(post_id.clone(), post); // Move post here
+    // Save to file immediately
+    if let Err(e) = save::save_post_to_file(&post) {
+        eprintln!("Failed to save post to file {}: {}", post_id, e);
+        let error_url = format!("/nojs/?error=file_save_failed");
+        return Ok(rocket::response::Redirect::to(error_url));
     }
 
-    if let Ok(tx) = file_queue.lock() {
-        if let Err(_) = tx.send(post_for_file) {
-            eprintln!("Failed to queue post for background save: {}", post_id);
-        }
+    let post_for_cache = post.clone();
+    {
+        let mut posts = storage.lock().unwrap();
+        posts.insert(post_id.clone(), post_for_cache);
     }
 
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
@@ -429,14 +449,25 @@ fn view_post(
                 {
                     let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
                     if lines.len() >= 4 {
-                        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
-                            (
-                                lines[0][..pipe_pos].to_string(),
-                                lines[0][(pipe_pos + 3)..].to_string(),
-                            )
-                        } else {
-                            (lines[0].to_string(), "".to_string())
-                        };
+                        let header = lines[0];
+                        let mut date_str = header.to_string();
+                        let mut author = String::new();
+                        let mut theme: Option<String> = None;
+
+                        // Parse header: "Date | Author | Theme: theme_name" or variations
+                        if let Some(first_pipe) = header.find(" | ") {
+                            date_str = header[..first_pipe].to_string();
+                            let remaining = &header[(first_pipe + 3)..];
+
+                            if let Some(theme_pos) = remaining.find(" | Theme: ") {
+                                author = remaining[..theme_pos].to_string();
+                                theme = Some(remaining[(theme_pos + 9)..].to_string());
+                            } else if remaining.starts_with("Theme: ") {
+                                theme = Some(remaining[7..].to_string());
+                            } else {
+                                author = remaining.to_string();
+                            }
+                        }
 
                         // Parse the stored date, fallback to current time if parsing fails
                         let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
@@ -460,6 +491,7 @@ fn view_post(
                             content: parser::render_markdown(&raw_content),
                             raw_content,
                             created_at,
+                            theme,
                         };
 
                         {
@@ -514,6 +546,13 @@ fn view_post(
                 );
                 context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
                 context.insert("post_id".to_string(), actual_post_id.to_string());
+
+                // Add theme information if present
+                if let Some(ref theme_name) = post.theme {
+                    context.insert("theme".to_string(), theme_name.clone());
+                } else {
+                    context.insert("theme".to_string(), String::new());
+                }
 
                 // OpenGraph variables
                 context.insert("url".to_string(), format!("/{}", actual_post_id));
@@ -597,8 +636,11 @@ fn api_page() -> content::RawHtml<String> {
 }
 
 #[get("/nojs")]
-fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
-    let html = index(config).0;
+fn nojs_index(
+    config: &State<Config>,
+    theme_manager: &State<ThemeManager>,
+) -> content::RawHtml<String> {
+    let html = index(config, theme_manager).0;
     let clean_html = nojs::strip_javascript(&html);
     // Update form action to point to /nojs/create
     let nojs_html = clean_html.replace(r#"action="/create""#, r#"action="/nojs/create""#);
@@ -633,13 +675,55 @@ fn nojs_view_post(
     }
 }
 
+#[get("/api/themes")]
+fn get_themes(theme_manager: &State<ThemeManager>) -> rocket::serde::json::Json<serde_json::Value> {
+    let themes: HashMap<String, serde_json::Value> = theme_manager
+        .get_all_themes()
+        .iter()
+        .map(|(key, theme)| (key.clone(), theme.to_json_object()))
+        .collect();
+
+    rocket::serde::json::Json(serde_json::json!({
+        "themes": themes,
+        "default": "light"
+    }))
+}
+
+#[get("/api/themes/<theme_name>")]
+fn get_theme(
+    theme_name: String,
+    theme_manager: &State<ThemeManager>,
+) -> Result<rocket::serde::json::Json<serde_json::Value>, Status> {
+    if let Some(theme) = theme_manager.get_theme(&theme_name) {
+        Ok(rocket::serde::json::Json(theme.to_json_object()))
+    } else {
+        Err(Status::NotFound)
+    }
+}
+
+#[post("/api/validate-theme", data = "<theme_data>")]
+fn validate_theme(
+    theme_data: rocket::serde::json::Json<Theme>,
+) -> Result<rocket::serde::json::Json<serde_json::Value>, Status> {
+    match theme_data.validate_colors() {
+        Ok(_) => Ok(rocket::serde::json::Json(serde_json::json!({
+            "valid": true,
+            "message": "Theme colors are valid"
+        }))),
+        Err(error) => Ok(rocket::serde::json::Json(serde_json::json!({
+            "valid": false,
+            "message": error
+        }))),
+    }
+}
+
 #[post("/nojs/create", data = "<form>")]
 fn nojs_create_post(
     _csrf: CsrfProtected,
     form: rocket::form::Form<NewPost>,
     storage: &State<PostStorage>,
-    file_queue: &State<FileSaveQueue>,
     config: &State<Config>,
+    theme_manager: &State<ThemeManager>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
         if !is_valid_csrf_token(&form.csrf_token) {
@@ -657,6 +741,18 @@ fn nojs_create_post(
         let error_url = format!("/nojs/?error={}", error);
         return Ok(rocket::response::Redirect::to(error_url));
     }
+
+    // Validate theme if provided - accepts both theme names and indices
+    let validated_theme = if !form.theme.trim().is_empty() {
+        if let Some(theme_name) = theme_manager.is_valid_theme_input(&form.theme) {
+            Some(theme_name)
+        } else {
+            let error_url = format!("/nojs/?error=invalid_theme");
+            return Ok(rocket::response::Redirect::to(error_url));
+        }
+    } else {
+        None
+    };
 
     let post_id = match generate_post_id(&form.title, storage) {
         Ok(id) => id,
@@ -676,18 +772,20 @@ fn nojs_create_post(
         content: rendered_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
+        theme: validated_theme,
     };
 
-    let post_for_file = post.clone();
-    {
-        let mut posts = storage.lock().unwrap();
-        posts.insert(post_id.clone(), post); // Move post here
+    // Save to file immediately
+    if let Err(e) = save::save_post_to_file(&post) {
+        eprintln!("Failed to save post to file {}: {}", post_id, e);
+        let error_url = format!("/nojs/?error=file_save_failed");
+        return Ok(rocket::response::Redirect::to(error_url));
     }
 
-    if let Ok(tx) = file_queue.lock() {
-        if let Err(_) = tx.send(post_for_file) {
-            eprintln!("Failed to queue post for background save: {}", post_id);
-        }
+    let post_for_cache = post.clone();
+    {
+        let mut posts = storage.lock().unwrap();
+        posts.insert(post_id.clone(), post_for_cache);
     }
 
     Ok(rocket::response::Redirect::to(format!("/nojs/{}", post_id)))
@@ -733,20 +831,6 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
     }
 }
 
-fn start_file_save_worker() -> mpsc::Sender<Post> {
-    let (tx, rx) = mpsc::channel::<Post>();
-
-    thread::spawn(move || {
-        for post in rx {
-            if let Err(e) = save::save_post_to_file(&post) {
-                eprintln!("Background file save failed for post {}: {}", post.id, e);
-            }
-        }
-    });
-
-    tx
-}
-
 #[launch]
 fn rocket() -> rocket::Rocket<rocket::Build> {
     use rocket::data::{Limits, ToByteUnit};
@@ -759,7 +843,14 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .limit("string", config.form_data_limit_bytes().bytes());
 
     let storage = Arc::new(Mutex::new(PostCache::new(config.cache.max_cache_size_mb)));
-    let file_save_sender = start_file_save_worker();
+
+    // Load theme manager
+    let theme_manager = ThemeManager::new("Themes.toml").unwrap_or_else(|e| {
+        eprintln!("Warning: Could not load Themes.toml: {}", e);
+        panic!(
+            "Failed to load theme configuration. Please ensure Themes.toml exists and is valid."
+        );
+    });
 
     rocket::build()
         .configure(rocket::Config {
@@ -773,8 +864,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
             ..rocket::Config::default()
         })
         .manage(storage)
-        .manage(FileSaveQueue::new(file_save_sender))
         .manage(config)
+        .manage(theme_manager)
         .mount(
             "/",
             routes![
@@ -787,7 +878,10 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 api_page,
                 nojs_index,
                 nojs_view_post,
-                nojs_create_post
+                nojs_create_post,
+                get_themes,
+                get_theme,
+                validate_theme
             ],
         )
 }
@@ -1032,11 +1126,12 @@ mod tests {
 
         let post = Post {
             id: post_id.clone(),
-            title: parser::sanitize_text(&malicious_title),
-            author: parser::sanitize_text(&malicious_author),
+            title: parser::sanitize_text(malicious_title),
+            author: parser::sanitize_text(malicious_author),
             content: rendered_content,
             raw_content: clean_content.to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         assert_eq!(post.title, "Clean Title");
@@ -1053,6 +1148,7 @@ mod tests {
             content: "Test content".to_string(),
             raw_content: "Test content".to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         {
@@ -1090,9 +1186,10 @@ mod tests {
                     id: id.clone(),
                     title: "Test".to_string(),
                     author: "Test Author".to_string(),
-                    content: "Content".to_string(),
-                    raw_content: "Content".to_string(),
-                    created_at: now,
+                    content: "Test content".to_string(),
+                    raw_content: "Test content".to_string(),
+                    created_at: Utc::now(),
+                    theme: None,
                 };
                 posts.insert(id, post);
             }
@@ -1175,6 +1272,7 @@ mod tests {
             content: parser::render_markdown(&emoji_content),
             raw_content: emoji_content.clone(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         let description = if post.raw_content.chars().count() > 160 {
@@ -1330,6 +1428,7 @@ mod tests {
             content: parser::render_markdown(&long_emoji_content),
             raw_content: long_emoji_content.clone(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         let description = if post.raw_content.chars().count() > 160 {
@@ -1355,6 +1454,7 @@ mod tests {
             content: parser::render_markdown(&long_ascii_content),
             raw_content: long_ascii_content.clone(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         let description2 = if post2.raw_content.chars().count() > 160 {
@@ -1476,6 +1576,7 @@ mod tests {
             content: "<p>Content</p>".to_string(),
             raw_content: "Content".to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         let alias_display = if post_with_alias.author.is_empty() {
@@ -1493,6 +1594,7 @@ mod tests {
             content: "<p>Content</p>".to_string(),
             raw_content: "Content".to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         let alias_display_empty = if post_without_alias.author.is_empty() {

@@ -29,7 +29,7 @@ impl TemplateEngine {
         // Replace all {{variable}} patterns with values from context
         for (key, value) in context {
             let pattern = format!("{{{{{}}}}}", key);
-            let escaped_value = if key == "content" {
+            let escaped_value = if key == "content" || key == "themes_json" {
                 value.clone()
             } else {
                 html_attr_escape(value)

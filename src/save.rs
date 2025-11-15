@@ -18,12 +18,19 @@ pub fn save_post_to_file(post: &Post) -> Result<(), String> {
     let filename = format!("content/{}.md", post.id);
     let file_path = Path::new(&filename);
 
-    // Create file content with date at top, optionally author with pipe, empty line, title as h1, then user content
-    let header = if post.author.is_empty() {
+    // Create file content with date at top, optionally author with pipe, optionally theme, empty line, title as h1, then user content
+    let mut header = if post.author.is_empty() {
         post.created_at.format("%B %d, %Y").to_string()
     } else {
         format!("{} | {}", post.created_at.format("%B %d, %Y"), post.author)
     };
+
+    // Add theme metadata if present
+    if let Some(ref theme) = post.theme {
+        if !theme.is_empty() {
+            header = format!("{} | Theme: {}", header, theme);
+        }
+    }
 
     let file_content = format!("{}\n\n# {}\n{}", header, post.title, post.raw_content);
 
@@ -82,6 +89,7 @@ mod tests {
             content: "<p>Rendered content</p>".to_string(),
             raw_content: "Raw content here".to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         // Save post
@@ -127,6 +135,7 @@ mod tests {
             content: "<p>Content</p>".to_string(),
             raw_content: "Content".to_string(),
             created_at: Utc::now(),
+            theme: None,
         };
 
         // Save and verify exists
@@ -155,6 +164,7 @@ mod tests {
             content: "<p>Rendered</p>".to_string(),
             raw_content: "This is the user content\nWith multiple lines".to_string(),
             created_at: Utc::now(),
+            theme: Some("dark".to_string()),
         };
 
         assert!(save_post_to_file(&post).is_ok());
@@ -168,6 +178,7 @@ mod tests {
             lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
         );
         assert!(lines[0].contains(" | Test Author"));
+        assert!(lines[0].contains(" | Theme: dark"));
         // Second line should be empty
         assert_eq!(lines[1], "");
         // Third line should be title with h1
@@ -196,6 +207,7 @@ mod tests {
             content: "<p>Rendered</p>".to_string(),
             raw_content: "Content without author".to_string(),
             created_at: Utc::now(),
+            theme: Some("light".to_string()),
         };
 
         assert!(save_post_to_file(&post).is_ok());
@@ -204,11 +216,11 @@ mod tests {
         let raw_file = fs::read_to_string("content/no-author-test-01-01-2024.md").unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
-        // First line should be date only (no pipe or author)
+        // First line should be date with theme (no author)
         assert!(
             lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
         );
-        assert!(!lines[0].contains(" | "));
+        assert!(lines[0].contains(" | Theme: light"));
         // Second line should be empty
         assert_eq!(lines[1], "");
         // Third line should be title with h1

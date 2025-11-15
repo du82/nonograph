@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 rocket = { version = "0.5", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 ammonia = "3.3"

@@ -1,0 +1,359 @@
+# Themes configuration file for Nonograph
+# This file defines all available themes that can be used by the application
+# Each theme contains color definitions for various UI elements
+
+[themes]
+
+# Light Themes
+[themes.light]
+name = "Light"
+background = "#ffffff"
+text = "#1a1a1a"
+is_dark = false
+button_bg = "#333333"
+button_hover = "#000000"
+button_active = "#111111"
+button_text = "#ffffff"
+menu_bg = "#ffffff"
+menu_text = "#333333"
+menu_hover = "#f5f5f5"
+menu_selected = "#e8e8e8"
+menu_border = "#dddddd"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.sepia]
+name = "Sepia"
+background = "#f4ecd8"
+text = "#3d3428"
+is_dark = false
+button_bg = "#2a2015"
+button_hover = "#1a1408"
+button_active = "#0f0a05"
+button_text = "#ffffff"
+menu_bg = "#f4ecd8"
+menu_text = "#3d3428"
+menu_hover = "#eee3c8"
+menu_selected = "#e8ddbf"
+menu_border = "#ded5b8"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.rose]
+name = "Rose"
+background = "#fce4ec"
+text = "#880e4f"
+is_dark = false
+button_bg = "#6a0b3d"
+button_hover = "#5a0932"
+button_active = "#4a0727"
+button_text = "#ffffff"
+menu_bg = "#fce4ec"
+menu_text = "#880e4f"
+menu_hover = "#fad4dc"
+menu_selected = "#f8c4cc"
+menu_border = "#f6b4bc"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.peach]
+name = "Peach"
+background = "#fff3e0"
+text = "#e65100"
+is_dark = false
+button_bg = "#bf4500"
+button_hover = "#a53d00"
+button_active = "#8b3400"
+button_text = "#ffffff"
+menu_bg = "#fff3e0"
+menu_text = "#e65100"
+menu_hover = "#ffe3d0"
+menu_selected = "#ffd3c0"
+menu_border = "#ffc3b0"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.cream]
+name = "Cream"
+background = "#fffbea"
+text = "#5a4d1f"
+is_dark = false
+button_bg = "#4a3d0f"
+button_hover = "#3a2d05"
+button_active = "#2a1d00"
+button_text = "#ffffff"
+menu_bg = "#fffbea"
+menu_text = "#5a4d1f"
+menu_hover = "#f5f1da"
+menu_selected = "#ebe7ca"
+menu_border = "#e1ddba"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.mint]
+name = "Mint"
+background = "#e8f5e9"
+text = "#1b5e20"
+is_dark = false
+button_bg = "#0f4e14"
+button_hover = "#0a3e0f"
+button_active = "#052e0a"
+button_text = "#ffffff"
+menu_bg = "#e8f5e9"
+menu_text = "#1b5e20"
+menu_hover = "#d8e5d9"
+menu_selected = "#c8d5c9"
+menu_border = "#b8c5b9"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.sage]
+name = "Sage"
+background = "#e8f0e8"
+text = "#2d4a2d"
+is_dark = false
+button_bg = "#1d3a1d"
+button_hover = "#0d2a0d"
+button_active = "#051a05"
+button_text = "#ffffff"
+menu_bg = "#e8f0e8"
+menu_text = "#2d4a2d"
+menu_hover = "#d8e0d8"
+menu_selected = "#c8d0c8"
+menu_border = "#b8c0b8"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.sky]
+name = "Sky"
+background = "#e3f2fd"
+text = "#01579b"
+is_dark = false
+button_bg = "#01477b"
+button_hover = "#013766"
+button_active = "#012751"
+button_text = "#ffffff"
+menu_bg = "#e3f2fd"
+menu_text = "#01579b"
+menu_hover = "#d3e2ed"
+menu_selected = "#c3d2dd"
+menu_border = "#b3c2cd"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+[themes.lavender]
+name = "Lavender"
+background = "#f3e5f5"
+text = "#4a148c"
+is_dark = false
+button_bg = "#3a047c"
+button_hover = "#2a006c"
+button_active = "#1a005c"
+button_text = "#ffffff"
+menu_bg = "#f3e5f5"
+menu_text = "#4a148c"
+menu_hover = "#e3d5e5"
+menu_selected = "#d3c5d5"
+menu_border = "#c3b5c5"
+menu_shadow = "rgba(0, 0, 0, 0.15)"
+
+# Dark Themes
+[themes.dark]
+name = "Dark"
+background = "#1a1f25"
+text = "#e0e4e8"
+is_dark = true
+button_bg = "#464b51"
+button_hover = "#56676d"
+button_active = "#363b41"
+button_text = "#ffffff"
+menu_bg = "#2a2f35"
+menu_text = "#e0e4e8"
+menu_hover = "#3a3f45"
+menu_selected = "#4a4f55"
+menu_border = "#5a5f65"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.black]
+name = "Black"
+background = "#0d0d0d"
+text = "#e8e8e8"
+is_dark = true
+button_bg = "#393939"
+button_hover = "#494949"
+button_active = "#292929"
+button_text = "#ffffff"
+menu_bg = "#1d1d1d"
+menu_text = "#e8e8e8"
+menu_hover = "#2d2d2d"
+menu_selected = "#3d3d3d"
+menu_border = "#4d4d4d"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.slate]
+name = "Slate"
+background = "#1e2936"
+text = "#e0e6ed"
+is_dark = true
+button_bg = "#4a5562"
+button_hover = "#5a6572"
+button_active = "#3a4552"
+button_text = "#ffffff"
+menu_bg = "#2e3946"
+menu_text = "#e0e6ed"
+menu_hover = "#3e4956"
+menu_selected = "#4e5966"
+menu_border = "#5e6976"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.burgundy]
+name = "Burgundy"
+background = "#3a1a25"
+text = "#f5c8d8"
+is_dark = true
+button_bg = "#664651"
+button_hover = "#765661"
+button_active = "#563641"
+button_text = "#ffffff"
+menu_bg = "#4a2a35"
+menu_text = "#f5c8d8"
+menu_hover = "#5a3a45"
+menu_selected = "#6a4a55"
+menu_border = "#7a5a65"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.rust]
+name = "Rust"
+background = "#3a2515"
+text = "#f0d0b8"
+is_dark = true
+button_bg = "#665141"
+button_hover = "#766151"
+button_active = "#564131"
+button_text = "#ffffff"
+menu_bg = "#4a3525"
+menu_text = "#f0d0b8"
+menu_hover = "#5a4535"
+menu_selected = "#6a5545"
+menu_border = "#7a6555"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.warm_coffee]
+name = "Warm Coffee"
+background = "#3a2815"
+text = "#f0dcc0"
+is_dark = true
+button_bg = "#665441"
+button_hover = "#766451"
+button_active = "#564431"
+button_text = "#ffffff"
+menu_bg = "#4a3825"
+menu_text = "#f0dcc0"
+menu_hover = "#5a4835"
+menu_selected = "#6a5845"
+menu_border = "#7a6855"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.forest_green]
+name = "Forest Green"
+background = "#1a3a25"
+text = "#c0e8d0"
+is_dark = true
+button_bg = "#466651"
+button_hover = "#567661"
+button_active = "#365641"
+button_text = "#ffffff"
+menu_bg = "#2a4a35"
+menu_text = "#c0e8d0"
+menu_hover = "#3a5a45"
+menu_selected = "#4a6a55"
+menu_border = "#5a7a65"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.olive]
+name = "Olive"
+background = "#353a18"
+text = "#e0e8b8"
+is_dark = true
+button_bg = "#616644"
+button_hover = "#717654"
+button_active = "#515634"
+button_text = "#ffffff"
+menu_bg = "#454a28"
+menu_text = "#e0e8b8"
+menu_hover = "#555a38"
+menu_selected = "#656a48"
+menu_border = "#757a58"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.midnight_blue]
+name = "Midnight Blue"
+background = "#12254a"
+text = "#c0d5f5"
+is_dark = true
+button_bg = "#3e5176"
+button_hover = "#4e6186"
+button_active = "#2e4166"
+button_text = "#ffffff"
+menu_bg = "#22355a"
+menu_text = "#c0d5f5"
+menu_hover = "#32456a"
+menu_selected = "#42557a"
+menu_border = "#52658a"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.steel_blue]
+name = "Steel Blue"
+background = "#1f3a50"
+text = "#c8ddf0"
+is_dark = true
+button_bg = "#4b667c"
+button_hover = "#5b768c"
+button_active = "#3b566c"
+button_text = "#ffffff"
+menu_bg = "#2f4a60"
+menu_text = "#c8ddf0"
+menu_hover = "#3f5a70"
+menu_selected = "#4f6a80"
+menu_border = "#5f7a90"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.deep_teal]
+name = "Deep Teal"
+background = "#153a3a"
+text = "#b8f0f0"
+is_dark = true
+button_bg = "#416666"
+button_hover = "#517676"
+button_active = "#315656"
+button_text = "#ffffff"
+menu_bg = "#254a4a"
+menu_text = "#b8f0f0"
+menu_hover = "#355a5a"
+menu_selected = "#456a6a"
+menu_border = "#557a7a"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.deep_purple]
+name = "Deep Purple"
+background = "#2a1a50"
+text = "#d5c0f0"
+is_dark = true
+button_bg = "#56467c"
+button_hover = "#66568c"
+button_active = "#46366c"
+button_text = "#ffffff"
+menu_bg = "#3a2a60"
+menu_text = "#d5c0f0"
+menu_hover = "#4a3a70"
+menu_selected = "#5a4a80"
+menu_border = "#6a5a90"
+menu_shadow = "rgba(0, 0, 0, 0.5)"
+
+[themes.plum]
+name = "Plum"
+background = "#3a1a3a"
+text = "#e8c0e8"
+is_dark = true
+button_bg = "#664666"
+button_hover = "#765676"
+button_active = "#563656"
+button_text = "#ffffff"
+menu_bg = "#4a2a4a"
+menu_text = "#e8c0e8"
+menu_hover = "#5a3a5a"
+menu_selected = "#6a4a6a"
+menu_border = "#7a5a7a"
+menu_shadow = "rgba(0, 0, 0, 0.5)"

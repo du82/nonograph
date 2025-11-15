@@ -13,6 +13,21 @@
         <meta property="article:published_time" content="{{created_at_iso}}" />
         <meta name="author" content="{{author}}" />
         <style>
+            :root {
+                --background: #ffffff;
+                --text: #333333;
+                --button-bg: #333;
+                --button-hover: #000;
+                --button-active: #111;
+                --button-text: #ffffff;
+                --menu-bg: #ffffff;
+                --menu-text: #333;
+                --menu-hover: #f5f5f5;
+                --menu-selected: #e8e8e8;
+                --menu-border: #ddd;
+                --menu-shadow: rgba(0, 0, 0, 0.15);
+            }
+
             * {
                 margin: 0;
                 padding: 0;
@@ -20,8 +35,8 @@
             }
             body {
                 line-height: 1.6;
-                background: #ffffff;
-                color: #333;
+                background: var(--background);
+                color: var(--text);
                 min-height: 100vh;
                 display: flex;
                 flex-direction: column;
@@ -40,7 +55,7 @@
                 font-size: 30px;
                 font-weight: 600;
                 margin-bottom: 8px;
-                color: #333;
+                color: var(--text);
                 font-family: Georgia, "Times New Roman", Times, serif;
                 box-shadow: none;
                 -webkit-box-shadow: none;
@@ -50,7 +65,7 @@
             /* Header anchor styles */
             .header-anchor {
                 opacity: 0;
-                color: #ccc;
+                color: var(--text);
                 text-decoration: none;
                 font-size: 0.8em;
                 margin-left: 8px;
@@ -65,7 +80,8 @@
             }
 
             .header-anchor:hover {
-                color: #333;
+                color: var(--text);
+                opacity: 0.8;
                 text-decoration: none;
             }
 
@@ -86,15 +102,18 @@
             }
 
             .article-meta {
-                color: #666;
+                color: var(--text);
+                opacity: 0.7;
                 font-size: 14px;
                 margin-bottom: 16px;
             }
             .article-meta a {
-                color: #333;
+                color: var(--text);
+                opacity: 0.8;
                 text-decoration: none;
             }
             .article-meta a:hover {
+                opacity: 1;
                 text-decoration: underline;
             }
             .article-content {
@@ -158,7 +177,8 @@
                 align-items: center;
                 gap: 8px;
                 font-size: 12px;
-                color: #666;
+                color: var(--text);
+                opacity: 0.7;
                 font-family:
                     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                     sans-serif;
@@ -209,17 +229,19 @@
                 color: white;
             }
             .article-content a {
-                color: #333;
+                color: var(--text);
                 text-decoration: underline;
             }
             .article-content a:hover {
-                color: #000;
+                color: var(--text);
+                opacity: 0.8;
             }
             .article-content blockquote {
                 margin: 20px 0;
                 padding: 0 20px;
-                border-left: 2px solid #e9ecef;
-                color: #666;
+                border-left: 2px solid var(--menu-border);
+                color: var(--text);
+                opacity: 0.8;
             }
             .article-content blockquote p {
                 margin: 0;
@@ -227,9 +249,10 @@
             .article-content .footnotes {
                 margin-top: 40px;
                 padding-top: 20px;
-                border-top: 1px solid #e9ecef;
+                border-top: 1px solid var(--menu-border);
                 font-size: 16px;
-                color: #666;
+                color: var(--text);
+                opacity: 0.8;
             }
             .article-content .footnotes ol {
                 padding-left: 20px;
@@ -240,13 +263,14 @@
                 line-height: 1.5;
             }
             .article-content .footnotes .footnote-backref {
-                color: #999;
+                color: var(--text);
+                opacity: 0.6;
                 text-decoration: none;
                 margin-left: 4px;
                 font-size: 14px;
             }
             .article-content .footnotes .footnote-backref:hover {
-                color: #666;
+                opacity: 0.8;
                 text-decoration: none;
             }
             .article-content sup {
@@ -254,15 +278,16 @@
                 vertical-align: super;
             }
             .article-content sup a {
-                color: #666;
+                color: var(--text);
+                opacity: 0.7;
                 text-decoration: none;
                 padding: 1px 3px;
                 border-radius: 2px;
                 transition: background-color 0.2s ease;
             }
             .article-content sup a:hover {
-                background-color: #f8f9fa;
-                color: #333;
+                background-color: var(--menu-hover);
+                opacity: 1;
             }
             .article-content img,
             .article-content video {
@@ -283,7 +308,8 @@
             .article-content .media-caption {
                 margin-top: 8px;
                 font-size: 0.9em;
-                color: #666;
+                color: var(--text);
+                opacity: 0.7;
                 font-style: italic;
                 text-align: center;
             }
@@ -423,7 +449,7 @@
             .article-content hr.divider-thin {
                 border: none;
                 height: 1px;
-                background-color: #ddd;
+                background-color: var(--menu-border);
                 margin: 25px 0;
                 width: 100%;
             }
@@ -598,15 +624,15 @@
                 text-align: left;
             }
             .article-content th {
-                background-color: #f8f9fa;
+                background-color: var(--menu-hover);
                 font-weight: 600;
-                color: #333;
+                color: var(--text);
             }
             .article-content tr:nth-child(even) {
-                background-color: #f8f9fa;
+                background-color: var(--menu-hover);
             }
             .article-content tr:hover {
-                background-color: #e9ecef;
+                background-color: var(--menu-selected);
             }
             @media (max-width: 768px) {
                 .article-content table {
@@ -623,18 +649,20 @@
 
             .footer {
                 width: 100vw;
-                background: #fff;
+                background: var(--background);
+                margin-top: 60px;
                 text-align: center;
                 font-size: 13px;
                 padding: 6px 0;
             }
             .footer a {
-                color: #999;
+                color: var(--text);
+                opacity: 0.6;
                 text-decoration: none;
                 margin: 0 12px;
             }
             .footer a:hover {
-                color: #666;
+                opacity: 0.8;
                 text-decoration: underline;
             }
 
@@ -733,6 +761,61 @@
 
                 pre.appendChild(header);
             });
+
+            // Load and apply theme if specified
+            const currentTheme = "{{theme}}";
+            if (currentTheme && currentTheme.trim() !== "") {
+                fetch("/api/themes/" + currentTheme)
+                    .then((response) => response.json())
+                    .then((theme) => {
+                        // Apply theme colors to CSS variables
+                        const root = document.documentElement;
+                        root.style.setProperty(
+                            "--background",
+                            theme.background,
+                        );
+                        root.style.setProperty("--text", theme.text);
+                        root.style.setProperty("--button-bg", theme.buttonBg);
+                        root.style.setProperty(
+                            "--button-hover",
+                            theme.buttonHover,
+                        );
+                        root.style.setProperty(
+                            "--button-active",
+                            theme.buttonActive,
+                        );
+                        root.style.setProperty(
+                            "--button-text",
+                            theme.buttonText,
+                        );
+                        root.style.setProperty("--menu-bg", theme.menuBg);
+                        root.style.setProperty("--menu-text", theme.menuText);
+                        root.style.setProperty("--menu-hover", theme.menuHover);
+                        root.style.setProperty(
+                            "--menu-selected",
+                            theme.menuSelected,
+                        );
+                        root.style.setProperty(
+                            "--menu-border",
+                            theme.menuBorder,
+                        );
+                        root.style.setProperty(
+                            "--menu-shadow",
+                            theme.menuShadow,
+                        );
+
+                        // Apply background and text directly to body for immediate effect
+                        document.body.style.backgroundColor = theme.background;
+                        document.body.style.color = theme.text;
+                    })
+                    .catch((error) => {
+                        console.warn(
+                            "Failed to load theme:",
+                            currentTheme,
+                            error,
+                        );
+                    });
+            }
         </script>
     </body>
     <!-- Published with Nonograph, an open-source writing service -->
