@@ -14,18 +14,18 @@
         <meta name="author" content="{{author}}" />
         <style>
             :root {
-                --background: #ffffff;
-                --text: #333333;
-                --button-bg: #333;
-                --button-hover: #000;
-                --button-active: #111;
-                --button-text: #ffffff;
-                --menu-bg: #ffffff;
-                --menu-text: #333;
-                --menu-hover: #f5f5f5;
-                --menu-selected: #e8e8e8;
-                --menu-border: #ddd;
-                --menu-shadow: rgba(0, 0, 0, 0.15);
+                --background: {{theme_background}};
+                --text: {{theme_text}};
+                --button-bg: {{theme_button_bg}};
+                --button-hover: {{theme_button_hover}};
+                --button-active: {{theme_button_active}};
+                --button-text: {{theme_button_text}};
+                --menu-bg: {{theme_menu_bg}};
+                --menu-text: {{theme_menu_text}};
+                --menu-hover: {{theme_menu_hover}};
+                --menu-selected: {{theme_menu_selected}};
+                --menu-border: {{theme_menu_border}};
+                --menu-shadow: {{theme_menu_shadow}};
             }
 
             * {
@@ -762,60 +762,8 @@
                 pre.appendChild(header);
             });
 
-            // Load and apply theme if specified
-            const currentTheme = "{{theme}}";
-            if (currentTheme && currentTheme.trim() !== "") {
-                fetch("/api/themes/" + currentTheme)
-                    .then((response) => response.json())
-                    .then((theme) => {
-                        // Apply theme colors to CSS variables
-                        const root = document.documentElement;
-                        root.style.setProperty(
-                            "--background",
-                            theme.background,
-                        );
-                        root.style.setProperty("--text", theme.text);
-                        root.style.setProperty("--button-bg", theme.buttonBg);
-                        root.style.setProperty(
-                            "--button-hover",
-                            theme.buttonHover,
-                        );
-                        root.style.setProperty(
-                            "--button-active",
-                            theme.buttonActive,
-                        );
-                        root.style.setProperty(
-                            "--button-text",
-                            theme.buttonText,
-                        );
-                        root.style.setProperty("--menu-bg", theme.menuBg);
-                        root.style.setProperty("--menu-text", theme.menuText);
-                        root.style.setProperty("--menu-hover", theme.menuHover);
-                        root.style.setProperty(
-                            "--menu-selected",
-                            theme.menuSelected,
-                        );
-                        root.style.setProperty(
-                            "--menu-border",
-                            theme.menuBorder,
-                        );
-                        root.style.setProperty(
-                            "--menu-shadow",
-                            theme.menuShadow,
-                        );
-
-                        // Apply background and text directly to body for immediate effect
-                        document.body.style.backgroundColor = theme.background;
-                        document.body.style.color = theme.text;
-                    })
-                    .catch((error) => {
-                        console.warn(
-                            "Failed to load theme:",
-                            currentTheme,
-                            error,
-                        );
-                    });
-            }
+            // Theme is now applied server-side via CSS variables
+            // No client-side theme fetching needed
         </script>
     </body>
     <!-- Published with Nonograph, an open-source writing service -->

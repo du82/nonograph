@@ -13,15 +13,43 @@ use theme::{Theme, ThemeManager};
 
 use chrono::{DateTime, Utc};
 use rocket::{
-    http::Status,
+    fairing::{Fairing, Info, Kind},
+    http::{Header, Status},
     request::{FromRequest, Outcome},
     response::content,
-    Request, State,
+    Data, Request, Response, State,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use std::sync::{Arc, Mutex};
+
+// Security Headers Fairing
+pub struct SecurityHeaders;
+
+#[rocket::async_trait]
+impl Fairing for SecurityHeaders {
+    fn info(&self) -> Info {
+        Info {
+            name: "Security Headers",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_header(Header::new("X-Frame-Options", "DENY"));
+        response.set_header(Header::new("X-Content-Type-Options", "nosniff"));
+        response.set_header(Header::new("X-XSS-Protection", "1; mode=block"));
+        response.set_header(Header::new(
+            "Referrer-Policy",
+            "strict-origin-when-cross-origin",
+        ));
+        response.set_header(Header::new(
+            "Content-Security-Policy",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'",
+        ));
+    }
+}
 use template::TemplateEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -410,11 +438,50 @@ fn create_post(
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
 }
 
+// Helper function to parse old format files
+fn parse_old_format(lines: &[&str]) -> (String, String, Option<String>, DateTime<Utc>, String) {
+    let header = lines[0];
+    let mut date_str = header.to_string();
+    let mut author = String::new();
+    let mut theme: Option<String> = None;
+
+    // Parse header: "Date | Author | Theme: theme_name" or variations
+    if let Some(first_pipe) = header.find(" | ") {
+        date_str = header[..first_pipe].to_string();
+        let remaining = &header[(first_pipe + 3)..];
+
+        if let Some(theme_pos) = remaining.find(" | Theme: ") {
+            author = remaining[..theme_pos].to_string();
+            theme = Some(remaining[(theme_pos + 9)..].to_string());
+        } else if remaining.starts_with("Theme: ") {
+            theme = Some(remaining[7..].to_string());
+        } else {
+            author = remaining.to_string();
+        }
+    }
+
+    // Parse the stored date, fallback to current time if parsing fails
+    let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    let title = lines[2]
+        .strip_prefix("# ")
+        .unwrap_or("Untitled")
+        .to_string();
+    let raw_content = lines[3].to_string();
+
+    (title, author, theme, created_at, raw_content)
+}
+
 #[get("/<post_id>")]
 fn view_post(
     post_id: &str,
     storage: &State<PostStorage>,
     _config: &State<Config>,
+    theme_manager: &State<ThemeManager>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
     (
@@ -447,61 +514,130 @@ fn view_post(
                 if let Ok(file_content) =
                     std::fs::read_to_string(format!("content/{}.md", actual_post_id))
                 {
-                    let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
-                    if lines.len() >= 4 {
-                        let header = lines[0];
-                        let mut date_str = header.to_string();
-                        let mut author = String::new();
-                        let mut theme: Option<String> = None;
+                    // Check if it's YAML frontmatter format
+                    if file_content.starts_with("---\n") {
+                        // Parse YAML frontmatter format (new format)
+                        if let Some(end_pos) = file_content[4..].find("\n---\n") {
+                            let yaml_section = &file_content[4..end_pos + 4];
+                            let raw_content = &file_content[end_pos + 9..]; // Skip "\n---\n"
 
-                        // Parse header: "Date | Author | Theme: theme_name" or variations
-                        if let Some(first_pipe) = header.find(" | ") {
-                            date_str = header[..first_pipe].to_string();
-                            let remaining = &header[(first_pipe + 3)..];
+                            let mut title = "Untitled".to_string();
+                            let mut author = String::new();
+                            let mut theme: Option<String> = None;
+                            let mut created_at = Utc::now();
 
-                            if let Some(theme_pos) = remaining.find(" | Theme: ") {
-                                author = remaining[..theme_pos].to_string();
-                                theme = Some(remaining[(theme_pos + 9)..].to_string());
-                            } else if remaining.starts_with("Theme: ") {
-                                theme = Some(remaining[7..].to_string());
-                            } else {
-                                author = remaining.to_string();
+                            // Strict YAML parsing - only accept defined fields
+                            for line in yaml_section.lines() {
+                                if let Some(colon_pos) = line.find(':') {
+                                    let key = line[..colon_pos].trim();
+                                    let value = line[colon_pos + 1..].trim();
+
+                                    // Only process allowed fields, reject anything else
+                                    match key {
+                                        "title" | "author" | "theme" | "created_at" => {
+                                            // Remove quotes if present
+                                            let clean_value =
+                                                if value.starts_with('"') && value.ends_with('"') {
+                                                    &value[1..value.len() - 1]
+                                                } else {
+                                                    value
+                                                };
+
+                                            // Validate that value doesn't contain dangerous characters
+                                            if clean_value.contains('<')
+                                                || clean_value.contains('>')
+                                                || clean_value.contains('\0')
+                                                || clean_value.contains('\r')
+                                                || clean_value.contains('\n')
+                                                || clean_value.contains('\t')
+                                                || clean_value.contains('\\')
+                                            {
+                                                eprintln!("Security: Rejected YAML field '{}' with suspicious content", key);
+                                                continue;
+                                            }
+
+                                            match key {
+                                                "title" => title = clean_value.to_string(),
+                                                "author" => author = clean_value.to_string(),
+                                                "theme" => theme = Some(clean_value.to_string()),
+                                                "created_at" => {
+                                                    if let Ok(date) =
+                                                        chrono::NaiveDate::parse_from_str(
+                                                            clean_value,
+                                                            "%Y-%m-%d",
+                                                        )
+                                                    {
+                                                        if let Some(datetime) =
+                                                            date.and_hms_opt(0, 0, 0)
+                                                        {
+                                                            created_at =
+                                                                DateTime::<Utc>::from_naive_utc_and_offset(
+                                                                    datetime, Utc,
+                                                                );
+                                                        }
+                                                    }
+                                                }
+                                                _ => {} // Already matched above, but needed for exhaustive match
+                                            }
+                                        }
+                                        _ => {
+                                            // Reject unknown fields completely
+                                            eprintln!(
+                                                "Security: Rejected unknown YAML field: '{}'",
+                                                key
+                                            );
+                                            // Skip this invalid post and continue to None case
+                                            break; // Break out of parsing loop
+                                        }
+                                    }
+                                }
                             }
+
+                            let new_post = Post {
+                                id: actual_post_id.to_string(),
+                                title,
+                                author,
+                                content: parser::render_markdown(&raw_content),
+                                raw_content: raw_content.to_string(),
+                                created_at,
+                                theme,
+                            };
+
+                            {
+                                let mut posts_write = storage.lock().unwrap();
+                                posts_write.insert(actual_post_id.to_string(), new_post.clone());
+                            }
+
+                            Some(new_post)
+                        } else {
+                            None
                         }
-
-                        // Parse the stored date, fallback to current time if parsing fails
-                        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
-                            .ok()
-                            .and_then(|date| date.and_hms_opt(0, 0, 0))
-                            .map(|datetime| {
-                                DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc)
-                            })
-                            .unwrap_or_else(|| Utc::now());
-
-                        let title = lines[2]
-                            .strip_prefix("# ")
-                            .unwrap_or("Untitled")
-                            .to_string();
-                        let raw_content = lines[3].to_string();
-
-                        let new_post = Post {
-                            id: actual_post_id.to_string(),
-                            title,
-                            author,
-                            content: parser::render_markdown(&raw_content),
-                            raw_content,
-                            created_at,
-                            theme,
-                        };
-
-                        {
-                            let mut posts_write = storage.lock().unwrap();
-                            posts_write.insert(actual_post_id.to_string(), new_post.clone());
-                        }
-
-                        Some(new_post)
                     } else {
-                        None
+                        // Parse old format (backwards compatibility)
+                        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+                        if lines.len() >= 4 {
+                            let (title, author, theme, created_at, raw_content) =
+                                parse_old_format(&lines);
+
+                            let new_post = Post {
+                                id: actual_post_id.to_string(),
+                                title,
+                                author,
+                                content: parser::render_markdown(&raw_content),
+                                raw_content,
+                                created_at,
+                                theme,
+                            };
+
+                            {
+                                let mut posts_write = storage.lock().unwrap();
+                                posts_write.insert(actual_post_id.to_string(), new_post.clone());
+                            }
+
+                            Some(new_post)
+                        } else {
+                            None
+                        }
                     }
                 } else {
                     None
@@ -544,15 +680,11 @@ fn view_post(
                     "created_at".to_string(),
                     post.created_at.format("%B %d, %Y").to_string(),
                 );
-                context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
+                context.insert(
+                    "created_at_iso".to_string(),
+                    post.created_at.format("%Y-%m-%d").to_string(),
+                );
                 context.insert("post_id".to_string(), actual_post_id.to_string());
-
-                // Add theme information if present
-                if let Some(ref theme_name) = post.theme {
-                    context.insert("theme".to_string(), theme_name.clone());
-                } else {
-                    context.insert("theme".to_string(), String::new());
-                }
 
                 // OpenGraph variables
                 context.insert("url".to_string(), format!("/{}", actual_post_id));
@@ -565,6 +697,123 @@ fn view_post(
                     post.raw_content.clone()
                 };
                 context.insert("description".to_string(), description);
+
+                // Add theme information if present
+                if let Some(ref theme_name) = post.theme {
+                    // Validate theme name to prevent injection
+                    let safe_theme_name = theme_name
+                        .chars()
+                        .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+                        .collect::<String>();
+                    context.insert("theme".to_string(), safe_theme_name.clone());
+
+                    // Get full theme data for server-side rendering
+                    if let Some(theme_data) = theme_manager.get_theme(&safe_theme_name) {
+                        // Validate all color values before inserting
+                        let validate_color = |color: &str| -> String {
+                            if color.starts_with('#')
+                                && color.len() >= 4
+                                && color.len() <= 7
+                                && color[1..].chars().all(|c| c.is_ascii_hexdigit())
+                            {
+                                color.to_string()
+                            } else if color.starts_with("rgba(") && color.ends_with(')') {
+                                // Simple rgba validation - contains only numbers, commas, dots, spaces, parens
+                                if color
+                                    .chars()
+                                    .all(|c| c.is_ascii_digit() || "rgba(), .".contains(c))
+                                {
+                                    color.to_string()
+                                } else {
+                                    "#ffffff".to_string()
+                                }
+                            } else {
+                                "#ffffff".to_string()
+                            }
+                        };
+
+                        context.insert(
+                            "theme_background".to_string(),
+                            validate_color(&theme_data.background),
+                        );
+                        context.insert("theme_text".to_string(), validate_color(&theme_data.text));
+                        context.insert(
+                            "theme_button_bg".to_string(),
+                            validate_color(&theme_data.button_bg),
+                        );
+                        context.insert(
+                            "theme_button_hover".to_string(),
+                            validate_color(&theme_data.button_hover),
+                        );
+                        context.insert(
+                            "theme_button_active".to_string(),
+                            validate_color(&theme_data.button_active),
+                        );
+                        context.insert(
+                            "theme_button_text".to_string(),
+                            validate_color(&theme_data.button_text),
+                        );
+                        context.insert(
+                            "theme_menu_bg".to_string(),
+                            validate_color(&theme_data.menu_bg),
+                        );
+                        context.insert(
+                            "theme_menu_text".to_string(),
+                            validate_color(&theme_data.menu_text),
+                        );
+                        context.insert(
+                            "theme_menu_hover".to_string(),
+                            validate_color(&theme_data.menu_hover),
+                        );
+                        context.insert(
+                            "theme_menu_selected".to_string(),
+                            validate_color(&theme_data.menu_selected),
+                        );
+                        context.insert(
+                            "theme_menu_border".to_string(),
+                            validate_color(&theme_data.menu_border),
+                        );
+                        context.insert(
+                            "theme_menu_shadow".to_string(),
+                            validate_color(&theme_data.menu_shadow),
+                        );
+                    } else {
+                        // Invalid theme, use defaults
+                        context.insert("theme_background".to_string(), "#ffffff".to_string());
+                        context.insert("theme_text".to_string(), "#333333".to_string());
+                        context.insert("theme_button_bg".to_string(), "#333333".to_string());
+                        context.insert("theme_button_hover".to_string(), "#000000".to_string());
+                        context.insert("theme_button_active".to_string(), "#111111".to_string());
+                        context.insert("theme_button_text".to_string(), "#ffffff".to_string());
+                        context.insert("theme_menu_bg".to_string(), "#ffffff".to_string());
+                        context.insert("theme_menu_text".to_string(), "#333333".to_string());
+                        context.insert("theme_menu_hover".to_string(), "#f5f5f5".to_string());
+                        context.insert("theme_menu_selected".to_string(), "#e8e8e8".to_string());
+                        context.insert("theme_menu_border".to_string(), "#dddddd".to_string());
+                        context.insert(
+                            "theme_menu_shadow".to_string(),
+                            "rgba(0, 0, 0, 0.15)".to_string(),
+                        );
+                    }
+                } else {
+                    context.insert("theme".to_string(), String::new());
+                    // Provide default light theme values when no theme is set
+                    context.insert("theme_background".to_string(), "#ffffff".to_string());
+                    context.insert("theme_text".to_string(), "#333333".to_string());
+                    context.insert("theme_button_bg".to_string(), "#333333".to_string());
+                    context.insert("theme_button_hover".to_string(), "#000000".to_string());
+                    context.insert("theme_button_active".to_string(), "#111111".to_string());
+                    context.insert("theme_button_text".to_string(), "#ffffff".to_string());
+                    context.insert("theme_menu_bg".to_string(), "#ffffff".to_string());
+                    context.insert("theme_menu_text".to_string(), "#333333".to_string());
+                    context.insert("theme_menu_hover".to_string(), "#f5f5f5".to_string());
+                    context.insert("theme_menu_selected".to_string(), "#e8e8e8".to_string());
+                    context.insert("theme_menu_border".to_string(), "#dddddd".to_string());
+                    context.insert(
+                        "theme_menu_shadow".to_string(),
+                        "rgba(0, 0, 0, 0.15)".to_string(),
+                    );
+                }
 
                 match engine.render("post", &context) {
                     Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
@@ -652,6 +901,7 @@ fn nojs_view_post(
     post_id: &str,
     storage: &State<PostStorage>,
     config: &State<Config>,
+    theme_manager: &State<ThemeManager>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
     (
@@ -659,7 +909,7 @@ fn nojs_view_post(
         rocket::Either<content::RawText<String>, content::RawHtml<String>>,
     ),
 > {
-    match view_post(post_id, storage, config) {
+    match view_post(post_id, storage, config, theme_manager) {
         Ok(rocket::Either::Left(content::RawHtml(html))) => {
             let clean_html = nojs::strip_javascript(&html);
             let fixed_html = clean_html
@@ -863,6 +1113,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 .unwrap_or("127.0.0.1".parse().unwrap()),
             ..rocket::Config::default()
         })
+        .attach(SecurityHeaders)
         .manage(storage)
         .manage(config)
         .manage(theme_manager)
