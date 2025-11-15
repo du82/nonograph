@@ -10,6 +10,7 @@
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
             }
             body {
                 font-family:
@@ -116,6 +117,9 @@
                 font-size: 11px;
                 color: #999;
                 margin-bottom: 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
             .char-count.over-limit {
                 color: #e74c3c;
@@ -139,6 +143,30 @@
             .links a:hover {
                 color: #333;
                 text-decoration: underline;
+            }
+
+            /* Progress Circle Styles */
+            .progress-circle {
+                width: 16px;
+                height: 16px;
+                flex-shrink: 0;
+            }
+            .progress-circle circle {
+                transition: stroke 0.3s ease;
+            }
+            .progress-circle .background {
+                fill: none;
+                stroke: #e0e0e0;
+                stroke-width: 3;
+            }
+            .progress-circle .progress {
+                fill: none;
+                stroke: #666;
+                stroke-width: 3;
+                stroke-linecap: round;
+                transform: rotate(-90deg);
+                transform-origin: 50% 50%;
+                transition: stroke 0.3s ease, stroke-dashoffset 0.3s ease;
             }
 
             /* Editor Menu Styles */
@@ -199,6 +227,22 @@
                 font-size: 12px;
                 color: #999;
                 margin-left: auto;
+            }
+
+            /* Mobile Header */
+            .mobile-header {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-bottom: 1px solid #e0e0e0;
+                padding: 8px 16px; /* Reduced from 12px to 8px */
+                z-index: 100;
+                align-items: center;
+                justify-content: space-between;
+                height: 48px; /* Fixed height for the header */
             }
 
             /* Mobile Styles */
@@ -280,6 +324,18 @@
             @media (max-width: 480px) {
                 body {
                     padding: 12px;
+                    padding-top: 56px; /* Reduced from 70px to match thinner header */
+                }
+
+                .mobile-header {
+                    display: flex;
+                }
+
+                .container {
+                    padding: 0;
+                }
+                .writingarea {
+                    width: 100%;
                 }
                 input[type="text"] {
                     font-size: 22px;
@@ -293,30 +349,47 @@
                     font-size: 16px;
                     min-height: 180px;
                 }
-                .sidebar button {
-                    width: 100%;
-                    max-width: none;
-                    padding: 16px;
-                    font-size: 16px;
-                    min-height: 52px;
-                }
+
+                /* Hide the original sidebar elements on mobile */
                 .sidebar {
-                    margin-top: 20px;
+                    display: none;
                 }
-                .links {
-                    width: 100%;
-                    justify-content: space-between;
-                }
-                .links a {
+
+                /* Mobile header styles */
+                .mobile-header .char-count {
+                    font-size: 11px; /* Slightly smaller */
+                    margin-bottom: 0;
                     flex: 1;
-                    justify-content: center;
-                    text-align: center;
-                    min-height: 48px;
+                }
+
+                .mobile-header button {
+                    padding: 8px 16px; /* Reduced padding */
+                    font-size: 14px; /* Slightly smaller */
+                    min-height: 32px; /* Reduced height */
+                    margin-bottom: 0;
+                    margin-left: 12px;
+                }
+
+                .links {
+                    display: none; /* Hide links on mobile since they're not in header */
                 }
             }
         </style>
     </head>
     <body>
+        <!-- Mobile Header -->
+        <div class="mobile-header">
+            <div class="char-count" id="mobileCharCount">
+                <svg class="progress-circle" id="mobileProgressCircle">
+                    <circle class="background" cx="8" cy="8" r="6"></circle>
+                    <circle class="progress" cx="8" cy="8" r="6"
+                        stroke-dasharray="37.7" stroke-dashoffset="37.7"></circle>
+                </svg>
+                <span>0 / 128,000</span>
+            </div>
+            <button type="submit" form="publishForm">Publish</button>
+        </div>
+
         <div class="container">
             <div class="writingarea">
                 <form
@@ -358,7 +431,14 @@
 
             <div class="sidebar">
                 <button type="submit" form="publishForm">Publish</button>
-                <div class="char-count" id="charCount">0 / 128,000</div>
+                <div class="char-count" id="charCount">
+                    <svg class="progress-circle" id="progressCircle">
+                        <circle class="background" cx="8" cy="8" r="6"></circle>
+                        <circle class="progress" cx="8" cy="8" r="6"
+                            stroke-dasharray="37.7" stroke-dashoffset="37.7"></circle>
+                    </svg>
+                    <span>0 / 128,000</span>
+                </div>
                 <div class="links">
                     <a href="/markup" target="_blank">markup guide</a>
                     <a href="/legal" target="_blank">legal &amp; privacy</a>
@@ -375,8 +455,11 @@
         <script>
             const textarea = document.querySelector('textarea[name="content"]');
             const charCount = document.getElementById("charCount");
+            const mobileCharCount = document.getElementById("mobileCharCount");
             const form = document.getElementById("publishForm");
             const slashMenu = document.getElementById("slashMenu");
+            const progressCircle = document.getElementById("progressCircle");
+            const mobileProgressCircle = document.getElementById("mobileProgressCircle");
 
             let slashMenuActive = false;
             let slashPosition = -1;
@@ -595,6 +678,11 @@
                 },
             ];
 
+            // Check if device is mobile
+            function isMobile() {
+                return window.innerWidth <= 480;
+            }
+
             function isAtLineStart() {
                 // When slash menu is active, use slash position for context
                 const checkPos = slashMenuActive
@@ -643,18 +731,54 @@
                 element.style.height = element.scrollHeight + "px";
             }
 
+            function updateProgressCircle(percentage, circleElement) {
+                if (!circleElement) return;
+
+                const progressCircle = circleElement.querySelector('.progress');
+                const circumference = 2 * Math.PI * 6; // radius = 6
+                const offset = circumference - (percentage / 100) * circumference;
+
+                progressCircle.style.strokeDashoffset = offset;
+
+                // Update color based on percentage
+                if (percentage >= 100) {
+                    progressCircle.style.stroke = '#e74c3c'; // Red
+                } else if (percentage >= 75) {  // Changed from 90 to 75
+                    progressCircle.style.stroke = '#f39c12'; // Yellow/Orange
+                } else {
+                    progressCircle.style.stroke = '#666'; // Dark grey
+                }
+            }
+
             function updateCharCount() {
                 const count = textarea.value.length;
                 const button = document.querySelector('button[type="submit"]');
                 const limit = 128000;
-                charCount.textContent =
-                    count.toLocaleString() + " / " + limit.toLocaleString();
+                const countText = count.toLocaleString() + " / " + limit.toLocaleString();
+                const percentage = (count / limit) * 100;
 
+                // Update desktop character count
+                if (charCount) {
+                    const span = charCount.querySelector('span');
+                    if (span) span.textContent = countText;
+                    updateProgressCircle(percentage, progressCircle);
+                }
+
+                // Update mobile character count
+                if (mobileCharCount) {
+                    const span = mobileCharCount.querySelector('span');
+                    if (span) span.textContent = countText;
+                    updateProgressCircle(percentage, mobileProgressCircle);
+                }
+
+                // Update button state and character count styling
                 if (count > limit) {
-                    charCount.classList.add("over-limit");
+                    if (charCount) charCount.classList.add("over-limit");
+                    if (mobileCharCount) mobileCharCount.classList.add("over-limit");
                     button.disabled = true;
                 } else {
-                    charCount.classList.remove("over-limit");
+                    if (charCount) charCount.classList.remove("over-limit");
+                    if (mobileCharCount) mobileCharCount.classList.remove("over-limit");
                     button.disabled = false;
                 }
             }
@@ -979,8 +1103,6 @@
                 textarea.focus();
             }
 
-            // Selection menu functions removed - no longer needed
-
             // Textarea event listeners
             textarea.addEventListener("input", function (e) {
                 const cursorPos = this.selectionStart;
@@ -1113,8 +1235,6 @@
                 }
             });
 
-            // Removed selection menu functionality - no longer needed
-
             // Click outside to close menus
             document.addEventListener("click", function (e) {
                 if (!slashMenu.contains(e.target) && e.target !== textarea) {
@@ -1136,6 +1256,13 @@
             });
 
             updateCharCount();
+
+            // Handle window resize to adjust menu if needed
+            window.addEventListener('resize', function() {
+                if (slashMenuActive) {
+                    hideSlashMenu();
+                }
+            });
         </script>
     </body>
 </html>
