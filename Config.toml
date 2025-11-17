@@ -50,4 +50,4 @@ csrf_protection_enabled = true
 # Available themes: "base16-ocean.dark", "base16-ocean.light",
 # "base16-mocha.dark", "base16-mocha.light", "base16-eighties.dark",
 # "base16-eighties.light", "Solarized (dark)", "Solarized (light)", "InspiredGitHub"
-syntax_highlighting = "base16-eighties.light"
+syntax_highlighting = "InspiredGitHub"
