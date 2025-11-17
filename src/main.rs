@@ -715,6 +715,7 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 context.insert("created_at_iso".to_string(), String::new());
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
+                context.insert("post_id".to_string(), page_name.to_string());
 
                 match engine.render("post", &context) {
                     Ok(html) => content::RawHtml(html),
