@@ -503,7 +503,7 @@ fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String, u32)>
     (result, fenced_blocks)
 }
 
-fn map_language(lang: &str) -> &str {
+fn map_language_for_css(lang: &str) -> &str {
     match lang.to_lowercase().as_str() {
         // Primary languages
         "javascript" | "js" => "javascript",
@@ -528,8 +528,6 @@ fn map_language(lang: &str) -> &str {
         "scala" => "scala",
         "perl" => "perl",
         "powershell" | "ps1" => "powershell",
-
-        // Data formats
         "json" => "json",
         "xml" => "xml",
         "yaml" | "yml" => "yaml",
@@ -537,8 +535,6 @@ fn map_language(lang: &str) -> &str {
         "toml" => "toml",
         "ini" => "ini",
         "properties" => "properties",
-
-        // Web technologies
         "jsx" => "jsx",
         "tsx" => "tsx",
         "vue" => "vue",
@@ -551,15 +547,11 @@ fn map_language(lang: &str) -> &str {
         "pug" | "jade" => "pug",
         "ejs" => "ejs",
         "nunjucks" | "njk" => "nunjucks",
-
-        // Systems and config
         "dockerfile" | "docker" => "dockerfile",
         "makefile" | "make" => "makefile",
         "cmake" => "cmake",
         "nginx" => "nginx",
         "apache" => "apache",
-
-        // Functional and other languages
         "lua" => "lua",
         "dart" => "dart",
         "elixir" | "ex" => "elixir",
@@ -581,13 +573,9 @@ fn map_language(lang: &str) -> &str {
         "zig" => "zig",
         "vlang" => "v",
         "solidity" | "sol" => "solidity",
-
-        // Hardware description
         "vhdl" => "vhdl",
         "verilog" => "verilog",
         "assembly" | "asm" => "assembly",
-
-        // Legacy and specialized
         "fortran" | "f90" | "f95" => "fortran",
         "cobol" | "cob" => "cobol",
         "pascal" | "pas" => "pascal",
@@ -597,12 +585,8 @@ fn map_language(lang: &str) -> &str {
         "tcl" => "tcl",
         "awk" => "awk",
         "sed" => "sed",
-
-        // Editors
         "vim" | "vimscript" => "vim",
         "emacs-lisp" | "elisp" => "emacs-lisp",
-
-        // Alternative languages
         "elm" => "elm",
         "purescript" | "purs" => "purescript",
         "reasonml" | "reason" | "re" => "reasonml",
@@ -610,8 +594,6 @@ fn map_language(lang: &str) -> &str {
         "arduino" | "ino" => "arduino",
         "processing" | "pde" => "processing",
         "openscad" | "scad" => "openscad",
-
-        // Document formats
         "latex" | "tex" => "latex",
         "bibtex" | "bib" => "bibtex",
         "rmarkdown" | "rmd" => "rmarkdown",
@@ -619,13 +601,136 @@ fn map_language(lang: &str) -> &str {
         "asciidoc" | "adoc" => "asciidoc",
         "textile" => "textile",
         "org" => "org",
-
-        // Version control and patches
         "diff" => "diff",
         "patch" => "patch",
+        "plaintext" | "text" | "txt" => "plaintext",
+        _ => lang,
+    }
+}
+
+fn map_language_for_syntect(lang: &str) -> &str {
+    match lang.to_lowercase().as_str() {
+        // Primary languages
+        "javascript" | "js" => "JavaScript",
+        "python" | "py" => "Python",
+        "java" => "Java",
+        "typescript" | "ts" => "TypeScript",
+        "html" => "HTML",
+        "css" => "CSS",
+        "bash" | "sh" | "shell" => "Bash",
+        "sql" => "SQL",
+        "c" => "C",
+        "cpp" | "c++" => "C++",
+        "csharp" | "c#" | "cs" => "C#",
+        "php" => "PHP",
+        "ruby" | "rb" => "Ruby",
+        "go" | "golang" => "Go",
+        "rust" | "rs" => "Rust",
+        "swift" => "Swift",
+        "kotlin" | "kt" => "Kotlin",
+        "r" => "R",
+        "matlab" => "MATLAB",
+        "scala" => "Scala",
+        "perl" => "Perl",
+        "powershell" | "ps1" => "PowerShell",
+
+        // Data formats
+        "json" => "JSON",
+        "xml" => "XML",
+        "yaml" | "yml" => "YAML",
+        "markdown" | "md" => "Markdown",
+        "toml" => "TOML",
+        "ini" => "INI",
+        "properties" => "Java Properties",
+
+        // Web technologies
+        "jsx" => "JavaScript (JSX)",
+        "tsx" => "TypeScript (TSX)",
+        "vue" => "Vue",
+        "scss" => "SCSS",
+        "sass" => "Sass",
+        "less" => "Less",
+        "graphql" | "gql" => "GraphQL",
+        "svelte" => "Svelte",
+        "handlebars" | "hbs" => "Handlebars",
+        "pug" | "jade" => "Pug",
+        "ejs" => "EJS",
+        "nunjucks" | "njk" => "Nunjucks",
+
+        // Systems and config
+        "dockerfile" | "docker" => "Dockerfile",
+        "makefile" | "make" => "Makefile",
+        "cmake" => "CMake",
+        "nginx" => "nginx",
+        "apache" => "ApacheConf",
+
+        // Functional and other languages
+        "lua" => "Lua",
+        "dart" => "Dart",
+        "elixir" | "ex" => "Elixir",
+        "haskell" | "hs" => "Haskell",
+        "clojure" | "clj" => "Clojure",
+        "objective-c" | "objc" => "Objective-C",
+        "coffeescript" | "coffee" => "CoffeeScript",
+        "groovy" => "Groovy",
+        "racket" | "rkt" => "Racket",
+        "scheme" | "scm" => "Scheme",
+        "lisp" => "Lisp",
+        "erlang" | "erl" => "Erlang",
+        "fsharp" | "f#" | "fs" => "F#",
+        "ocaml" | "ml" => "OCaml",
+        "julia" | "jl" => "Julia",
+        "nim" => "Nim",
+        "crystal" | "cr" => "Crystal",
+        "d" => "D",
+        "zig" => "Zig",
+        "vlang" => "V",
+        "solidity" | "sol" => "Solidity",
+
+        // Hardware description
+        "vhdl" => "VHDL",
+        "verilog" => "Verilog",
+        "assembly" | "asm" => "Assembly",
+
+        // Legacy and specialized
+        "fortran" | "f90" | "f95" => "Fortran",
+        "cobol" | "cob" => "COBOL",
+        "pascal" | "pas" => "Pascal",
+        "ada" => "Ada",
+        "prolog" | "pl" => "Prolog",
+        "smalltalk" | "st" => "Smalltalk",
+        "tcl" => "Tcl",
+        "awk" => "AWK",
+        "sed" => "sed",
+
+        // Editors
+        "vim" | "vimscript" => "VimL",
+        "emacs-lisp" | "elisp" => "Emacs Lisp",
+
+        // Alternative languages
+        "elm" => "Elm",
+        "purescript" | "purs" => "PureScript",
+        "reasonml" | "reason" | "re" => "Reason",
+        "apex" => "Apex",
+        "arduino" | "ino" => "Arduino",
+        "processing" | "pde" => "Processing",
+        "openscad" | "scad" => "OpenSCAD",
+
+        // Document formats
+        "latex" | "tex" => "LaTeX",
+        "bibtex" | "bib" => "BibTeX",
+        "rmarkdown" | "rmd" => "R Markdown",
+        "restructuredtext" | "rst" => "reStructuredText",
+        "asciidoc" | "adoc" => "AsciiDoc",
+        "textile" => "Textile",
+        "org" => "Org",
+
+        // Version control and patches
+        "diff" => "Diff",
+        "patch" => "Diff",
 
         // Generic
-        "plaintext" | "text" | "txt" => "plaintext",
+        "plaintext" | "text" | "txt" => "Plain Text",
 
         // Return original if no mapping found
         _ => lang,
@@ -660,10 +765,17 @@ fn restore_fenced_code_blocks_with_config(
 
     for (index, (language, code_content, line_count)) in fenced_blocks.iter().enumerate() {
         let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", index);
-        let mapped_lang = map_language(language);
+        let syntect_lang = map_language_for_syntect(language);
 
         // Generate the complete HTML structure
-        let replacement = render_code_block(&ps, theme, &mapped_lang, code_content, *line_count);
+        let replacement = render_code_block(
+            &ps,
+            theme,
+            language,
+            &syntect_lang,
+            code_content,
+            *line_count,
+        );
 
         result = result.replace(&placeholder, &replacement);
     }
@@ -674,14 +786,14 @@ fn restore_fenced_code_blocks_with_config(
 fn render_code_block(
     syntax_set: &SyntaxSet,
     theme: &syntect::highlighting::Theme,
-    language: &str,
+    original_language: &str,
+    syntect_language: &str,
     code_content: &str,
     line_count: u32,
 ) -> String {
-    // Find syntax for language
+    // Find syntax for language - syntect_language is already mapped to syntect names
     let syntax = syntax_set
-        .find_syntax_by_extension(language)
-        .or_else(|| syntax_set.find_syntax_by_name(language))
+        .find_syntax_by_name(syntect_language)
         .or_else(|| syntax_set.find_syntax_by_first_line(code_content))
         .unwrap_or_else(|| syntax_set.find_syntax_plain_text());
 
@@ -714,19 +826,20 @@ fn render_code_block(
         .join("");
 
     // Create the complete HTML structure
-    let lang_display = if language.is_empty() {
+    let css_lang = map_language_for_css(original_language);
+    let lang_display = if css_lang.is_empty() {
         String::new()
     } else {
         format!(
             "<span class=\"code-language\">{}</span>",
-            language.to_uppercase()
+            css_lang.to_uppercase()
         )
     };
 
-    let class_attr = if language.is_empty() {
+    let class_attr = if css_lang.is_empty() {
         String::new()
     } else {
-        format!(" class=\"language-{}\"", language)
+        format!(" class=\"language-{}\"", css_lang)
     };
 
     format!(
@@ -1512,8 +1625,9 @@ mod tests {
         let text_multi = "```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
         let result_multi = render_markdown(text_multi);
         assert_code_block_structure(&result_multi, Some("rust"), true);
-        assert!(result_multi.contains("fn main()"));
-        assert!(result_multi.contains("println!"));
+        assert!(result_multi.contains("fn"));
+        assert!(result_multi.contains("main"));
+        assert!(result_multi.contains("println"));
     }
 
     #[test]
@@ -1748,6 +1862,7 @@ var x = 1;
         for (alias, expected) in mappings {
             let text = format!("```{}\ncode here\n```", alias);
             let result = render_markdown(&text);
+
             assert!(
                 result.contains(&format!("code-language\">{}", expected.to_uppercase())),
                 "Failed mapping: {} should map to {}",
@@ -2529,8 +2644,10 @@ Final paragraph with *emphasis* and _underline_."#;
 
         // Code block should be standalone
         assert_code_block_structure(&result, Some("python"), true);
-        assert!(result.contains("def hello():"));
-        assert!(result.contains("print(\"This is a code block\")"));
+        assert!(result.contains("def"));
+        assert!(result.contains("hello"));
+        assert!(result.contains("print"));
+        assert!(result.contains("This is a code block"));
 
         // Image should be standalone with caption wrapper
         assert!(result.contains("<div class=\"media-with-caption\">"));
@@ -2638,8 +2755,10 @@ Third paragraph with *italic* formatting."#;
 
         // Code block should be separate
         assert_code_block_structure(&result, Some("python"), true);
-        assert!(result.contains("def hello():"));
-        assert!(result.contains("print(\"world\")"));
+        assert!(result.contains("def"));
+        assert!(result.contains("hello"));
+        assert!(result.contains("print"));
+        assert!(result.contains("world"));
 
         // Third paragraph should contain italic formatting
         assert!(result.contains("<p>Third paragraph with <em>italic</em> formatting.</p>"));
