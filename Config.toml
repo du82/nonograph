@@ -44,3 +44,10 @@ external_link_security = true
 # Enable/disable CSRF protection
 # For production deployments, this should always be 'true'
 csrf_protection_enabled = true
+
+[theme]
+# Syntax highlighting theme for code blocks
+# Available themes: "base16-ocean.dark", "base16-ocean.light",
+# "base16-mocha.dark", "base16-mocha.light", "base16-eighties.dark",
+# "base16-eighties.light", "Solarized (dark)", "Solarized (light)", "InspiredGitHub"
+syntax_highlighting = "base16-eighties.light"

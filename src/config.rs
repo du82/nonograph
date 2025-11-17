@@ -9,6 +9,7 @@ pub struct Config {
     pub cache: Cache,
     pub performance: Performance,
     pub security: Security,
+    pub theme: Theme,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +45,10 @@ pub struct Security {
     pub csrf_protection_enabled: bool,
 }
 
+pub struct Theme {
+    pub syntax_highlighting: String,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -69,6 +74,9 @@ impl Default for Config {
                 max_url_length: 4096,
                 external_link_security: true,
                 csrf_protection_enabled: true,
+            },
+            theme: Theme {
+                syntax_highlighting: "base16-ocean.dark".to_string(),
             },
         }
     }
