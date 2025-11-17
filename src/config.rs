@@ -45,6 +45,7 @@ pub struct Security {
     pub csrf_protection_enabled: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
     pub syntax_highlighting: String,
 }

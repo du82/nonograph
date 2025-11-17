@@ -78,6 +78,7 @@ fn is_safe_url(url: &str) -> bool {
     true
 }
 
+#[allow(dead_code)]
 pub fn render_markdown(content: &str) -> String {
     render_markdown_with_config(content, &crate::config::Config::default())
 }
@@ -737,6 +738,7 @@ fn map_language_for_syntect(lang: &str) -> &str {
     }
 }
 
+#[allow(dead_code)]
 fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String, u32)]) -> String {
     restore_fenced_code_blocks_with_config(text, fenced_blocks, &crate::config::Config::default())
 }
