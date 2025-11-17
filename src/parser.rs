@@ -312,7 +312,7 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("video", &["controls", "style"])
         .add_tag_attributes("source", &["src", "type"])
         .add_tag_attributes("img", &["src", "alt", "style"])
-        .add_tag_attributes("code", &["class"])
+        .add_tag_attributes("code", &["class", "data-line-count"])
         .add_tag_attributes("span", &["class"])
         .add_tag_attributes("th", &["style"])
         .add_tag_attributes("td", &["style"])
@@ -411,7 +411,7 @@ fn process_single_blockquote(text: &str) -> String {
     format!("<blockquote>{}</blockquote>", blockquote_content)
 }
 
-fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
+fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String, u32)>) {
     let mut result = String::new();
     let mut fenced_blocks = Vec::new();
 
@@ -444,7 +444,14 @@ fn extract_fenced_code_blocks(text: &str) -> (String, Vec<(String, String)>) {
                     if closing_fence_length >= fence_length {
                         // Found closing fence
                         let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", fenced_blocks.len());
-                        fenced_blocks.push((language, code_content));
+                        // Count lines in code content (minimum 1, maximum 999)
+                        let line_count = if code_content.is_empty() {
+                            1
+                        } else {
+                            let count = code_content.lines().count() as u32;
+                            count.clamp(1, 999)
+                        };
+                        fenced_blocks.push((language, code_content, line_count));
                         result.push_str(&placeholder);
                         if i < lines.len() - 1 || text.ends_with('\n') {
                             result.push('\n');
@@ -611,10 +618,10 @@ fn map_language(lang: &str) -> &str {
     }
 }
 
-fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) -> String {
+fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String, u32)]) -> String {
     let mut result = text.to_string();
 
-    for (index, (language, code_content)) in fenced_blocks.iter().enumerate() {
+    for (index, (language, code_content, line_count)) in fenced_blocks.iter().enumerate() {
         let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", index);
         let mapped_lang = map_language(language);
         let class_attr = if mapped_lang.is_empty() {
@@ -624,7 +631,11 @@ fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String)]) ->
         };
         // HTML escape the code content to prevent sanitizer issues
         let escaped_content = html_escape(code_content);
-        let replacement = format!("<pre><code{}>{}</code></pre>", class_attr, escaped_content);
+        let replacement = format!(
+            "<pre><code{} data-line-count=\"{}\">{}</code></pre>",
+            class_attr, line_count, escaped_content
+        );
+
         result = result.replace(&placeholder, &replacement);
     }
 
@@ -1379,33 +1390,33 @@ mod tests {
         let text = "```json\n{\"key\": \"value\"}\n```";
         let result = render_markdown(text);
         assert!(
-            result.contains("<pre><code class=\"language-json\">{\"key\": \"value\"}</code></pre>")
+            result.contains("<pre><code class=\"language-json\" data-line-count=\"1\">{\"key\": \"value\"}</code></pre>")
         );
 
         // Test Python code block
         let text_py = "```py\nprint('hello world')\n```";
         let result_py = render_markdown(text_py);
         assert!(result_py
-            .contains("<pre><code class=\"language-python\">print('hello world')</code></pre>"));
+            .contains("<pre><code class=\"language-python\" data-line-count=\"1\">print('hello world')</code></pre>"));
 
         // Test JavaScript code block
         let text_js = "```js\nconsole.log('hello');\n```";
         let result_js = render_markdown(text_js);
         assert!(result_js.contains(
-            "<pre><code class=\"language-javascript\">console.log('hello');</code></pre>"
+            "<pre><code class=\"language-javascript\" data-line-count=\"1\">console.log('hello');</code></pre>"
         ));
 
         // Test code block without language
         let text_no_lang = "```\nsome code\n```";
         let result_no_lang = render_markdown(text_no_lang);
-        assert!(result_no_lang.contains("<pre><code>some code</code></pre>"));
+        assert!(result_no_lang.contains("<pre><code data-line-count=\"1\">some code</code></pre>"));
         assert!(!result_no_lang.contains("class=\"language-"));
 
         // Test multiline code block
         let text_multi = "```rust\nfn main() {\n    println!(\"Hello, world!\");\n}\n```";
         let result_multi = render_markdown(text_multi);
 
-        assert!(result_multi.contains("<pre><code class=\"language-rust\">fn main() {\n    println!(\"Hello, world!\");\n}</code></pre>"));
+        assert!(result_multi.contains("<pre><code class=\"language-rust\" data-line-count=\"3\">fn main() {\n    println!(\"Hello, world!\");\n}</code></pre>"));
     }
 
     #[test]
@@ -1502,7 +1513,9 @@ mod tests {
 console.log('test');
 ```"#;
         let result = render_markdown(malicious_code);
-        assert!(result.contains("<pre><code class=\"language-scriptalertxsss\">"));
+        assert!(
+            result.contains("<pre><code class=\"language-scriptalertxsss\" data-line-count=\"1\">")
+        );
         assert!(result.contains("console.log('test');"));
         assert!(!result.contains("<script>"));
 
@@ -1510,7 +1523,9 @@ console.log('test');
 print("hello")
 ```"#;
         let result2 = render_markdown(injection_code);
-        assert!(result2.contains("<pre><code class=\"language-pythonrm-rf\">"));
+        assert!(
+            result2.contains("<pre><code class=\"language-pythonrm-rf\" data-line-count=\"1\">")
+        );
         assert!(result2.contains("print(\"hello\")"));
         assert!(!result2.contains("rm -rf"));
 
@@ -1518,7 +1533,8 @@ print("hello")
 var x = 1;
 ```"#;
         let result3 = render_markdown(html_injection);
-        assert!(result3.contains("<pre><code class=\"language-jsstylescriptev\">"));
+        assert!(result3
+            .contains("<pre><code class=\"language-jsstylescriptev\" data-line-count=\"1\">"));
         assert!(result3.contains("var x = 1;"));
         assert!(!result3.contains("</style>"));
         assert!(!result3.contains("<script>evil()"));
@@ -1614,6 +1630,41 @@ var x = 1;
     }
 
     #[test]
+    fn test_code_block_line_count() {
+        // Test single line code block
+        let single_line = "```rust\nlet x = 5;\n```";
+        let result_single = render_markdown(single_line);
+
+        assert!(result_single.contains("data-line-count=\"1\""));
+        assert!(result_single.contains(
+            "<pre><code class=\"language-rust\" data-line-count=\"1\">let x = 5;</code></pre>"
+        ));
+
+        // Test multi-line code block
+        let multi_line = "```python\ndef hello():\n    print(\"world\")\n    return True\n```";
+        let result_multi = render_markdown(multi_line);
+        assert!(result_multi.contains("data-line-count=\"3\""));
+        assert!(result_multi.contains("<pre><code class=\"language-python\" data-line-count=\"3\">def hello():\n    print(\"world\")\n    return True</code></pre>"));
+
+        // Test empty code block (should have line count of 1)
+        let empty_block = "```\n```";
+        let result_empty = render_markdown(empty_block);
+        assert!(result_empty.contains("data-line-count=\"1\""));
+
+        // Test code block without language
+        let no_lang = "```\nsome code\nmore code\n```";
+        let result_no_lang = render_markdown(no_lang);
+        assert!(result_no_lang.contains("data-line-count=\"2\""));
+        assert!(result_no_lang
+            .contains("<pre><code data-line-count=\"2\">some code\nmore code</code></pre>"));
+
+        // Test very large code block (should be clamped to 999)
+        let large_code = format!("```rust\n{}\n```", "println!(\"line\");\n".repeat(1001));
+        let result_large = render_markdown(&large_code);
+        assert!(result_large.contains("data-line-count=\"999\""));
+    }
+
+    #[test]
     fn test_mixed_code_blocks() {
         // Test mixing fenced and inline code blocks
         let text = "Here's some `inline code` and a fenced block:\n```json\n{\"test\": true}\n```\nMore text with `more inline`.";
@@ -1621,7 +1672,7 @@ var x = 1;
 
         assert!(result.contains("<code>inline code</code>"));
         assert!(result.contains("<code>more inline</code>"));
-        assert!(result.contains("<pre><code class=\"language-json\">{\"test\": true}</code></pre>"));
+        assert!(result.contains("<pre><code class=\"language-json\" data-line-count=\"1\">{\"test\": true}</code></pre>"));
     }
 
     #[test]
@@ -1668,7 +1719,7 @@ More regular text with _underline_ and ~strikethrough~."#;
         let result = render_markdown(text);
 
         assert!(result.contains("<p>Here's some text:</p>"));
-        assert!(result.contains("<pre><code class=\"language-json\">{\"test\": true}</code></pre>"));
+        assert!(result.contains("<pre><code class=\"language-json\" data-line-count=\"1\">{\"test\": true}</code></pre>"));
         assert!(result.contains("<p>More text after.</p>"));
         assert!(!result.contains("<br>\n<pre>"));
         assert!(!result.contains("<br><pre>"));
@@ -1701,7 +1752,7 @@ More regular text with _underline_ and ~strikethrough~."#;
         let result = render_markdown(text);
 
         // Verify the structure includes pre > code with language class
-        assert!(result.contains("<pre><code class=\"language-json\">"));
+        assert!(result.contains("<pre><code class=\"language-json\" data-line-count=\"1\">"));
         assert!(result.contains("{\"test\": true}"));
         assert!(result.contains("</code></pre>"));
 
@@ -2313,7 +2364,7 @@ Final paragraph with *emphasis* and _underline_."#;
         );
 
         // Code block should be standalone
-        assert!(result.contains("<pre><code class=\"language-python\">def hello():\n    print(\"This is a code block\")</code></pre>"));
+        assert!(result.contains("<pre><code class=\"language-python\" data-line-count=\"2\">def hello():\n    print(\"This is a code block\")</code></pre>"));
 
         // Image should be standalone with caption wrapper
         assert!(result.contains("<div class=\"media-with-caption\">"));
@@ -2342,7 +2393,7 @@ Final paragraph with *emphasis* and _underline_."#;
         let empty_lines =
             "```python\ndef test():\n\n    print('with empty line')\n\n    return True\n```";
         let empty_result = render_markdown(empty_lines);
-        assert!(empty_result.contains("<pre><code class=\"language-python\">def test():\n\n    print('with empty line')\n\n    return True</code></pre>"));
+        assert!(empty_result.contains("<pre><code class=\"language-python\" data-line-count=\"5\">def test():\n\n    print('with empty line')\n\n    return True</code></pre>"));
 
         // Test mixed content
         let mixed = "Text before\n\n```js\nconsole.log('test');\n```\n\nText after";
@@ -2350,7 +2401,7 @@ Final paragraph with *emphasis* and _underline_."#;
         assert!(mixed_result.contains("<p>Text before</p>"));
         assert!(mixed_result.contains("<p>Text after</p>"));
         assert!(mixed_result.contains(
-            "<pre><code class=\"language-javascript\">console.log('test');</code></pre>"
+            "<pre><code class=\"language-javascript\" data-line-count=\"1\">console.log('test');</code></pre>"
         ));
     }
 
@@ -2411,7 +2462,7 @@ Third paragraph with *italic* formatting."#;
 
         // Code block should be separate
         assert!(result.contains(
-            "<pre><code class=\"language-python\">def hello():\n    print(\"world\")</code></pre>"
+            "<pre><code class=\"language-python\" data-line-count=\"2\">def hello():\n    print(\"world\")</code></pre>"
         ));
 
         // Third paragraph should contain italic formatting

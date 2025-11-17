@@ -714,7 +714,7 @@
             .article-content th,
             .article-content td {
                 border: 1px solid #e9ecef;
-                padding: 8px;
+                padding: 4px 8px;
                 text-align: left;
             }
             .article-content th {
@@ -849,6 +849,10 @@
                             language = className.replace("language-", "");
                         }
 
+                        // Extract line count from data attribute
+                        const lineCount =
+                            parseInt(codeBlock.dataset.lineCount) || 1;
+
                         // Create header with language and control buttons
                         const header = document.createElement("div");
                         header.className = "code-header";
@@ -933,13 +937,13 @@
                         const codeWrapper = document.createElement("div");
                         codeWrapper.className = "code-wrapper";
 
-                        // Optimized function to update line numbers
+                        // Simplified function to update line numbers using server-provided count
                         function updateLineNumbers() {
                             // Clear existing line numbers
                             lineNumbers.innerHTML = "";
 
                             if (pre.classList.contains("wrap")) {
-                                // When wrapped, calculate visual lines
+                                // When wrapped, calculate visual lines based on server-provided line count
                                 const text = codeBlock.textContent;
                                 const logicalLines = text.split("\n");
 
@@ -963,8 +967,14 @@
                                 tempDiv.style.overflowWrap = "break-word";
                                 document.body.appendChild(tempDiv);
 
+                                // Use the server-provided line count as the maximum
                                 let currentLogicalLine = 1;
-                                for (let i = 0; i < logicalLines.length; i++) {
+                                for (
+                                    let i = 0;
+                                    i <
+                                    Math.min(logicalLines.length, lineCount);
+                                    i++
+                                ) {
                                     const line = logicalLines[i];
                                     tempDiv.textContent = line || " "; // Use space for empty lines
 
@@ -999,26 +1009,7 @@
                                 // Clean up temporary element
                                 document.body.removeChild(tempDiv);
                             } else {
-                                // When not wrapped, just count logical lines
-                                const text = codeBlock.textContent;
-                                const lines = text
-                                    .replace(/\r\n/g, "\n")
-                                    .split("\n");
-
-                                // Don't count trailing empty lines
-                                let lineCount = lines.length;
-                                while (
-                                    lineCount > 0 &&
-                                    lines[lineCount - 1] === ""
-                                ) {
-                                    lineCount--;
-                                }
-
-                                // If all lines are empty, count it as 1 line
-                                if (lineCount === 0 && lines.length > 0) {
-                                    lineCount = 1;
-                                }
-
+                                // When not wrapped, use the server-provided line count directly
                                 for (let i = 1; i <= lineCount; i++) {
                                     const lineNumber =
                                         document.createElement("div");
