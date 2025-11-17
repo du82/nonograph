@@ -10,6 +10,7 @@ chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 ammonia = "3.3"
 toml = "0.8"
+syntect = "5.1"
 
 [dev-dependencies]
 tempfile = "3.0"

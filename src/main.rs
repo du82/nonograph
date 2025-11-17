@@ -364,7 +364,7 @@ fn create_post(
         Err(_) => return Ok(rocket::response::Redirect::to("/?error=no_available_slots")),
     };
 
-    let rendered_content = parser::render_markdown(&form.content);
+    let rendered_content = parser::render_markdown_with_config(&form.content, &config);
 
     let post = Post {
         id: post_id.clone(),
@@ -394,7 +394,7 @@ fn create_post(
 fn view_post(
     post_id: &str,
     storage: &State<PostStorage>,
-    _config: &State<Config>,
+    config: &State<Config>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
     (
@@ -457,7 +457,7 @@ fn view_post(
                             id: actual_post_id.to_string(),
                             title,
                             author,
-                            content: parser::render_markdown(&raw_content),
+                            content: parser::render_markdown_with_config(&raw_content, &config),
                             raw_content,
                             created_at,
                         };
@@ -577,23 +577,23 @@ fn view_post(
 }
 
 #[get("/markup")]
-fn markup_page() -> content::RawHtml<String> {
-    serve_static_page("markup")
+fn markup_page(config: &State<Config>) -> content::RawHtml<String> {
+    serve_static_page("markup", config)
 }
 
 #[get("/legal")]
-fn legal_page() -> content::RawHtml<String> {
-    serve_static_page("legal")
+fn legal_page(config: &State<Config>) -> content::RawHtml<String> {
+    serve_static_page("legal", config)
 }
 
 #[get("/about")]
-fn about_page() -> content::RawHtml<String> {
-    serve_static_page("about")
+fn about_page(config: &State<Config>) -> content::RawHtml<String> {
+    serve_static_page("about", config)
 }
 
 #[get("/api")]
-fn api_page() -> content::RawHtml<String> {
-    serve_static_page("api")
+fn api_page(config: &State<Config>) -> content::RawHtml<String> {
+    serve_static_page("api", config)
 }
 
 #[get("/nojs")]
@@ -667,7 +667,7 @@ fn nojs_create_post(
         }
     };
 
-    let rendered_content = parser::render_markdown(&form.content);
+    let rendered_content = parser::render_markdown_with_config(&form.content, &config);
 
     let post = Post {
         id: post_id.clone(),
@@ -693,7 +693,7 @@ fn nojs_create_post(
     Ok(rocket::response::Redirect::to(format!("/nojs/{}", post_id)))
 }
 
-fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
+fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtml<String> {
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
@@ -703,7 +703,7 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
             if lines.len() >= 4 {
                 let title = lines[2].strip_prefix("# ").unwrap_or("Page");
                 let raw_content = lines[3];
-                let rendered_content = parser::render_markdown(raw_content);
+                let rendered_content = parser::render_markdown_with_config(raw_content, &config);
 
                 let engine = TemplateEngine::new("templates");
                 let mut context = HashMap::new();
@@ -715,6 +715,7 @@ fn serve_static_page(page_name: &str) -> content::RawHtml<String> {
                 context.insert("created_at_iso".to_string(), String::new());
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
+                context.insert("post_id".to_string(), page_name.to_string());
 
                 match engine.render("post", &context) {
                     Ok(html) => content::RawHtml(html),

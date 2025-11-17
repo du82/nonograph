@@ -835,54 +835,35 @@
                 });
             });
 
-            // Process code blocks to add headers and line numbers
+            // Process pre-rendered code blocks to add interactivity
             document.addEventListener("DOMContentLoaded", function () {
-                document
-                    .querySelectorAll("pre code")
-                    .forEach(function (codeBlock) {
-                        const pre = codeBlock.parentElement;
-                        const className = codeBlock.className;
-                        let language = "";
+                document.querySelectorAll("pre").forEach(function (pre) {
+                    // Only process pre elements that have our structure
+                    const header = pre.querySelector(".code-header");
+                    if (!header) return;
 
-                        // Extract language from class name
-                        if (className && className.includes("language-")) {
-                            language = className.replace("language-", "");
-                        }
+                    const wrapButton = pre.querySelector(".wrap-button");
+                    const collapseButton =
+                        pre.querySelector(".collapse-button");
+                    const copyButton = pre.querySelector(".copy-button");
+                    const codeWrapper = pre.querySelector(".code-wrapper");
+                    const codeBlock = pre.querySelector("code");
 
-                        // Extract line count from data attribute
-                        const lineCount =
-                            parseInt(codeBlock.dataset.lineCount) || 1;
-
-                        // Create header with language and control buttons
-                        const header = document.createElement("div");
-                        header.className = "code-header";
-
-                        // Create language label if language is specified
-                        if (language) {
-                            const langLabel = document.createElement("span");
-                            langLabel.className = "code-language";
-                            langLabel.textContent = language.toUpperCase();
-                            header.appendChild(langLabel);
-                        }
-
-                        // Create controls container (always present)
-                        const controls = document.createElement("div");
-                        controls.className = "code-controls";
-
-                        // Create wrap button
-                        const wrapButton = document.createElement("button");
-                        wrapButton.className = "wrap-button";
-                        wrapButton.textContent = "Wrap";
+                    // Wrap button functionality
+                    if (wrapButton && pre) {
                         wrapButton.addEventListener("click", function () {
                             pre.classList.toggle("wrap");
                             wrapButton.classList.toggle("active");
-                            updateLineNumbers();
+                            wrapButton.textContent = pre.classList.contains(
+                                "wrap",
+                            )
+                                ? "Unwrap"
+                                : "Wrap";
                         });
+                    }
 
-                        // Create collapse button
-                        const collapseButton = document.createElement("button");
-                        collapseButton.className = "collapse-button";
-                        collapseButton.textContent = "Collapse";
+                    // Collapse button functionality
+                    if (collapseButton && pre) {
                         collapseButton.addEventListener("click", function () {
                             pre.classList.toggle("collapsed");
                             collapseButton.textContent = pre.classList.contains(
@@ -891,11 +872,10 @@
                                 ? "Expand"
                                 : "Collapse";
                         });
+                    }
 
-                        // Create copy button with optimized functionality
-                        const copyButton = document.createElement("button");
-                        copyButton.className = "copy-button";
-                        copyButton.textContent = "Copy";
+                    // Copy button functionality
+                    if (copyButton && codeBlock) {
                         copyButton.addEventListener("click", function () {
                             const showCopiedState = function () {
                                 copyButton.textContent = "Copied!";
@@ -909,7 +889,18 @@
                             if (navigator.clipboard) {
                                 navigator.clipboard
                                     .writeText(codeBlock.textContent)
-                                    .then(showCopiedState);
+                                    .then(showCopiedState)
+                                    .catch(() => {
+                                        // Fallback for older browsers
+                                        const textArea =
+                                            document.createElement("textarea");
+                                        textArea.value = codeBlock.textContent;
+                                        document.body.appendChild(textArea);
+                                        textArea.select();
+                                        document.execCommand("copy");
+                                        document.body.removeChild(textArea);
+                                        showCopiedState();
+                                    });
                             } else {
                                 // Fallback for older browsers
                                 const textArea =
@@ -922,120 +913,8 @@
                                 showCopiedState();
                             }
                         });
-
-                        // Add buttons to controls
-                        controls.appendChild(wrapButton);
-                        controls.appendChild(collapseButton);
-                        controls.appendChild(copyButton);
-                        header.appendChild(controls);
-
-                        // Create line numbers container
-                        const lineNumbers = document.createElement("div");
-                        lineNumbers.className = "line-numbers";
-
-                        // Create wrapper for code content
-                        const codeWrapper = document.createElement("div");
-                        codeWrapper.className = "code-wrapper";
-
-                        // Simplified function to update line numbers using server-provided count
-                        function updateLineNumbers() {
-                            // Clear existing line numbers
-                            lineNumbers.innerHTML = "";
-
-                            if (pre.classList.contains("wrap")) {
-                                // When wrapped, calculate visual lines based on server-provided line count
-                                const text = codeBlock.textContent;
-                                const logicalLines = text.split("\n");
-
-                                // Create a temporary element to measure wrapped lines
-                                const tempDiv = document.createElement("div");
-                                tempDiv.style.position = "absolute";
-                                tempDiv.style.visibility = "hidden";
-                                tempDiv.style.width =
-                                    codeBlock.offsetWidth - 20 + "px";
-
-                                // Get computed styles once instead of multiple times
-                                const codeStyles =
-                                    window.getComputedStyle(codeBlock);
-                                tempDiv.style.fontFamily =
-                                    codeStyles.fontFamily;
-                                tempDiv.style.fontSize = codeStyles.fontSize;
-                                tempDiv.style.lineHeight =
-                                    codeStyles.lineHeight;
-                                tempDiv.style.whiteSpace = "pre-wrap";
-                                tempDiv.style.wordWrap = "break-word";
-                                tempDiv.style.overflowWrap = "break-word";
-                                document.body.appendChild(tempDiv);
-
-                                // Use the server-provided line count as the maximum
-                                let currentLogicalLine = 1;
-                                for (
-                                    let i = 0;
-                                    i <
-                                    Math.min(logicalLines.length, lineCount);
-                                    i++
-                                ) {
-                                    const line = logicalLines[i];
-                                    tempDiv.textContent = line || " "; // Use space for empty lines
-
-                                    const wrappedHeight = tempDiv.scrollHeight;
-                                    const lineHeight = parseFloat(
-                                        codeStyles.lineHeight,
-                                    );
-                                    const wrappedLineCount = Math.max(
-                                        1,
-                                        Math.round(wrappedHeight / lineHeight),
-                                    );
-
-                                    // Add line numbers for this logical line
-                                    for (let j = 0; j < wrappedLineCount; j++) {
-                                        const lineNumber =
-                                            document.createElement("div");
-                                        lineNumber.className = "line-number";
-
-                                        // Only show the number on the first visual line
-                                        if (j === 0) {
-                                            lineNumber.textContent =
-                                                currentLogicalLine;
-                                        } else {
-                                            lineNumber.classList.add("empty");
-                                        }
-
-                                        lineNumbers.appendChild(lineNumber);
-                                    }
-                                    currentLogicalLine++;
-                                }
-
-                                // Clean up temporary element
-                                document.body.removeChild(tempDiv);
-                            } else {
-                                // When not wrapped, use the server-provided line count directly
-                                for (let i = 1; i <= lineCount; i++) {
-                                    const lineNumber =
-                                        document.createElement("div");
-                                    lineNumber.className = "line-number";
-                                    lineNumber.textContent = i;
-                                    lineNumbers.appendChild(lineNumber);
-                                }
-                            }
-                        }
-
-                        // Initial line number setup
-                        updateLineNumbers();
-
-                        // Update line numbers when window is resized (only affects wrapped code)
-                        window.addEventListener("resize", function () {
-                            if (pre.classList.contains("wrap")) {
-                                updateLineNumbers();
-                            }
-                        });
-
-                        // Assemble the enhanced code block
-                        pre.appendChild(header);
-                        pre.appendChild(lineNumbers);
-                        pre.appendChild(codeWrapper);
-                        codeWrapper.appendChild(codeBlock);
-                    });
+                    }
+                });
             });
         </script>
     </body>
