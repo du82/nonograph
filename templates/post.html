@@ -135,7 +135,7 @@
             .article-content pre {
                 background: #f8f9fa;
                 border: 1px solid #e9ecef;
-                padding: 10px;
+                padding: 24px 0px 0px 50px;
                 margin: 20px 0;
                 overflow-x: auto;
                 line-height: 1.4;
@@ -149,23 +149,113 @@
                 font-size: 14px;
                 display: block;
                 white-space: pre;
+                overflow-x: auto;
+                word-wrap: normal;
+                overflow-wrap: normal;
+                line-height: 1.4;
+            }
+            .article-content pre.wrap code {
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
             .code-header {
                 position: absolute;
-                top: 8px;
-                right: 8px;
+                top: 0;
+                left: 0;
+                right: 0;
                 display: flex;
+                justify-content: space-between;
                 align-items: center;
-                gap: 8px;
+                padding: 1px 6px;
                 font-size: 12px;
                 color: #666;
                 font-family:
                     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                     sans-serif;
                 z-index: 10;
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #e9ecef;
             }
-            .code-header:hover {
-                background: #f8f9fa;
+            .code-language {
+                text-transform: uppercase;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+                opacity: 1;
+                pointer-events: auto;
+                user-select: none;
+                flex-shrink: 0;
+            }
+            .code-controls {
+                display: flex;
+                gap: 3px;
+                margin-left: auto;
+            }
+            .copy-button,
+            .collapse-button,
+            .wrap-button {
+                background: #fff;
+                border: 1px solid #e9ecef;
+                padding: 2px 6px;
+                font-size: 11px;
+                cursor: pointer;
+                color: #656d76;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                font-weight: 500;
+            }
+            .copy-button.copied {
+                background: #2ea043;
+                border-color: #2ea043;
+                color: white;
+            }
+            .wrap-button.active {
+                background: #0969da;
+                border-color: #0969da;
+                color: white;
+            }
+            .line-numbers {
+                position: absolute;
+                left: 0;
+                top: 24px;
+                width: 40px;
+                padding: 6px 0;
+                background: #f1f3f4;
+                border-right: 1px solid #e9ecef;
+                text-align: right;
+                font-family:
+                    "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+                    monospace;
+                font-size: 14px;
+                line-height: 1.4;
+                color: #666;
+                user-select: none;
+                overflow: hidden;
+                transition: max-height 0.3s ease;
+            }
+            .line-number {
+                padding: 0 5px;
+                height: 1.4em;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            .line-number.empty {
+                color: transparent;
+                cursor: default;
+            }
+            .code-wrapper {
+                position: relative;
+                padding: 6px 0;
+                transition: max-height 0.3s ease;
+            }
+            .collapsed .code-wrapper {
+                max-height: 100px;
+                overflow: hidden;
+            }
+            .collapsed .line-numbers {
+                max-height: 118px; /* 100px + padding */
             }
             .article-content pre::-webkit-scrollbar {
                 height: 8px;
@@ -179,34 +269,6 @@
             }
             .article-content pre::-webkit-scrollbar-thumb:hover {
                 background: #bdc1c6;
-            }
-            .code-language {
-                text-transform: uppercase;
-                font-weight: 500;
-                letter-spacing: 0.5px;
-                opacity: 0;
-                pointer-events: none;
-                order: -1;
-            }
-            .code-header:hover .code-language {
-                opacity: 1;
-            }
-            .copy-button {
-                background: #fff;
-                border: 1px solid #e9ecef;
-                padding: 3px 6px;
-                font-size: 11px;
-                cursor: pointer;
-                color: #656d76;
-                font-family:
-                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                    sans-serif;
-                font-weight: 500;
-            }
-            .copy-button.copied {
-                background: #2ea043;
-                border-color: #2ea043;
-                color: white;
             }
             .article-content a {
                 color: #333;
@@ -455,10 +517,62 @@
             }
             .secret.revealed {
                 background: #f0f0f0;
+                color: #333;
             }
             .secret:active {
                 background: #555;
                 transform: scale(0.98);
+            }
+
+            /* Fallback for when JavaScript is disabled */
+            .noscript .secret {
+                background: #f0f0f0;
+                color: #333;
+                cursor: default;
+            }
+            .noscript .secret::before {
+                content: "[Secret text: ";
+            }
+            .noscript .secret::after {
+                content: "]";
+            }
+
+            /* Code block styles for when JavaScript is disabled */
+            .code-block {
+                position: relative;
+                margin: 20px 0;
+            }
+            .code-block pre {
+                margin: 0;
+            }
+            .static-line-numbers {
+                position: absolute;
+                left: 0;
+                top: 24px;
+                width: 40px;
+                padding: 6px 0;
+                background: #f1f3f4;
+                border-right: 1px solid #e9ecef;
+                text-align: right;
+                font-family:
+                    "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+                    monospace;
+                font-size: 14px;
+                line-height: 1.4;
+                color: #666;
+                user-select: none;
+                overflow: hidden;
+            }
+            .static-line-number {
+                padding: 0 10px;
+                height: 1.4em;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+            }
+            .static-code-wrapper {
+                position: relative;
+                padding: 6px 0;
             }
 
             @media (max-width: 768px) {
@@ -522,10 +636,16 @@
                     padding: 1px 4px;
                 }
                 .article-content pre {
-                    padding: 12px;
+                    padding: 24px 0px 0px 50px;
                     margin: 10px 0;
                 }
                 .article-content pre code {
+                    font-size: 13px;
+                }
+                .line-numbers {
+                    font-size: 13px;
+                }
+                .static-line-numbers {
                     font-size: 13px;
                 }
                 .article-content blockquote {
@@ -668,70 +788,263 @@
                 >source code</a
             >
         </div>
+
+        <noscript>
+            <style>
+                /* Fallback styles for when JavaScript is disabled */
+                body {
+                    class: "noscript";
+                }
+                .secret {
+                    background: #f0f0f0 !important;
+                    color: #333 !important;
+                    cursor: default !important;
+                }
+                .secret::before {
+                    content: "[Secret text: ";
+                }
+                .secret::after {
+                    content: "]";
+                }
+
+                /* Process code blocks for no-JS environment */
+                .article-content pre {
+                    position: relative;
+                }
+
+                /* Hide the interactive elements that won't work without JS */
+                .code-controls {
+                    display: none;
+                }
+            </style>
+
+            <script type="text/javascript">
+                // This script runs only when JavaScript is enabled
+                document.addEventListener("DOMContentLoaded", function () {
+                    // Remove the noscript class from body when JS is available
+                    document.body.classList.remove("noscript");
+                });
+            </script>
+        </noscript>
+
         <script>
+            // Secret text reveal functionality
             document.querySelectorAll(".secret").forEach(function (secret) {
                 secret.addEventListener("click", function () {
                     this.classList.toggle("revealed");
                 });
             });
 
-            // Add copy functionality and language labels to code blocks
-            document.querySelectorAll("pre code").forEach(function (codeBlock) {
-                const pre = codeBlock.parentElement;
-                const className = codeBlock.className;
-                let language = "";
+            // Process code blocks to add headers and line numbers
+            document.addEventListener("DOMContentLoaded", function () {
+                document
+                    .querySelectorAll("pre code")
+                    .forEach(function (codeBlock) {
+                        const pre = codeBlock.parentElement;
+                        const className = codeBlock.className;
+                        let language = "";
 
-                // Extract language from class name
-                if (className && className.includes("language-")) {
-                    language = className.replace("language-", "");
-                }
+                        // Extract language from class name
+                        if (className && className.includes("language-")) {
+                            language = className.replace("language-", "");
+                        }
 
-                // Create header with language and copy button
-                const header = document.createElement("div");
-                header.className = "code-header";
+                        // Create header with language and control buttons
+                        const header = document.createElement("div");
+                        header.className = "code-header";
 
-                // Create language label first (for CSS ordering)
-                if (language) {
-                    const langLabel = document.createElement("span");
-                    langLabel.className = "code-language";
-                    langLabel.textContent = language.toUpperCase();
-                    header.appendChild(langLabel);
-                }
+                        // Create language label if language is specified
+                        if (language) {
+                            const langLabel = document.createElement("span");
+                            langLabel.className = "code-language";
+                            langLabel.textContent = language.toUpperCase();
+                            header.appendChild(langLabel);
+                        }
 
-                const copyButton = document.createElement("button");
-                copyButton.className = "copy-button";
-                copyButton.textContent = "Copy";
-                copyButton.addEventListener("click", function () {
-                    navigator.clipboard
-                        .writeText(codeBlock.textContent)
-                        .then(function () {
-                            copyButton.textContent = "Copied!";
-                            copyButton.classList.add("copied");
-                            setTimeout(function () {
-                                copyButton.textContent = "Copy";
-                                copyButton.classList.remove("copied");
-                            }, 2000);
-                        })
-                        .catch(function () {
-                            // Fallback for older browsers
-                            const textArea = document.createElement("textarea");
-                            textArea.value = codeBlock.textContent;
-                            document.body.appendChild(textArea);
-                            textArea.select();
-                            document.execCommand("copy");
-                            document.body.removeChild(textArea);
-                            copyButton.textContent = "Copied!";
-                            copyButton.classList.add("copied");
-                            setTimeout(function () {
-                                copyButton.textContent = "Copy";
-                                copyButton.classList.remove("copied");
-                            }, 2000);
+                        // Create controls container (always present)
+                        const controls = document.createElement("div");
+                        controls.className = "code-controls";
+
+                        // Create wrap button
+                        const wrapButton = document.createElement("button");
+                        wrapButton.className = "wrap-button";
+                        wrapButton.textContent = "Wrap";
+                        wrapButton.addEventListener("click", function () {
+                            pre.classList.toggle("wrap");
+                            wrapButton.classList.toggle("active");
+                            updateLineNumbers();
                         });
-                });
 
-                header.appendChild(copyButton);
+                        // Create collapse button
+                        const collapseButton = document.createElement("button");
+                        collapseButton.className = "collapse-button";
+                        collapseButton.textContent = "Collapse";
+                        collapseButton.addEventListener("click", function () {
+                            pre.classList.toggle("collapsed");
+                            collapseButton.textContent = pre.classList.contains(
+                                "collapsed",
+                            )
+                                ? "Expand"
+                                : "Collapse";
+                        });
 
-                pre.appendChild(header);
+                        // Create copy button with optimized functionality
+                        const copyButton = document.createElement("button");
+                        copyButton.className = "copy-button";
+                        copyButton.textContent = "Copy";
+                        copyButton.addEventListener("click", function () {
+                            const showCopiedState = function () {
+                                copyButton.textContent = "Copied!";
+                                copyButton.classList.add("copied");
+                                setTimeout(function () {
+                                    copyButton.textContent = "Copy";
+                                    copyButton.classList.remove("copied");
+                                }, 2000);
+                            };
+
+                            if (navigator.clipboard) {
+                                navigator.clipboard
+                                    .writeText(codeBlock.textContent)
+                                    .then(showCopiedState);
+                            } else {
+                                // Fallback for older browsers
+                                const textArea =
+                                    document.createElement("textarea");
+                                textArea.value = codeBlock.textContent;
+                                document.body.appendChild(textArea);
+                                textArea.select();
+                                document.execCommand("copy");
+                                document.body.removeChild(textArea);
+                                showCopiedState();
+                            }
+                        });
+
+                        // Add buttons to controls
+                        controls.appendChild(wrapButton);
+                        controls.appendChild(collapseButton);
+                        controls.appendChild(copyButton);
+                        header.appendChild(controls);
+
+                        // Create line numbers container
+                        const lineNumbers = document.createElement("div");
+                        lineNumbers.className = "line-numbers";
+
+                        // Create wrapper for code content
+                        const codeWrapper = document.createElement("div");
+                        codeWrapper.className = "code-wrapper";
+
+                        // Optimized function to update line numbers
+                        function updateLineNumbers() {
+                            // Clear existing line numbers
+                            lineNumbers.innerHTML = "";
+
+                            if (pre.classList.contains("wrap")) {
+                                // When wrapped, calculate visual lines
+                                const text = codeBlock.textContent;
+                                const logicalLines = text.split("\n");
+
+                                // Create a temporary element to measure wrapped lines
+                                const tempDiv = document.createElement("div");
+                                tempDiv.style.position = "absolute";
+                                tempDiv.style.visibility = "hidden";
+                                tempDiv.style.width =
+                                    codeBlock.offsetWidth - 20 + "px";
+
+                                // Get computed styles once instead of multiple times
+                                const codeStyles =
+                                    window.getComputedStyle(codeBlock);
+                                tempDiv.style.fontFamily =
+                                    codeStyles.fontFamily;
+                                tempDiv.style.fontSize = codeStyles.fontSize;
+                                tempDiv.style.lineHeight =
+                                    codeStyles.lineHeight;
+                                tempDiv.style.whiteSpace = "pre-wrap";
+                                tempDiv.style.wordWrap = "break-word";
+                                tempDiv.style.overflowWrap = "break-word";
+                                document.body.appendChild(tempDiv);
+
+                                let currentLogicalLine = 1;
+                                for (let i = 0; i < logicalLines.length; i++) {
+                                    const line = logicalLines[i];
+                                    tempDiv.textContent = line || " "; // Use space for empty lines
+
+                                    const wrappedHeight = tempDiv.scrollHeight;
+                                    const lineHeight = parseFloat(
+                                        codeStyles.lineHeight,
+                                    );
+                                    const wrappedLineCount = Math.max(
+                                        1,
+                                        Math.round(wrappedHeight / lineHeight),
+                                    );
+
+                                    // Add line numbers for this logical line
+                                    for (let j = 0; j < wrappedLineCount; j++) {
+                                        const lineNumber =
+                                            document.createElement("div");
+                                        lineNumber.className = "line-number";
+
+                                        // Only show the number on the first visual line
+                                        if (j === 0) {
+                                            lineNumber.textContent =
+                                                currentLogicalLine;
+                                        } else {
+                                            lineNumber.classList.add("empty");
+                                        }
+
+                                        lineNumbers.appendChild(lineNumber);
+                                    }
+                                    currentLogicalLine++;
+                                }
+
+                                // Clean up temporary element
+                                document.body.removeChild(tempDiv);
+                            } else {
+                                // When not wrapped, just count logical lines
+                                const text = codeBlock.textContent;
+                                const lines = text
+                                    .replace(/\r\n/g, "\n")
+                                    .split("\n");
+
+                                // Don't count trailing empty lines
+                                let lineCount = lines.length;
+                                while (
+                                    lineCount > 0 &&
+                                    lines[lineCount - 1] === ""
+                                ) {
+                                    lineCount--;
+                                }
+
+                                // If all lines are empty, count it as 1 line
+                                if (lineCount === 0 && lines.length > 0) {
+                                    lineCount = 1;
+                                }
+
+                                for (let i = 1; i <= lineCount; i++) {
+                                    const lineNumber =
+                                        document.createElement("div");
+                                    lineNumber.className = "line-number";
+                                    lineNumber.textContent = i;
+                                    lineNumbers.appendChild(lineNumber);
+                                }
+                            }
+                        }
+
+                        // Initial line number setup
+                        updateLineNumbers();
+
+                        // Update line numbers when window is resized (only affects wrapped code)
+                        window.addEventListener("resize", function () {
+                            if (pre.classList.contains("wrap")) {
+                                updateLineNumbers();
+                            }
+                        });
+
+                        // Assemble the enhanced code block
+                        pre.appendChild(header);
+                        pre.appendChild(lineNumbers);
+                        pre.appendChild(codeWrapper);
+                        codeWrapper.appendChild(codeBlock);
+                    });
             });
         </script>
     </body>
