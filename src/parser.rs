@@ -84,7 +84,9 @@ pub fn render_markdown(content: &str) -> String {
 }
 
 pub fn render_markdown_with_config(content: &str, config: &crate::config::Config) -> String {
-    let (protected_content, fenced_blocks) = extract_fenced_code_blocks(content);
+    let cleaned_content = remove_standalone_list_tags(content);
+
+    let (protected_content, fenced_blocks) = extract_fenced_code_blocks(&cleaned_content);
     let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
 
     // Process comments before other formatting to remove them from HTML output
@@ -110,6 +112,7 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
     working_content = process_images(&working_content);
     working_content = process_links(&working_content);
     working_content = process_tables(&working_content);
+    working_content = process_lists(&working_content);
     working_content = process_dividers(&working_content);
     working_content = format_paragraphs_with_headers(&working_content);
     working_content =
@@ -319,6 +322,7 @@ fn sanitize_html(html: String) -> String {
             "blockquote",
             "div",
             "ol",
+            "ul",
             "li",
             "button",
         ])
@@ -741,6 +745,134 @@ fn map_language_for_syntect(lang: &str) -> &str {
 #[allow(dead_code)]
 fn restore_fenced_code_blocks(text: &str, fenced_blocks: &[(String, String, u32)]) -> String {
     restore_fenced_code_blocks_with_config(text, fenced_blocks, &crate::config::Config::default())
+}
+
+fn process_lists(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut result = Vec::new();
+    let mut i = 0;
+
+    while i < lines.len() {
+        let line = lines[i].trim();
+
+        // Check if this line starts a list
+        if is_list_item(line) {
+            let (list_html, processed_lines) = process_list_block(&lines, i);
+            result.push(list_html);
+            i += processed_lines;
+
+            // Ensure proper separation after list for subsequent processing
+            if i < lines.len() && !lines[i].trim().is_empty() {
+                result.push(String::new()); // Add empty line to maintain structure
+            }
+        } else {
+            result.push(lines[i].to_string());
+            i += 1;
+        }
+    }
+
+    result.join("\n")
+}
+
+fn remove_standalone_list_tags(text: &str) -> String {
+    // Only escape HTML list tags if they appear to be raw HTML input
+    let lines: Vec<&str> = text.lines().collect();
+    let mut result = Vec::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        if (trimmed.contains("<li>")
+            || trimmed.contains("</li>")
+            || trimmed.contains("<ul>")
+            || trimmed.contains("</ul>")
+            || trimmed.contains("<ol>")
+            || trimmed.contains("</ol>"))
+            && !is_list_item(trimmed)
+        {
+            let escaped = line
+                .replace("<li>", "&lt;li&gt;")
+                .replace("</li>", "&lt;/li&gt;")
+                .replace("<ul>", "&lt;ul&gt;")
+                .replace("</ul>", "&lt;/ul&gt;")
+                .replace("<ol>", "&lt;ol&gt;")
+                .replace("</ol>", "&lt;/ol&gt;");
+            result.push(escaped);
+        } else {
+            result.push(line.to_string());
+        }
+    }
+
+    result.join("\n")
+}
+
+fn is_list_item(line: &str) -> bool {
+    let trimmed = line.trim();
+
+    // Bulleted lists: - * + (including empty items like just "-")
+    if trimmed == "-"
+        || trimmed == "*"
+        || trimmed == "+"
+        || line.starts_with("- ")
+        || line.starts_with("* ")
+        || line.starts_with("+ ")
+    {
+        return true;
+    }
+
+    // Numbered lists: 1. 2. etc
+    if let Some(pos) = trimmed.find(". ") {
+        let prefix = &trimmed[..pos];
+        if prefix.chars().all(|c| c.is_ascii_digit()) && !prefix.is_empty() {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
+    let mut items = Vec::new();
+    let mut i = start_idx;
+    let first_line = lines[start_idx].trim();
+
+    let is_ordered = first_line.chars().next().unwrap_or(' ').is_ascii_digit();
+
+    // Process all consecutive list items
+    while i < lines.len() {
+        let line = lines[i].trim();
+
+        if line.is_empty() {
+            i += 1;
+            continue;
+        }
+
+        if !is_list_item(line) {
+            break;
+        }
+
+        let trimmed = line.trim();
+        let content = if trimmed == "-" || trimmed == "*" || trimmed == "+" {
+            "" // Empty list item
+        } else if line.starts_with("- ") || line.starts_with("* ") || line.starts_with("+ ") {
+            &line[2..] // Skip "- " or "* " or "+ "
+        } else if let Some(pos) = line.find(". ") {
+            &line[pos + 2..] // Skip "1. " or "2. " etc
+        } else {
+            line
+        };
+
+        items.push(format!("<li>{}</li>", content));
+        i += 1;
+    }
+
+    let list_html = if is_ordered {
+        format!("<ol>{}</ol>", items.join(""))
+    } else {
+        format!("<ul>{}</ul>", items.join(""))
+    };
+
+    (list_html, i - start_idx)
 }
 
 fn restore_fenced_code_blocks_with_config(
@@ -1803,6 +1935,142 @@ var x = 1;
         assert!(invalid_result.contains("let"));
         assert!(invalid_result.contains("x"));
         assert!(invalid_result.contains("5"));
+    }
+
+    #[test]
+    fn test_markdown_lists() {
+        // Test unordered lists (bulleted)
+        let bulleted = "- First item\n- Second item\n- Third item";
+        let result = render_markdown(bulleted);
+        assert!(result.contains("<ul>"));
+        assert!(result.contains("<li>First item</li>"));
+        assert!(result.contains("<li>Second item</li>"));
+        assert!(result.contains("<li>Third item</li>"));
+        assert!(result.contains("</ul>"));
+
+        // Test ordered lists (numbered)
+        let numbered = "1. First step\n2. Second step\n3. Third step";
+        let numbered_result = render_markdown(numbered);
+        assert!(numbered_result.contains("<ol>"));
+        assert!(numbered_result.contains("<li>First step</li>"));
+        assert!(numbered_result.contains("<li>Second step</li>"));
+        assert!(numbered_result.contains("<li>Third step</li>"));
+        assert!(numbered_result.contains("</ol>"));
+
+        // Test mixed list markers (*, +, -)
+        let mixed = "* Asterisk item\n+ Plus item\n- Dash item";
+        let mixed_result = render_markdown(mixed);
+        assert!(mixed_result.contains("<ul>"));
+        assert!(mixed_result.contains("<li>Asterisk item</li>"));
+        assert!(mixed_result.contains("<li>Plus item</li>"));
+        assert!(mixed_result.contains("<li>Dash item</li>"));
+
+        // Test that regular text is not affected
+        let not_list = "This is just text\nWith multiple lines\nBut no list markers";
+        let not_list_result = render_markdown(not_list);
+        assert!(!not_list_result.contains("<ul>"));
+        assert!(!not_list_result.contains("<ol>"));
+        assert!(!not_list_result.contains("<li>"));
+    }
+
+    #[test]
+    fn test_html_list_sanitization() {
+        // Test that raw HTML lists are escaped/removed
+        let raw_html = "<li><strong>Input parsing:</strong> The system breaks down.</li>\n<li><strong>Character matching:</strong> For each syllable.</li>";
+        let result = render_markdown(raw_html);
+
+        // Should not contain raw <li> tags (they should be escaped)
+        // The content should be treated as plain text
+        assert!(result.contains("Input parsing"));
+        assert!(result.contains("Character matching"));
+        assert!(result.contains("&lt;li&gt;"));
+        assert!(result.contains("&lt;/li&gt;"));
+
+        // Should not create HTML lists from raw HTML input
+        assert!(!result.contains("<li><strong>Input parsing:</strong>"));
+    }
+
+    #[test]
+    fn test_bold_formatting_debug() {
+        // Test to debug bold formatting issue
+        let bold_test = "**test**";
+        let result = render_markdown(bold_test);
+        println!("Bold input: {}", bold_test);
+        println!("Bold output: {}", result);
+        assert!(result.contains("<strong>test</strong>"));
+    }
+
+    #[test]
+    fn test_bold_in_lists() {
+        // Test bold formatting inside lists
+        let bold_in_list = "- This is **bold** text in a list\n- Another **bold** item";
+        let result = render_markdown(bold_in_list);
+        println!("Bold in list input: {}", bold_in_list);
+        println!("Bold in list result: {}", result);
+
+        assert!(result.contains("<ul>"));
+        assert!(result.contains("<li>This is <strong>bold</strong> text in a list</li>"));
+        assert!(result.contains("<li>Another <strong>bold</strong> item</li>"));
+    }
+
+    #[test]
+    fn test_formatting_in_lists() {
+        // Test all formatting types inside lists
+        let formatted_list = r#"- This is **bold** text
+- This is *italic* text
+- This is _underlined_ text
+- This is ~strikethrough~ text
+- This is ^superscript^ text
+- This is ==highlighted== text
+- This is `inline code` text
+- This has [a link](https://example.com)
+
+1. Numbered **bold** item
+2. Numbered *italic* item
+3. Mixed **bold** and *italic* formatting"#;
+
+        let result = render_markdown(formatted_list);
+        println!("Formatted list result: {}", result);
+
+        // Test bulleted list formatting
+        assert!(result.contains("<li>This is <strong>bold</strong> text</li>"));
+        assert!(result.contains("<li>This is <em>italic</em> text</li>"));
+        assert!(result.contains("<li>This is <u>underlined</u> text</li>"));
+        assert!(result.contains("<li>This is <del>strikethrough</del> text</li>"));
+        assert!(result.contains("<li>This is <sup>superscript</sup> text</li>"));
+        assert!(result.contains("<li>This is <mark>highlighted</mark> text</li>"));
+        assert!(result.contains("<li>This is <code>inline code</code> text</li>"));
+        assert!(result.contains("<li>This has <a href=\"https://example.com\""));
+
+        // Test numbered list formatting
+        assert!(result.contains("<li>Numbered <strong>bold</strong> item</li>"));
+        assert!(result.contains("<li>Numbered <em>italic</em> item</li>"));
+        assert!(
+            result.contains("<li>Mixed <strong>bold</strong> and <em>italic</em> formatting</li>")
+        );
+    }
+
+    #[test]
+    fn test_list_edge_cases() {
+        // Test empty list items
+        let empty_items = "- \n- Item with content\n- ";
+        let result = render_markdown(empty_items);
+        assert!(result.contains("<ul>"));
+        assert!(result.contains("<li></li>"));
+        assert!(result.contains("<li>Item with content</li>"));
+
+        // Test lists with blank lines
+        let with_blanks = "1. First item\n\n2. Second item\n3. Third item";
+        let blanks_result = render_markdown(with_blanks);
+        assert!(blanks_result.contains("<ol>"));
+        assert!(blanks_result.contains("<li>First item</li>"));
+        assert!(blanks_result.contains("<li>Second item</li>"));
+
+        // Test that non-list numbered text is not converted
+        let not_numbered_list = "I have 1. item here but not 2. a list";
+        let not_numbered_result = render_markdown(not_numbered_list);
+        assert!(!not_numbered_result.contains("<ol>"));
+        assert!(!not_numbered_result.contains("<li>"));
     }
 
     #[test]

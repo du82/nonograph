@@ -138,6 +138,56 @@ Videos without alt text display with no caption.
 
 Supported formats: .mp4, .webm, .ogg, .mov, .avi, .mkv
 
+## Lists
+### Bulleted Lists
+```md
+- First item
+- Second item
+- Third item
+```
+
+- First item
+- Second item 
+- Third item
+
+You can use `-`, `*`, or `+` as bullet markers:
+
+```md
+* Item with asterisk
++ Item with plus
+- Item with dash
+```
+
+* Item with asterisk
++ Item with plus
+- Item with dash
+
+### Numbered Lists
+```md
+1. First step
+2. Second step
+3. Third step
+```
+
+1. First step
+2. Second step
+3. Third step
+
+### Lists with Formatting
+All text formatting works inside lists:
+
+```md
+- This is **bold** text
+- This is *italic* text
+- This has `inline code`
+- This has [a link](https://example.com)
+```
+
+- This is **bold** text
+- This is *italic* text
+- This has `inline code`
+- This has [a link](https://example.com)
+
 ## Tables
 ```md
 | Column 1 | Column 2 | Column 3 |
