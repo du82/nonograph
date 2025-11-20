@@ -5,6 +5,33 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Nonograph - Anonymous Publishing Service</title>
         <link rel="icon" href="data:," />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://nonograph.com/" />
+        <meta
+            property="og:title"
+            content="Nonograph - Publish anything anonymously with one click"
+        />
+        <meta
+            property="og:description"
+            content="Self-hosted anonymous publishing platform. No accounts, no tracking, no compromise. Write anonymously, publish instantly, read privately."
+        />
+        <meta property="og:site_name" content="Nonograph" />
+        <meta property="og:locale" content="en_US" />
+
+        <!-- Additional Meta Tags -->
+        <meta
+            name="description"
+            content="Self-hosted anonymous publishing platform. No accounts, no tracking, no compromise. Write anonymously, publish instantly, read privately."
+        />
+        <meta
+            name="keywords"
+            content="anonymous publishing, privacy, self-hosted, tor, hidden service, markdown, censorship resistant, surveillance-free"
+        />
+        <meta name="author" content="Nonograph" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://nonograph.com/" />
         <style>
             * {
                 margin: 0;
@@ -166,7 +193,9 @@
                 stroke-linecap: round;
                 transform: rotate(-90deg);
                 transform-origin: 50% 50%;
-                transition: stroke 0.3s ease, stroke-dashoffset 0.3s ease;
+                transition:
+                    stroke 0.3s ease,
+                    stroke-dashoffset 0.3s ease;
             }
 
             /* Editor Menu Styles */
@@ -382,8 +411,14 @@
             <div class="char-count" id="mobileCharCount">
                 <svg class="progress-circle" id="mobileProgressCircle">
                     <circle class="background" cx="8" cy="8" r="6"></circle>
-                    <circle class="progress" cx="8" cy="8" r="6"
-                        stroke-dasharray="37.7" stroke-dashoffset="37.7"></circle>
+                    <circle
+                        class="progress"
+                        cx="8"
+                        cy="8"
+                        r="6"
+                        stroke-dasharray="37.7"
+                        stroke-dashoffset="37.7"
+                    ></circle>
                 </svg>
                 <span>0 / 128,000</span>
             </div>
@@ -434,8 +469,14 @@
                 <div class="char-count" id="charCount">
                     <svg class="progress-circle" id="progressCircle">
                         <circle class="background" cx="8" cy="8" r="6"></circle>
-                        <circle class="progress" cx="8" cy="8" r="6"
-                            stroke-dasharray="37.7" stroke-dashoffset="37.7"></circle>
+                        <circle
+                            class="progress"
+                            cx="8"
+                            cy="8"
+                            r="6"
+                            stroke-dasharray="37.7"
+                            stroke-dashoffset="37.7"
+                        ></circle>
                     </svg>
                     <span>0 / 128,000</span>
                 </div>
@@ -459,7 +500,9 @@
             const form = document.getElementById("publishForm");
             const slashMenu = document.getElementById("slashMenu");
             const progressCircle = document.getElementById("progressCircle");
-            const mobileProgressCircle = document.getElementById("mobileProgressCircle");
+            const mobileProgressCircle = document.getElementById(
+                "mobileProgressCircle",
+            );
 
             let slashMenuActive = false;
             let slashPosition = -1;
@@ -734,19 +777,21 @@
             function updateProgressCircle(percentage, circleElement) {
                 if (!circleElement) return;
 
-                const progressCircle = circleElement.querySelector('.progress');
+                const progressCircle = circleElement.querySelector(".progress");
                 const circumference = 2 * Math.PI * 6; // radius = 6
-                const offset = circumference - (percentage / 100) * circumference;
+                const offset =
+                    circumference - (percentage / 100) * circumference;
 
                 progressCircle.style.strokeDashoffset = offset;
 
                 // Update color based on percentage
                 if (percentage >= 100) {
-                    progressCircle.style.stroke = '#e74c3c'; // Red
-                } else if (percentage >= 75) {  // Changed from 90 to 75
-                    progressCircle.style.stroke = '#f39c12'; // Yellow/Orange
+                    progressCircle.style.stroke = "#e74c3c"; // Red
+                } else if (percentage >= 75) {
+                    // Changed from 90 to 75
+                    progressCircle.style.stroke = "#f39c12"; // Yellow/Orange
                 } else {
-                    progressCircle.style.stroke = '#666'; // Dark grey
+                    progressCircle.style.stroke = "#666"; // Dark grey
                 }
             }
 
@@ -754,19 +799,20 @@
                 const count = textarea.value.length;
                 const button = document.querySelector('button[type="submit"]');
                 const limit = 128000;
-                const countText = count.toLocaleString() + " / " + limit.toLocaleString();
+                const countText =
+                    count.toLocaleString() + " / " + limit.toLocaleString();
                 const percentage = (count / limit) * 100;
 
                 // Update desktop character count
                 if (charCount) {
-                    const span = charCount.querySelector('span');
+                    const span = charCount.querySelector("span");
                     if (span) span.textContent = countText;
                     updateProgressCircle(percentage, progressCircle);
                 }
 
                 // Update mobile character count
                 if (mobileCharCount) {
-                    const span = mobileCharCount.querySelector('span');
+                    const span = mobileCharCount.querySelector("span");
                     if (span) span.textContent = countText;
                     updateProgressCircle(percentage, mobileProgressCircle);
                 }
@@ -774,11 +820,13 @@
                 // Update button state and character count styling
                 if (count > limit) {
                     if (charCount) charCount.classList.add("over-limit");
-                    if (mobileCharCount) mobileCharCount.classList.add("over-limit");
+                    if (mobileCharCount)
+                        mobileCharCount.classList.add("over-limit");
                     button.disabled = true;
                 } else {
                     if (charCount) charCount.classList.remove("over-limit");
-                    if (mobileCharCount) mobileCharCount.classList.remove("over-limit");
+                    if (mobileCharCount)
+                        mobileCharCount.classList.remove("over-limit");
                     button.disabled = false;
                 }
             }
@@ -1258,7 +1306,7 @@
             updateCharCount();
 
             // Handle window resize to adjust menu if needed
-            window.addEventListener('resize', function() {
+            window.addEventListener("resize", function () {
                 if (slashMenuActive) {
                     hideSlashMenu();
                 }

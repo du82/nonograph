@@ -596,6 +596,20 @@ fn api_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("api", config)
 }
 
+#[get("/robots.txt")]
+fn robots_txt() -> content::RawText<&'static str> {
+    content::RawText(
+        "User-agent: *\n\
+         Disallow: /\n\
+         \n\
+         # Allow specific paths\n\
+         Allow: /api\n\
+         Allow: /legal\n\
+         Allow: /about\n\
+         Allow: /markup\n",
+    )
+}
+
 #[get("/nojs")]
 fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
     let html = index(config).0;
@@ -786,6 +800,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 legal_page,
                 about_page,
                 api_page,
+                robots_txt,
                 nojs_index,
                 nojs_view_post,
                 nojs_create_post

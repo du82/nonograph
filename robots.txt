@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /
+
+Allow: /api
+Allow: /legal
+Allow: /about
+Allow: /markup
