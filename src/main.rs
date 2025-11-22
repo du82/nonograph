@@ -12,6 +12,7 @@ use std::sync::mpsc;
 use std::thread;
 
 use chrono::{DateTime, Utc};
+use deunicode::deunicode;
 use rand::{thread_rng, Rng};
 use rocket::{
     http::Status,
@@ -203,11 +204,11 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
     let now = Utc::now();
     let date_str = now.format("%m-%d-%Y").to_string();
 
-    // Check if title contains non-ASCII characters that would cause URI issues
-    let has_non_ascii_chars = title.trim().chars().any(|c| !c.is_ascii());
+    // Transliterate ALL characters to ASCII equivalents (safe for all input)
+    let transliterated_title = deunicode(title);
 
-    // Create URL-safe slug from title
-    let title_slug: String = title
+    // Create URL-safe slug from transliterated title
+    let title_slug: String = transliterated_title
         .trim()
         .to_lowercase()
         .chars()
@@ -226,8 +227,24 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
         .collect::<Vec<&str>>()
         .join("-");
 
-    if title_slug.is_empty() || has_non_ascii_chars {
-        // Use "na-" + 4 random characters for problematic titles
+    // Apply character limit with truncation if needed
+    let max_slug_length = 250 - date_str.len() - 1; // Reserve space for "-{date}"
+    let final_slug = if title_slug.len() > max_slug_length {
+        let truncate_to = max_slug_length.saturating_sub(4); // Reserve space for "-etc"
+        if truncate_to > 0 {
+            // Find the last complete word that fits
+            let truncated = &title_slug[..truncate_to];
+            let last_dash = truncated.rfind('-').unwrap_or(truncated.len());
+            format!("{}-etc", &title_slug[..last_dash])
+        } else {
+            "etc".to_string()
+        }
+    } else {
+        title_slug
+    };
+
+    if final_slug.is_empty() {
+        // Use "na-" + 4 random characters only for completely empty titles
         let mut rng = thread_rng();
         let chars: String = (0..4)
             .map(|_| {
@@ -261,9 +278,9 @@ fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String
     // Try to find an available slot (0-999)
     for i in 0..1000 {
         let post_id = if i == 0 {
-            format!("{}-{}", title_slug, date_str)
+            format!("{}-{}", final_slug, date_str)
         } else {
-            format!("{}-{}-{}", title_slug, date_str, i)
+            format!("{}-{}-{}", final_slug, date_str, i)
         };
 
         if !posts.contains_key(&post_id) {
@@ -1248,129 +1265,101 @@ mod tests {
     }
 
     #[test]
-    fn test_chinese_characters_fallback() {
+    fn test_chinese_characters_transliteration() {
         let storage = Arc::new(Mutex::new(PostCache::new(128)));
 
-        // Test Chinese characters that would cause URI issues
+        // Test Chinese characters get transliterated
         let chinese_title = "李琴峰";
         let result = generate_post_id(chinese_title, &storage);
         assert!(result.is_ok());
 
         let post_id = result.unwrap();
-        // Should start with "na-" followed by 4 random characters, then dash, then date
-        assert!(post_id.starts_with("na-"));
-
-        // Verify format: na-{4chars}-{date}
-        let parts: Vec<&str> = post_id.split('-').collect();
-        assert_eq!(parts.len(), 5); // na, 4chars, MM, dd, YYYY
-        assert_eq!(parts[0], "na");
-        assert_eq!(parts[1].len(), 4); // 4 random characters
-
-        // Verify it contains date in correct position
         let date_str = Utc::now().format("%m-%d-%Y").to_string();
+
+        // Should be transliterated, not use fallback
+        assert!(!post_id.starts_with("na-"));
         assert!(post_id.ends_with(&format!("-{}", date_str)));
+
+        // Chinese should transliterate to something like "li-qin-feng"
+        assert!(post_id.contains("li"));
 
         // Test mixed Chinese and English
         let mixed_chinese = "Hello 李琴峰 World";
         let mixed_result = generate_post_id(mixed_chinese, &storage);
         assert!(mixed_result.is_ok());
         let mixed_id = mixed_result.unwrap();
-        assert!(mixed_id.starts_with("na-"));
 
-        // Verify mixed also follows the same format
-        let mixed_parts: Vec<&str> = mixed_id.split('-').collect();
-        assert_eq!(mixed_parts.len(), 5); // na, 4chars, MM, dd, YYYY
-        assert_eq!(mixed_parts[0], "na");
-        assert_eq!(mixed_parts[1].len(), 4);
+        // Should not use fallback, should be transliterated
+        assert!(!mixed_id.starts_with("na-"));
+        assert!(mixed_id.contains("hello"));
+        assert!(mixed_id.contains("world"));
+        assert!(mixed_id.ends_with(&format!("-{}", date_str)));
     }
 
     #[test]
-    fn test_unicode_languages_fallback() {
+    fn test_unicode_languages_transliteration() {
         let storage = Arc::new(Mutex::new(PostCache::new(128)));
 
-        // Test various unicode languages and scripts
+        // Test various unicode languages and scripts get transliterated
         let test_cases = vec![
-            // Mostly English with some unicode
-            ("Hello World with émojis 🎉", "na-"),
-            ("Café & Naïve résumé", "na-"), // French accents should trigger fallback
-            // German with umlauts
-            ("Schöne Grüße aus München", "na-"),
-            ("Die Brüder Müller", "na-"),
-            // Chinese characters
-            ("李琴峰", "na-"),
-            ("中文标题测试", "na-"),
-            ("Hello 你好 World", "na-"),
-            // Japanese (Hiragana, Katakana, Kanji)
-            ("こんにちは世界", "na-"),
-            ("カタカナテスト", "na-"),
-            ("日本語のタイトル", "na-"),
-            // Korean
-            ("안녕하세요", "na-"),
-            ("한국어 제목", "na-"),
-            // Arabic (RTL script)
-            ("مرحبا بالعالم", "na-"),
-            ("عنوان باللغة العربية", "na-"),
-            // Russian (Cyrillic)
-            ("Привет мир", "na-"),
-            ("Заголовок на русском", "na-"),
-            // Mixed scripts
-            ("Hello 世界 Мир", "na-"),
-            ("Multi-script: 中文 русский العربية", "na-"),
-            // Emojis and symbols
-            ("🚀 Space Launch 🌟", "na-"),
-            ("⭐ Special Symbols ⚡", "na-"),
-            // Mathematical symbols
-            ("E = mc² and π ≈ 3.14", "na-"),
-            // Pure ASCII (should NOT use fallback)
+            // Mostly English with some unicode - should be transliterated
+            ("Hello World with émojis 🎉", "hello-world-with-emojis-tada"),
+            ("Café & Naïve résumé", "cafe-naive-resume"), // French accents should be transliterated
+            // German with umlauts - should be transliterated
+            ("Schöne Grüße aus München", "schone-grusse-aus-munchen"),
+            ("Die Brüder Müller", "die-bruder-muller"),
+            // Pure ASCII (should work normally)
             ("Regular English Title", "regular-english-title"),
             ("Simple ASCII 123", "simple-ascii-123"),
         ];
 
-        for (title, expected_prefix) in test_cases {
+        for (title, expected_slug) in test_cases {
             let result = generate_post_id(title, &storage);
             assert!(result.is_ok(), "Failed to generate ID for: {}", title);
 
             let post_id = result.unwrap();
-            if expected_prefix == "na-" {
-                assert!(
-                    post_id.starts_with("na-"),
-                    "Title '{}' should use na- fallback but got: {}",
-                    title,
-                    post_id
-                );
+            let date_str = Utc::now().format("%m-%d-%Y").to_string();
+            let expected_id = format!("{}-{}", expected_slug, date_str);
 
-                // Verify format: na-{4chars}-{date}
-                let parts: Vec<&str> = post_id.split('-').collect();
-                assert_eq!(parts.len(), 5, "Wrong format for '{}': {}", title, post_id);
-                assert_eq!(parts[0], "na");
-                assert_eq!(
-                    parts[1].len(),
-                    4,
-                    "Should have 4 random chars for '{}': {}",
-                    title,
-                    post_id
-                );
-            } else {
-                assert!(
-                    post_id.starts_with(expected_prefix),
-                    "Title '{}' should start with '{}' but got: {}",
-                    title,
-                    expected_prefix,
-                    post_id
-                );
-                assert!(
-                    !post_id.starts_with("na-"),
-                    "Title '{}' should NOT use na- fallback but got: {}",
-                    title,
-                    post_id
-                );
-            }
+            assert_eq!(
+                post_id, expected_id,
+                "Title '{}' should produce '{}' but got '{}'",
+                title, expected_id, post_id
+            );
+        }
 
-            // All should contain the date
+        // Test languages that might not transliterate well - just verify they don't use na- fallback
+        let complex_cases = vec![
+            "李琴峰",           // Chinese
+            "中文标题测试",     // More Chinese
+            "こんにちは世界",   // Japanese Hiragana
+            "カタカナテスト",   // Japanese Katakana
+            "日本語のタイトル", // Japanese mixed
+            "안녕하세요",       // Korean
+            "한국어 제목",      // Korean with space
+            "مرحبا بالعالم",    // Arabic
+            "Привет мир",       // Russian Cyrillic
+            "Hello 世界 Мир",   // Mixed scripts
+        ];
+
+        for title in complex_cases {
+            let result = generate_post_id(title, &storage);
+            assert!(result.is_ok(), "Failed to generate ID for: {}", title);
+
+            let post_id = result.unwrap();
+            // Should not use na- fallback anymore, should be transliterated
+            assert!(
+                !post_id.starts_with("na-"),
+                "Title '{}' should be transliterated, not use na- fallback. Got: {}",
+                title,
+                post_id
+            );
+
+            // Should end with date
             let date_str = Utc::now().format("%m-%d-%Y").to_string();
             assert!(
-                post_id.contains(&date_str),
-                "Post ID should contain date for '{}': {}",
+                post_id.ends_with(&format!("-{}", date_str)),
+                "Title '{}' should end with date. Got: {}",
                 title,
                 post_id
             );
@@ -1378,84 +1367,234 @@ mod tests {
     }
 
     #[test]
-    fn test_unicode_edge_cases() {
+    fn test_unicode_transliteration() {
         let storage = Arc::new(Mutex::new(PostCache::new(128)));
 
-        // Test mixed content to verify ASCII detection logic
-        let edge_cases = vec![
-            // Should use regular slug (pure ASCII)
-            ("Hello World 123", false),
-            ("Test-Post_With-Underscores", false),
-            ("Simple ASCII Only", false),
-            // Should use na- fallback (contains non-ASCII)
-            ("Hello Wörld", true),       // German umlaut
-            ("Café", true),              // French accent
-            ("résumé", true),            // Multiple accents
-            ("naïve", true),             // Diaeresis
-            ("Hello™", true),            // Trademark symbol
-            ("Test © 2024", true),       // Copyright symbol
-            ("Temperature: 25°C", true), // Degree symbol
-            ("π = 3.14159", true),       // Greek letter pi
-            ("Москва", true),            // Russian
-            ("España", true),            // Spanish ñ
-            ("Zürich", true),            // German ü
-            ("François", true),          // French ç
-            ("北京", true),              // Chinese
-            ("東京", true),              // Japanese
-            // Edge case: mostly ASCII with one non-ASCII char
-            ("This is mostly English but has one ñ character", true),
-            ("Regular title with one emoji 🎉", true),
-            ("ASCII text with trademark™", true),
+        // Test transliteration of various Unicode characters
+        let test_cases = vec![
+            // Pure ASCII should work normally
+            ("Hello World 123", "hello-world-123"),
+            ("Test-Post_With-Underscores", "test-post-with-underscores"),
+            ("Simple ASCII Only", "simple-ascii-only"),
+            // Non-ASCII should be transliterated
+            ("Hello Wörld", "hello-world"), // German umlaut ö -> o
+            ("Café", "cafe"),               // French accent é -> e
+            ("résumé", "resume"),           // Multiple accents -> e
+            ("naïve", "naive"),             // Diaeresis ï -> i
+            ("España", "espana"),           // Spanish ñ -> n
+            ("Zürich", "zurich"),           // German ü -> u
+            ("François", "francois"),       // French ç -> c
+            ("Москва", "moskva"),           // Russian -> latin
+            ("北京", "bei-jing"),           // Chinese -> pinyin
+            ("東京", "dong-jing"),          // Japanese -> latin
+            ("©™® Test", "ctmr-test"), // Symbols get transliterated: © -> (c), ™ -> tm, ® -> (r) -> ctmr
+            ("Test © 2024", "test-c-2024"), // Copyright symbol -> c
         ];
 
-        for (title, should_use_fallback) in edge_cases {
+        for (title, expected_slug) in test_cases {
             let result = generate_post_id(title, &storage);
             assert!(result.is_ok(), "Failed to generate ID for: {}", title);
 
             let post_id = result.unwrap();
+            let date_str = Utc::now().format("%m-%d-%Y").to_string();
+            let expected_id = format!("{}-{}", expected_slug, date_str);
 
-            if should_use_fallback {
-                assert!(
-                    post_id.starts_with("na-"),
-                    "Title '{}' should use na- fallback but got: {}",
-                    title,
-                    post_id
-                );
+            assert_eq!(
+                post_id, expected_id,
+                "Title '{}' should transliterate to '{}' but got: {}",
+                title, expected_id, post_id
+            );
+        }
 
-                // Verify fallback format
-                let parts: Vec<&str> = post_id.split('-').collect();
-                assert_eq!(
-                    parts.len(),
-                    5,
-                    "Wrong na- format for '{}': {}",
-                    title,
-                    post_id
-                );
-                assert_eq!(parts[0], "na");
-                assert_eq!(
-                    parts[1].len(),
-                    4,
-                    "Should have 4 random chars for '{}': {}",
-                    title,
-                    post_id
-                );
-            } else {
-                assert!(
-                    !post_id.starts_with("na-"),
-                    "Title '{}' should NOT use na- fallback but got: {}",
-                    title,
-                    post_id
-                );
+        // Test cases that should still use na- fallback (only for empty slugs)
+        let fallback_cases = vec![
+            "",    // Empty string
+            "   ", // Only whitespace
+            "!!!", // Only punctuation that doesn't transliterate
+        ];
 
-                // Should be a normal slug
-                let date_str = Utc::now().format("%m-%d-%Y").to_string();
-                assert!(
-                    post_id.ends_with(&format!("-{}", date_str)),
-                    "Should end with date for '{}': {}",
-                    title,
-                    post_id
-                );
-            }
+        for title in fallback_cases {
+            let result = generate_post_id(title, &storage);
+            assert!(result.is_ok(), "Failed to generate ID for: '{}'", title);
+
+            let post_id = result.unwrap();
+            assert!(
+                post_id.starts_with("na-"),
+                "Title '{}' should use na- fallback but got: {}",
+                title,
+                post_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_title_truncation_with_etc_marker() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+
+        // Test long transliterated title gets truncated with etc marker
+        let long_title = "🍆".repeat(100); // 100 eggplant emojis
+        let result = generate_post_id(&long_title, &storage);
+        assert!(result.is_ok());
+
+        let post_id = result.unwrap();
+        let date_str = Utc::now().format("%m-%d-%Y").to_string();
+
+        // Should end with etc marker before date
+        assert!(post_id.contains("-etc-"));
+        assert!(post_id.ends_with(&format!("-{}", date_str)));
+
+        // Total length should not exceed 250 characters
+        assert!(post_id.len() <= 250);
+
+        // Should contain "eggplant" repeated multiple times before "etc"
+        assert!(post_id.contains("eggplant"));
+
+        // Test with a very long Chinese title
+        let long_chinese = "学习编程".repeat(50); // Repeat "learn programming" 50 times
+        let chinese_result = generate_post_id(&long_chinese, &storage);
+        assert!(chinese_result.is_ok());
+
+        let chinese_id = chinese_result.unwrap();
+        assert!(chinese_id.contains("-etc-"));
+        assert!(chinese_id.len() <= 250);
+        assert!(chinese_id.contains("xue-xi-bian-cheng"));
+
+        // Test edge case where title is exactly at limit (should not truncate)
+        let medium_title = "Short Title Test";
+        let medium_result = generate_post_id(medium_title, &storage);
+        assert!(medium_result.is_ok());
+
+        let medium_id = medium_result.unwrap();
+        assert!(!medium_id.contains("-etc-"));
+        assert_eq!(medium_id, format!("short-title-test-{}", date_str));
+
+        // Test very short title that would become empty after truncation
+        let symbol_title = "©™®".repeat(200);
+        let symbol_result = generate_post_id(&symbol_title, &storage);
+        assert!(symbol_result.is_ok());
+
+        let symbol_id = symbol_result.unwrap();
+        // Should truncate with etc or use fallback if too short
+        assert!(symbol_id.len() <= 250);
+    }
+
+    #[test]
+    fn test_deunicode_processes_all_titles() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+
+        // Test that deunicode is applied to ALL titles, not just non-ASCII
+        let test_cases = vec![
+            // Pure ASCII - should pass through unchanged
+            ("Hello World", "hello-world"),
+            ("Test 123", "test-123"),
+            ("Simple Title", "simple-title"),
+            // ASCII with symbols that deunicode might transform
+            ("Test & Company", "test-company"), // & might be processed
+            ("Price $100", "price-100"),        // $ might be processed
+            // Mixed ASCII and potential edge cases
+            ("API v2.0", "api-v20"),              // periods should be removed
+            ("C++ Programming", "c-programming"), // ++ should be removed
+        ];
+
+        for (title, expected_slug) in test_cases {
+            let result = generate_post_id(title, &storage);
+            assert!(result.is_ok(), "Failed to generate ID for: {}", title);
+
+            let post_id = result.unwrap();
+            let date_str = Utc::now().format("%m-%d-%Y").to_string();
+            let expected_id = format!("{}-{}", expected_slug, date_str);
+
+            assert_eq!(
+                post_id, expected_id,
+                "Title '{}' should produce '{}' but got '{}'",
+                title, expected_id, post_id
+            );
+        }
+
+        // Verify that deunicode is consistently applied by checking edge cases
+        // where someone might try to bypass processing
+        let edge_cases = vec![
+            "Regular ASCII Title",
+            "   Spaces   Around   ",
+            "UPPERCASE TITLE",
+            "MiXeD cAsE tItLe",
+        ];
+
+        for title in edge_cases {
+            let result = generate_post_id(title, &storage);
+            assert!(
+                result.is_ok(),
+                "Failed to generate ID for edge case: '{}'",
+                title
+            );
+
+            let post_id = result.unwrap();
+            // Should not contain any uppercase or unusual spacing
+            assert!(
+                !post_id.chars().any(|c| c.is_uppercase()),
+                "Post ID should be lowercase: '{}'",
+                post_id
+            );
+            assert!(
+                !post_id.contains("  "),
+                "Post ID should not have double spaces: '{}'",
+                post_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_bypass_prevention() {
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+
+        // Test that it's impossible to bypass deunicode processing
+        // All these attempts should be safely processed
+        let bypass_attempts = vec![
+            // Try to use problematic characters that might break URLs
+            ("Test\u{200B}Title", "test-title"), // Zero-width space becomes space
+            ("Test\u{FEFF}Title", "testtitle"),  // Byte order mark disappears
+            ("Test\u{00A0}Title", "test-title"), // Non-breaking space becomes space
+            ("Test\u{2028}Title", "test-title"), // Line separator becomes space
+            ("Test\u{2029}Title", "test-title"), // Paragraph separator becomes space
+            // Try Unicode normalization edge cases
+            ("café", "cafe"),         // é as single character
+            ("cafe\u{0301}", "cafe"), // e + combining acute accent
+            // Try right-to-left and bidirectional text
+            ("Test\u{202E}Title", "testtitle"), // Right-to-left override disappears
+            ("Test\u{202D}Title", "testtitle"), // Left-to-right override disappears
+            // Try various Unicode categories
+            ("\u{1F4A9}Test", "poop-test"),                 // Emoji
+            ("\u{26A0}\u{FE0F}Warning", "warning-warning"), // Warning symbol
+            // Try combining characters
+            ("A\u{0300}\u{0301}\u{0302}Test", "atest"), // A with multiple accents
+        ];
+
+        for (malicious_title, expected_slug) in bypass_attempts {
+            let result = generate_post_id(malicious_title, &storage);
+            assert!(
+                result.is_ok(),
+                "Failed to process potentially malicious title: '{}'",
+                malicious_title
+            );
+
+            let post_id = result.unwrap();
+            let date_str = Utc::now().format("%m-%d-%Y").to_string();
+            let expected_id = format!("{}-{}", expected_slug, date_str);
+
+            assert_eq!(
+                post_id, expected_id,
+                "Malicious title '{}' was not properly sanitized. Expected: '{}', Got: '{}'",
+                malicious_title, expected_id, post_id
+            );
+
+            // Ensure the result is safe for URLs
+            assert!(
+                post_id
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-'),
+                "Post ID contains unsafe characters: '{}'",
+                post_id
+            );
         }
     }
 

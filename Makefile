@@ -52,13 +52,30 @@ check-docker:
 install-docker:
 	@echo "Installing Docker..."
 	@if command -v apt >/dev/null 2>&1; then \
-		echo "Detected Debian/Ubuntu system, installing via apt..."; \
+		if grep -q "^ID=debian" /etc/os-release; then \
+			echo "Detected Debian system, installing via apt..."; \
+			DOCKER_OS="debian"; \
+			FALLBACK_CODENAME="bookworm"; \
+		elif grep -q "^ID=ubuntu" /etc/os-release || grep -q "^ID_LIKE.*ubuntu" /etc/os-release; then \
+			echo "Detected Ubuntu-based system, installing via apt..."; \
+			DOCKER_OS="ubuntu"; \
+			FALLBACK_CODENAME="jammy"; \
+		else \
+			echo "Detected Debian/Ubuntu-like system, defaulting to Ubuntu repository..."; \
+			DOCKER_OS="ubuntu"; \
+			FALLBACK_CODENAME="jammy"; \
+		fi; \
+		CODENAME=$$(lsb_release -cs); \
 		sudo apt update && \
 		sudo apt install -y ca-certificates curl gnupg lsb-release && \
 		sudo mkdir -p /etc/apt/keyrings && \
-		curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-		echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $$(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-		sudo apt update && \
+		curl -fsSL https://download.docker.com/linux/$$DOCKER_OS/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+		echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$$DOCKER_OS $$CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+		if ! sudo apt update 2>/dev/null; then \
+			echo "Warning: Repository for $$CODENAME not found, falling back to $$FALLBACK_CODENAME..."; \
+			echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$$DOCKER_OS $$FALLBACK_CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+			sudo apt update; \
+		fi && \
 		sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
 		sudo usermod -aG docker $$USER && \
 		echo "✅ Docker installed successfully! Please log out and back in to use Docker without sudo."; \
