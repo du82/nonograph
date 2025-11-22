@@ -66,9 +66,15 @@ show_banner() {
 # Check if running as root
 check_root() {
     if [[ $EUID -eq 0 ]]; then
-        log_error "This script should not be run as root for security reasons"
-        log_info "Run as a regular user - sudo will be requested when needed"
-        exit 1
+        log_warn "Running as root - this is not recommended for security reasons"
+        log_info "Consider running as a regular user in production environments"
+        echo
+        read -p "Do you want to continue running as root? (y/N): " -r
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Exiting. Please run as a regular user for better security."
+            exit 1
+        fi
+        log_info "Continuing as root..."
     fi
 }
 
