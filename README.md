@@ -20,6 +20,13 @@ Nonograph is a self-hosted anonymous publishing platform. No accounts, no tracki
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
+## Known Instances
+| Avg. Uptime | Region        | Clearnet           | Onion                                                                  |
+|-------------|---------------|--------------------|------------------------------------------------------------------------|
+| 100%        | 🏴‍☠️ Unknown    | https://nonogra.ph | http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/ |
+| 100%        | 🇰🇿 Kazakhstan |                    | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
+| 85%         | 🏴‍☠️ Unknown    |                    | http://mlugttjcd6tmcigby3owjelkt6mpxqjzwq2hd3vrub7uok3sl6ms2cid.onion/ |
+
 ## Deploy as a hidden service on Tor with Docker!
 
 ```bash
