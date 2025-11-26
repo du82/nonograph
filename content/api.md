@@ -74,6 +74,7 @@ All standard Nonograph markdown features are supported:
 - **Tables:** GitHub-style markdown tables
 - **Media:** Auto-embedded images and videos from URLs
 - **Secret text:** `#hidden text#` - click to reveal
+- **Stickers:** `:pack.action:` inline emotes - see [Sticker API](#sticker-api) below
 
 ## Rate Limiting
 No rate limiting is currently implemented. Please use responsibly.
@@ -164,9 +165,98 @@ curl -X POST http://localhost:8000/create \
   --write-out "Published: %{url_effective}\n"
 ```
 
+## Sticker API
+Nonograph includes a built-in sticker system for expressive inline content.
+
+### Using Stickers in Content
+Include stickers in your content using the format `:pack.action:`
+
+```markdown
+Hello :marsey.hi: world! This is exciting :marsey.happy:
+
+:marsey.nope:
+```
+
+**Inline vs Standalone Behavior:**
+- **Inline stickers** (mixed with text) appear at normal text height
+- **Standalone stickers** (alone on their line) appear 2x larger for emphasis
+
+### Sticker API Endpoints
+
+#### Get All Stickers
+**Endpoint:** `GET /api/stickers`
+**Response:** Plain text format with sticker details
+
+```bash
+curl http://localhost:8000/api/stickers
+```
+
+**Response Format:**
+```
+name:marsey.hi
+pack:marsey
+action:hi
+url:/stickers/marsey/hi.webp
+base64:data:image/webp;base64,UklGRr...
+
+name:marsey.happy  
+pack:marsey
+action:happy
+url:/stickers/marsey/happy.webp
+base64:data:image/webp;base64,GkXfo...
+```
+
+#### Search Stickers
+**Endpoint:** `GET /api/stickers/search?q={query}`
+**Parameters:** 
+- `q` - Search query (searches names and tags)
+
+```bash
+curl "http://localhost:8000/api/stickers/search?q=happy"
+```
+
+#### Get Specific Sticker
+**Endpoint:** `GET /api/stickers/{name}`
+**Parameters:**
+- `name` - Full sticker name (e.g., `marsey.hi`)
+
+```bash
+curl http://localhost:8000/api/stickers/marsey.hi
+```
+
+### Sticker Files
+**Endpoint:** `GET /stickers/{pack}/{file}`
+Direct access to sticker image files.
+
+```bash
+curl http://localhost:8000/stickers/marsey/hi.webp
+```
+
+### Example with Stickers
+
+```python
+content = '''# My Sticker Post
+
+Hello everyone :marsey.hi:! Today was great :marsey.happy:
+
+## Standalone Sticker
+:marsey.nope:
+
+## Mixed Content
+This is :fire: awesome! Check it out :100:'''
+
+data = {
+    'title': 'Sticker Demo',
+    'content': content
+}
+
+response = requests.post('http://localhost:8000/create', data=data)
+```
+
 ## Notes
 - Posts are stored as markdown files and cached in memory
 - No authentication required - posts are public once published
 - Content is sanitized for security but preserves intended formatting
 - Images and videos must be hosted externally - only URLs are stored
 - Post IDs are generated deterministically from title and date
+- Stickers are served as static files and cached for performance

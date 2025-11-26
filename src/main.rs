@@ -371,6 +371,7 @@ fn create_post(
     form: rocket::form::Form<NewPost>,
     storage: &State<PostStorage>,
     file_queue: &State<FileSaveQueue>,
+    sticker_store: &State<StickerStore>,
     config: &State<Config>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
@@ -396,12 +397,13 @@ fn create_post(
     };
 
     let rendered_content = parser::render_markdown_with_config(&form.content, &config);
+    let sticker_parsed_content = sticker_store.parse_stickers_in_text(&rendered_content);
 
     let post = Post {
         id: post_id.clone(),
         title: parser::sanitize_text(&form.title),
         author: parser::sanitize_text(&form.alias),
-        content: rendered_content,
+        content: sticker_parsed_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
     };
@@ -425,6 +427,7 @@ fn create_post(
 fn view_post(
     post_id: &str,
     storage: &State<PostStorage>,
+    sticker_store: &State<StickerStore>,
     config: &State<Config>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
@@ -488,7 +491,9 @@ fn view_post(
                             id: actual_post_id.to_string(),
                             title,
                             author,
-                            content: parser::render_markdown_with_config(&raw_content, &config),
+                            content: sticker_store.parse_stickers_in_text(
+                                &parser::render_markdown_with_config(&raw_content, &config),
+                            ),
                             raw_content,
                             created_at,
                         };
@@ -608,23 +613,35 @@ fn view_post(
 }
 
 #[get("/markup")]
-fn markup_page(config: &State<Config>) -> content::RawHtml<String> {
-    serve_static_page("markup", config)
+fn markup_page(
+    sticker_store: &State<StickerStore>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
+    serve_static_page("markup", sticker_store, config)
 }
 
 #[get("/legal")]
-fn legal_page(config: &State<Config>) -> content::RawHtml<String> {
-    serve_static_page("legal", config)
+fn legal_page(
+    sticker_store: &State<StickerStore>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
+    serve_static_page("legal", sticker_store, config)
 }
 
 #[get("/about")]
-fn about_page(config: &State<Config>) -> content::RawHtml<String> {
-    serve_static_page("about", config)
+fn about_page(
+    sticker_store: &State<StickerStore>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
+    serve_static_page("about", sticker_store, config)
 }
 
 #[get("/api")]
-fn api_page(config: &State<Config>) -> content::RawHtml<String> {
-    serve_static_page("api", config)
+fn api_page(
+    sticker_store: &State<StickerStore>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
+    serve_static_page("api", sticker_store, config)
 }
 
 #[get("/api/stickers")]
@@ -665,10 +682,10 @@ fn api_stickers_search(
 
 #[get("/api/stickers/<name>")]
 fn api_stickers_get(
-    name: String,
+    name: &str,
     sticker_store: &State<StickerStore>,
 ) -> Result<content::RawText<String>, Status> {
-    match sticker_store.get_by_name(&name) {
+    match sticker_store.get_by_name(name) {
         Some(sticker) => {
             let response = format!(
                 "name:{}\npack:{}\naction:{}\nurl:{}\n",
@@ -681,12 +698,12 @@ fn api_stickers_get(
 }
 
 #[get("/stickers/<pack>/<file>")]
-fn serve_sticker(pack: String, file: String) -> Result<(ContentType, std::fs::File), Status> {
+fn serve_sticker(pack: &str, file: &str) -> Result<(ContentType, std::fs::File), Status> {
     use std::path::PathBuf;
 
     let mut path = PathBuf::from("stickers");
-    path.push(&pack);
-    path.push(&file);
+    path.push(pack);
+    path.push(file);
 
     // Security check - ensure path doesn't escape stickers directory
     if !path.starts_with("stickers") {
@@ -738,6 +755,7 @@ fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
 fn nojs_view_post(
     post_id: &str,
     storage: &State<PostStorage>,
+    sticker_store: &State<StickerStore>,
     config: &State<Config>,
 ) -> Result<
     rocket::Either<content::RawHtml<String>, content::RawText<String>>,
@@ -746,7 +764,7 @@ fn nojs_view_post(
         rocket::Either<content::RawText<String>, content::RawHtml<String>>,
     ),
 > {
-    match view_post(post_id, storage, config) {
+    match view_post(post_id, storage, sticker_store, config) {
         Ok(rocket::Either::Left(content::RawHtml(html))) => {
             let clean_html = nojs::strip_javascript(&html);
             let fixed_html = clean_html
@@ -768,6 +786,7 @@ fn nojs_create_post(
     form: rocket::form::Form<NewPost>,
     storage: &State<PostStorage>,
     file_queue: &State<FileSaveQueue>,
+    sticker_store: &State<StickerStore>,
     config: &State<Config>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
@@ -797,12 +816,13 @@ fn nojs_create_post(
     };
 
     let rendered_content = parser::render_markdown_with_config(&form.content, &config);
+    let sticker_parsed_content = sticker_store.parse_stickers_in_text(&rendered_content);
 
     let post = Post {
         id: post_id.clone(),
         title: parser::sanitize_text(&form.title),
         author: parser::sanitize_text(&form.alias),
-        content: rendered_content,
+        content: sticker_parsed_content,
         raw_content: form.content.clone(),
         created_at: Utc::now(),
     };
@@ -822,7 +842,11 @@ fn nojs_create_post(
     Ok(rocket::response::Redirect::to(format!("/nojs/{}", post_id)))
 }
 
-fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtml<String> {
+fn serve_static_page(
+    page_name: &str,
+    sticker_store: &State<StickerStore>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
@@ -833,11 +857,12 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 let title = lines[2].strip_prefix("# ").unwrap_or("Page");
                 let raw_content = lines[3];
                 let rendered_content = parser::render_markdown_with_config(raw_content, &config);
+                let sticker_parsed_content = sticker_store.parse_stickers_in_text(&rendered_content);
 
                 let engine = TemplateEngine::new("templates");
                 let mut context = HashMap::new();
                 context.insert("title".to_string(), title.to_string());
-                context.insert("content".to_string(), rendered_content);
+                context.insert("content".to_string(), sticker_parsed_content);
                 context.insert("created_at".to_string(), lines[0].to_string());
                 context.insert("author".to_string(), String::new());
                 context.insert("author_display".to_string(), String::new());

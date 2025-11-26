@@ -1,4 +1,4 @@
-use base64::Engine;
+use crate::parser::html_attr_escape;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -128,32 +128,33 @@ impl StickerStore {
         self.stickers.len()
     }
 
-    pub fn get_base64(&self, name: &str) -> Option<String> {
-        if let Some(sticker) = self.get_by_name(name) {
-            if let Ok(file_data) = fs::read(&sticker.path) {
-                let extension = Path::new(&sticker.path)
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .unwrap_or("");
+    pub fn parse_stickers_in_text(&self, text: &str) -> String {
+        // Extract code content to protect it from sticker parsing
+        let (protected_text, code_sections) = self.extract_code_sections(text);
 
-                let mime_type = match extension.to_lowercase().as_str() {
-                    "png" => "image/png",
-                    "jpg" | "jpeg" => "image/jpeg",
-                    "gif" => "image/gif",
-                    "webp" => "image/webp",
-                    _ => "image/png",
-                };
+        let lines: Vec<&str> = protected_text.lines().collect();
+        let mut result = String::new();
 
-                let base64_data = base64::engine::general_purpose::STANDARD.encode(&file_data);
-                return Some(format!("data:{};base64,{}", mime_type, base64_data));
+        for (i, line) in lines.iter().enumerate() {
+            let parsed_line = self.parse_stickers_in_line(line);
+            result.push_str(&parsed_line);
+
+            // Add newline if not the last line
+            if i < lines.len() - 1 {
+                result.push('\n');
             }
         }
-        None
+
+        // Restore code sections
+        self.restore_code_sections(&result, &code_sections)
     }
 
-    pub fn parse_stickers_in_text(&self, text: &str) -> String {
+    fn parse_stickers_in_line(&self, line: &str) -> String {
+        // First check if this line contains only stickers and whitespace
+        let is_standalone_line = self.is_standalone_sticker_line(line);
+
         let mut result = String::new();
-        let mut chars = text.chars().peekable();
+        let mut chars = line.chars().peekable();
 
         while let Some(ch) = chars.next() {
             if ch == ':' {
@@ -167,7 +168,11 @@ impl StickerStore {
                         chars.next(); // consume the closing :
                         found_end = true;
                         break;
-                    } else if next_ch.is_alphanumeric() || next_ch == '.' || next_ch == '_' {
+                    } else if next_ch.is_ascii_alphanumeric()
+                        || next_ch == '.'
+                        || next_ch == '_'
+                        || next_ch == '-'
+                    {
                         sticker_name.push(next_ch);
                         chars.next();
                     } else {
@@ -176,10 +181,24 @@ impl StickerStore {
                 }
 
                 // If we found a valid sticker pattern and it contains a dot
-                if found_end && sticker_name.contains('.') {
-                    if let Some(base64_data) = self.get_base64(&sticker_name) {
-                        let img_tag = format!("<img src=\"{}\" alt=\"{}\" style=\"max-width: 32px; max-height: 32px; vertical-align: middle;\" />", base64_data, sticker_name);
-                        result.push_str(&img_tag);
+                if found_end
+                    && sticker_name.contains('.')
+                    && self.is_valid_sticker_name(&sticker_name)
+                {
+                    if let Some(sticker) = self.get_by_name(&sticker_name) {
+                        let sticker_tag = if is_standalone_line {
+                            format!(
+                                "<span class=\"sticker-standalone\"><img src=\"{}\" alt=\"{}\"></span>",
+                                html_attr_escape(&sticker.url), html_attr_escape(&sticker_name)
+                            )
+                        } else {
+                            format!(
+                                "<span class=\"sticker\"><img src=\"{}\" alt=\"{}\"></span>",
+                                html_attr_escape(&sticker.url),
+                                html_attr_escape(&sticker_name)
+                            )
+                        };
+                        result.push_str(&sticker_tag);
                         continue;
                     }
                 }
@@ -193,6 +212,163 @@ impl StickerStore {
             } else {
                 result.push(ch);
             }
+        }
+
+        result
+    }
+
+    fn is_standalone_sticker_line(&self, line: &str) -> bool {
+        // Check if line contains only HTML tags, stickers, and whitespace
+        let mut temp_line = line.to_string();
+        let mut found_any_sticker = false;
+
+        // First, remove all valid sticker patterns
+        loop {
+            let mut found_sticker_this_round = false;
+
+            if let Some(start) = temp_line.find(':') {
+                if let Some(end) = temp_line[start + 1..].find(':') {
+                    let end_pos = start + 1 + end;
+                    let potential_sticker = &temp_line[start + 1..start + 1 + end];
+
+                    if potential_sticker.contains('.')
+                        && potential_sticker
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+                        && self.get_by_name(potential_sticker).is_some()
+                    {
+                        // Remove the sticker pattern including colons
+                        temp_line.replace_range(start..=end_pos, "");
+                        found_any_sticker = true;
+                        found_sticker_this_round = true;
+                    }
+                }
+            }
+
+            if !found_sticker_this_round {
+                break;
+            }
+        }
+
+        if !found_any_sticker {
+            return false;
+        }
+
+        // Now remove all HTML tags
+        while let Some(start) = temp_line.find('<') {
+            if let Some(end) = temp_line[start..].find('>') {
+                temp_line.replace_range(start..start + end + 1, "");
+            } else {
+                break;
+            }
+        }
+
+        // Check if only whitespace remains
+        temp_line.trim().is_empty()
+    }
+
+    fn is_valid_sticker_name(&self, name: &str) -> bool {
+        // Validate sticker name format and length for security
+        if name.len() > 64 {
+            return false;
+        }
+
+        // Must contain exactly one dot
+        let dot_count = name.chars().filter(|&c| c == '.').count();
+        if dot_count != 1 {
+            return false;
+        }
+
+        // Split into pack and action
+        let parts: Vec<&str> = name.split('.').collect();
+        if parts.len() != 2 {
+            return false;
+        }
+
+        let (pack, action) = (parts[0], parts[1]);
+
+        // Validate pack name
+        if pack.is_empty() || pack.len() > 32 {
+            return false;
+        }
+
+        // Validate action name
+        if action.is_empty() || action.len() > 32 {
+            return false;
+        }
+
+        // Only allow safe characters
+        let is_safe_char = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
+
+        if !pack.chars().all(is_safe_char) || !action.chars().all(is_safe_char) {
+            return false;
+        }
+
+        // Prevent path traversal attempts
+        if name.contains("..") || name.contains('/') || name.contains('\\') {
+            return false;
+        }
+
+        // Prevent reserved names
+        let reserved_names = [".", "..", "con", "prn", "aux", "nul"];
+        if reserved_names.contains(&pack.to_lowercase().as_str())
+            || reserved_names.contains(&action.to_lowercase().as_str())
+        {
+            return false;
+        }
+
+        true
+    }
+
+    fn extract_code_sections(&self, text: &str) -> (String, Vec<String>) {
+        let mut result = text.to_string();
+        let mut code_sections = Vec::new();
+        let mut section_index = 0;
+
+        // Extract <pre><code>...</code></pre> blocks
+        while let Some(start) = result.find("<pre><code") {
+            if let Some(code_start) = result[start..].find('>') {
+                let code_start_pos = start + code_start + 1;
+                if let Some(end) = result[code_start_pos..].find("</code></pre>") {
+                    let end_pos = code_start_pos + end;
+                    let full_block = result[start..end_pos + 13].to_string(); // 13 = len("</code></pre>")
+
+                    code_sections.push(full_block);
+                    let placeholder = format!("{{{{STICKERCODE{}}}}}", section_index);
+                    result.replace_range(start..end_pos + 13, &placeholder);
+                    section_index += 1;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Extract inline <code>...</code> tags
+        while let Some(start) = result.find("<code>") {
+            if let Some(end) = result[start + 6..].find("</code>") {
+                let end_pos = start + 6 + end;
+                let full_code = result[start..end_pos + 7].to_string(); // 7 = len("</code>")
+
+                code_sections.push(full_code);
+                let placeholder = format!("{{{{STICKERCODE{}}}}}", section_index);
+                result.replace_range(start..end_pos + 7, &placeholder);
+                section_index += 1;
+            } else {
+                break;
+            }
+        }
+
+        (result, code_sections)
+    }
+
+    fn restore_code_sections(&self, text: &str, code_sections: &[String]) -> String {
+        let mut result = text.to_string();
+
+        for (index, code_content) in code_sections.iter().enumerate() {
+            let placeholder = format!("{{{{STICKERCODE{}}}}}", index);
+            result = result.replace(&placeholder, code_content);
         }
 
         result
@@ -273,7 +449,7 @@ mod tests {
         let text = "Hello :marsey.angry: world";
         let result = store.parse_stickers_in_text(text);
         if store.get_by_name("marsey.angry").is_some() {
-            assert!(result.contains("<img src="));
+            assert!(result.contains("<img src=\"/stickers/marsey/angry.webp\""));
             assert!(result.contains("alt=\"marsey.angry\""));
             assert!(result.contains("Hello"));
             assert!(result.contains("world"));
@@ -313,19 +489,135 @@ mod tests {
     }
 
     #[test]
-    fn test_get_base64() {
+    fn test_sticker_url_generation() {
         let store = StickerStore::new().unwrap();
 
-        // Test getting base64 for existing sticker
-        let base64_result = store.get_base64("marsey.angry");
-        if base64_result.is_some() {
-            let base64_data = base64_result.unwrap();
-            assert!(base64_data.starts_with("data:image/"));
-            assert!(base64_data.contains(";base64,"));
+        // Test that stickers have proper URL format
+        if let Some(sticker) = store.get_by_name("marsey.angry") {
+            assert_eq!(sticker.url, "/stickers/marsey/angry.webp");
+            assert_eq!(sticker.pack, "marsey");
+            assert_eq!(sticker.action, "angry");
         }
 
-        // Test getting base64 for non-existent sticker
-        let base64_result = store.get_base64("nonexistent.sticker");
-        assert!(base64_result.is_none());
+        // Test parsing generates correct URL in img tag
+        let text = "Test :marsey.angry: sticker";
+        let result = store.parse_stickers_in_text(text);
+        if store.get_by_name("marsey.angry").is_some() {
+            assert!(result.contains("src=\"/stickers/marsey/angry.webp\""));
+            assert!(result.contains("alt=\"marsey.angry\""));
+            assert!(result.contains("<span class=\"sticker\">"));
+        }
+    }
+
+    #[test]
+    fn test_code_block_protection() {
+        let store = StickerStore::new().unwrap();
+
+        // Test that stickers in inline code are not parsed
+        let text = "Use <code>:marsey.angry:</code> in your text";
+        let result = store.parse_stickers_in_text(text);
+        assert_eq!(result, text); // Should remain unchanged
+        assert!(!result.contains("<img")); // Should not contain any images
+
+        // Test that stickers in code blocks are not parsed
+        let text = "<pre><code>:marsey.angry: should not be parsed</code></pre>";
+        let result = store.parse_stickers_in_text(text);
+        assert_eq!(result, text); // Should remain unchanged
+        assert!(!result.contains("<img")); // Should not contain any images
+
+        // Test that stickers outside code blocks are still parsed
+        let text = "Normal :marsey.angry: and <code>:marsey.cute:</code> mixed";
+        let result = store.parse_stickers_in_text(text);
+        assert!(result.contains("<code>:marsey.cute:</code>")); // Code content unchanged
+        if store.get_by_name("marsey.angry").is_some() {
+            assert!(result.contains("<img")); // Should contain one image from normal sticker
+            assert_eq!(result.matches("<img").count(), 1); // Only one image
+        }
+
+        // Test complex code block with attributes
+        let text =
+            "<pre><code class=\"language-rust\">let sticker = \":marsey.happy:\";</code></pre>";
+        let result = store.parse_stickers_in_text(text);
+        assert_eq!(result, text); // Should remain unchanged
+        assert!(!result.contains("<img")); // Should not contain any images
+    }
+
+    #[test]
+    fn test_sticker_sanitization() {
+        let store = StickerStore::new().unwrap();
+
+        // Test that malicious sticker names are rejected
+        let malicious_names = [
+            ":../../../etc/passwd:",
+            ":pack/action:",
+            ":pack\\action:",
+            ":pack..action:",
+            ":verylongpacknamethatiswaytoobigtobevalid.action:",
+            ":pack.verylongactionnamethatisalsowaytoolongtobevalid:",
+            ":pack.:",
+            ":.action:",
+            ":pack.action.extra:",
+            ":pack.ac<script>alert(1)</script>tion:",
+            ":pa\"ck.action:",
+            ":pack.ac'tion:",
+        ];
+
+        for malicious_name in malicious_names {
+            let result = store.parse_stickers_in_text(malicious_name);
+            // Should not parse malicious names - they should remain as text
+            assert_eq!(result, malicious_name);
+            assert!(!result.contains("<img"));
+        }
+
+        // Test HTML escaping in sticker names and URLs
+        // Create a temporary store with a mock sticker for testing
+        let mut test_stickers = Vec::new();
+        test_stickers.push(Sticker {
+            name: "test.normal".to_string(),
+            pack: "test".to_string(),
+            action: "normal".to_string(),
+            path: "/stickers/test/normal.webp".to_string(),
+            url: "/stickers/test/normal.webp".to_string(),
+        });
+
+        let test_store = StickerStore {
+            stickers: test_stickers,
+        };
+
+        let result = test_store.parse_stickers_in_text(":test.normal:");
+        if result.contains("<img") {
+            // Ensure proper HTML attribute escaping
+            assert!(!result.contains("\"\""));
+            assert!(result.contains("alt=\"test.normal\""));
+            assert!(result.contains("src=\"/stickers/test/normal.webp\""));
+        }
+    }
+
+    #[test]
+    fn test_sticker_name_validation() {
+        let store = StickerStore::new().unwrap();
+
+        // Valid names should pass
+        assert!(store.is_valid_sticker_name("pack.action"));
+        assert!(store.is_valid_sticker_name("my-pack.my_action"));
+        assert!(store.is_valid_sticker_name("pack123.action456"));
+
+        // Invalid names should fail
+        assert!(!store.is_valid_sticker_name(""));
+        assert!(!store.is_valid_sticker_name("no-dot"));
+        assert!(!store.is_valid_sticker_name("too.many.dots"));
+        assert!(!store.is_valid_sticker_name("pack."));
+        assert!(!store.is_valid_sticker_name(".action"));
+        assert!(!store.is_valid_sticker_name("pack../action"));
+        assert!(!store.is_valid_sticker_name("pack/action"));
+        assert!(!store.is_valid_sticker_name("pack\\action"));
+        assert!(!store.is_valid_sticker_name("verylongpacknamethatiswaytoobigtobevalid.action"));
+        assert!(
+            !store.is_valid_sticker_name("pack.verylongactionnamethatisalsowaytoolongtobevalid")
+        );
+        assert!(!store.is_valid_sticker_name("pa ck.action"));
+        assert!(!store.is_valid_sticker_name("pack.ac tion"));
+        assert!(!store.is_valid_sticker_name("con.action"));
+        assert!(!store.is_valid_sticker_name("pack.aux"));
     }
 }
