@@ -321,6 +321,11 @@
                 align-items: center;
                 justify-content: center;
             }
+            .sticker-image img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
 
             .sticker-grid::-webkit-scrollbar {
                 width: 6px;
@@ -1252,15 +1257,22 @@
 
             // Sticker functions
             async function searchStickers(query) {
+                console.log("searchStickers called with query:", query);
                 try {
                     const url = query.trim()
                         ? `/api/stickers/search?q=${encodeURIComponent(query)}`
                         : "/api/stickers";
 
+                    console.log("Making API request to:", url);
                     const response = await fetch(url);
+                    console.log("Response status:", response.status);
                     if (response.ok) {
                         const text = await response.text();
-                        return parseStickers(text);
+                        console.log("Response text length:", text.length);
+                        console.log("First 200 chars:", text.substring(0, 200));
+                        const parsed = parseStickers(text);
+                        console.log("Parsed stickers count:", parsed.length);
+                        return parsed;
                     }
                 } catch (error) {
                     console.error("Failed to search stickers:", error);
@@ -1293,7 +1305,7 @@
             }
 
             async function showStickerMenu(x, y) {
-                stickerMenuActive = true; // Set this first like slash menu
+                console.log("showStickerMenu called with query:", stickerQuery);
 
                 // Get horizontal cursor position and textarea bounds (like slash menu)
                 const cursorX = getCursorHorizontalPosition();
@@ -1321,19 +1333,23 @@
                 stickerMenu.style.left = menuX + "px";
                 stickerMenu.style.top = menuY + "px";
                 stickerMenu.classList.add("active");
+                stickerMenuActive = true; // Set this after positioning
 
-                // Debounced search for content
-                clearTimeout(stickerSearchTimeout);
-                stickerSearchTimeout = setTimeout(async () => {
+                // Immediate search call without debouncing for initial load
+                console.log("Calling searchStickers immediately");
+                try {
                     filteredStickers = await searchStickers(stickerQuery);
-
-                    // Limit to 32 stickers for the 8x4 grid
                     filteredStickers = filteredStickers.slice(0, 32);
-
+                    console.log(
+                        "Final filtered stickers count:",
+                        filteredStickers.length,
+                    );
                     renderStickerGrid();
                     selectedStickerIndex = 0;
                     updateStickerSelection();
-                }, 100); // Reduced debounce for faster response
+                } catch (error) {
+                    console.error("Error in showStickerMenu:", error);
+                }
             }
 
             function hideStickerMenu() {
@@ -1345,6 +1361,10 @@
             }
 
             function renderStickerGrid() {
+                console.log(
+                    "renderStickerGrid called, filteredStickers:",
+                    filteredStickers.length,
+                );
                 const infoText = stickerQuery
                     ? `${filteredStickers.length} stickers found`
                     : "Type to search stickers...";
@@ -1358,6 +1378,13 @@
                     return;
                 }
 
+                if (filteredStickers.length === 0) {
+                    stickerGrid.innerHTML =
+                        '<div style="padding: 20px; text-align: center; color: #666; font-size: 12px;">Loading stickers...</div>';
+                    return;
+                }
+
+                console.log("Rendering", filteredStickers.length, "stickers");
                 stickerGrid.innerHTML = filteredStickers
                     .map(
                         (sticker, index) => `
@@ -1365,7 +1392,7 @@
                         <div class="sticker-image">
                             ${
                                 sticker.url
-                                    ? `<img src="${sticker.url}" alt="${sticker.name}" style="width: 100%; height: 100%; object-fit: contain;" onload="console.log('Image loaded:', '${sticker.name}')" onerror="console.log('Image failed:', '${sticker.name}'); this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    ? `<img src="${sticker.url}" alt="${sticker.name}" onload="console.log('Image loaded:', '${sticker.name}')" onerror="console.log('Image failed:', '${sticker.name}'); this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                  <div style="display: none; font-size: 16px;">📷</div>`
                                     : "📷"
                             }
@@ -1481,6 +1508,7 @@
 
                 // Handle sticker picker
                 if (lastChar === ":") {
+                    console.log("Detected colon, opening sticker menu");
                     hideSlashMenu(); // Close slash menu if open
 
                     const rect = this.getBoundingClientRect();
@@ -1497,6 +1525,7 @@
                     const cursorY =
                         rect.top + paddingTop + (currentLine - 1) * lineHeight;
 
+                    console.log("Calling showStickerMenu with empty query");
                     showStickerMenu(rect.left, cursorY);
                 } else if (stickerMenuActive) {
                     // Check if we're still typing after the colon
@@ -1511,24 +1540,40 @@
                         !textAfterColon.includes("\n") &&
                         !textAfterColon.includes(":")
                     ) {
+                        console.log(
+                            "Updating sticker query to:",
+                            textAfterColon,
+                        );
                         stickerQuery = textAfterColon;
                         selectedStickerIndex = 0; // Reset to first item
 
-                        const rect = this.getBoundingClientRect();
-                        const lines = textBeforeCursor.split("\n");
-                        const currentLine = lines.length;
-                        const lineHeight = 28.8;
-                        const styles = window.getComputedStyle(this);
-                        const paddingTop = parseFloat(styles.paddingTop);
-
-                        // Calculate cursor Y position within textarea
-                        const cursorY =
-                            rect.top +
-                            paddingTop +
-                            (currentLine - 1) * lineHeight;
-
-                        showStickerMenu(rect.left, cursorY);
+                        // Use debounced search when typing
+                        clearTimeout(stickerSearchTimeout);
+                        stickerSearchTimeout = setTimeout(async () => {
+                            console.log("Debounced search for:", stickerQuery);
+                            try {
+                                filteredStickers =
+                                    await searchStickers(stickerQuery);
+                                filteredStickers = filteredStickers.slice(
+                                    0,
+                                    32,
+                                );
+                                console.log(
+                                    "Updated filtered stickers:",
+                                    filteredStickers.length,
+                                );
+                                renderStickerGrid();
+                                selectedStickerIndex = 0;
+                                updateStickerSelection();
+                            } catch (error) {
+                                console.error(
+                                    "Error in debounced search:",
+                                    error,
+                                );
+                            }
+                        }, 150);
                     } else {
+                        console.log("Hiding sticker menu - invalid pattern");
                         hideStickerMenu();
                     }
                 }
