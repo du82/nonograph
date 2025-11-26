@@ -264,7 +264,7 @@
                 z-index: 1000;
                 background: white;
                 border: 1px solid #ddd;
-                border-radius: 8px;
+                border-radius: 4px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                 width: 280px;
                 max-height: 320px;
@@ -1348,7 +1348,6 @@
             }
 
             function renderStickerGrid() {
-
                 const infoText = stickerQuery
                     ? `${filteredStickers.length} stickers found`
                     : "Type to search stickers...";
@@ -1368,7 +1367,6 @@
                     return;
                 }
 
-
                 stickerGrid.innerHTML = filteredStickers
                     .map(
                         (sticker, index) => `
@@ -1386,26 +1384,7 @@
                     )
                     .join("");
 
-                // Add click event listeners to sticker items
-                const stickerItems =
-                    stickerGrid.querySelectorAll(".sticker-item");
-                stickerItems.forEach((item, index) => {
-                    item.addEventListener("click", (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        selectedStickerIndex = index;
-                        updateStickerSelection();
-                        applyStickerFormat();
-                    });
-
-                    item.addEventListener("mousedown", (e) => {
-                        e.preventDefault();
-                    });
-
-                    // Add hover selection for better UX
-                    item.Prevent focus loss from textarea
-                    });
-                });
+                // Click events are handled by event delegation below
             }
 
             function updateStickerSelection() {
@@ -1704,6 +1683,11 @@
 
             // Click outside to close menus
             document.addEventListener("click", function (e) {
+                // Don't close if clicking on sticker items
+                if (e.target.closest(".sticker-item")) {
+                    return;
+                }
+
                 if (
                     !slashMenu.contains(e.target) &&
                     !stickerMenu.contains(e.target) &&
@@ -1733,6 +1717,60 @@
             window.addEventListener("resize", function () {
                 if (slashMenuActive) {
                     hideSlashMenu();
+                }
+            });
+
+            // Set up event delegation for sticker clicks
+            stickerGrid.addEventListener("click", (e) => {
+                const stickerItem = e.target.closest(".sticker-item");
+                if (stickerItem && stickerMenuActive) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const index = parseInt(stickerItem.dataset.index);
+                    if (index >= 0 && index < filteredStickers.length) {
+                        const sticker = filteredStickers[index];
+
+                        // Insert sticker directly at cursor position
+                        const cursorPos = textarea.selectionStart;
+                        const text = textarea.value;
+                        const stickerText = `:${sticker.name}:`;
+
+                        // Find where the colon started
+                        let colonPos = stickerPosition;
+                        if (colonPos === -1) {
+                            // Fallback: look backwards for the colon
+                            for (let i = cursorPos - 1; i >= 0; i--) {
+                                if (text[i] === ":") {
+                                    colonPos = i;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (colonPos >= 0) {
+                            const before = text.substring(0, colonPos);
+                            const after = text.substring(cursorPos);
+                            const newText = before + stickerText + after;
+
+                            textarea.value = newText;
+                            const newCursorPos = colonPos + stickerText.length;
+                            textarea.setSelectionRange(
+                                newCursorPos,
+                                newCursorPos,
+                            );
+                        }
+
+                        hideStickerMenu();
+                        updateCharCount();
+                        textarea.focus();
+                    }
+                }
+            });
+
+            // Prevent mousedown on sticker grid from stealing focus
+            stickerGrid.addEventListener("mousedown", (e) => {
+                if (e.target.closest(".sticker-item")) {
+                    e.preventDefault();
                 }
             });
         </script>
