@@ -5,11 +5,13 @@ mod config;
 mod nojs;
 mod parser;
 mod save;
+mod stickers;
 mod template;
 
 use config::Config;
 use std::sync::mpsc;
 use std::thread;
+use stickers::StickerStore;
 
 use chrono::{DateTime, Utc};
 use deunicode::deunicode;
@@ -625,6 +627,59 @@ fn api_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("api", config)
 }
 
+#[get("/api/stickers")]
+fn api_stickers_all(sticker_store: &State<StickerStore>) -> content::RawText<String> {
+    let stickers = sticker_store.get_all();
+    let mut response = String::new();
+
+    for sticker in stickers {
+        response.push_str(&format!("name:{}\n", sticker.name));
+        response.push_str(&format!("tags:{}\n", sticker.tags.join(",")));
+        response.push_str(&format!("base64:{}\n", sticker.base64));
+        response.push_str("---\n");
+    }
+
+    content::RawText(response)
+}
+
+#[get("/api/stickers/search?<q>")]
+fn api_stickers_search(
+    q: Option<String>,
+    sticker_store: &State<StickerStore>,
+) -> content::RawText<String> {
+    let query = q.unwrap_or_default();
+    let stickers = sticker_store.search(&query);
+    let mut response = String::new();
+
+    for sticker in stickers {
+        response.push_str(&format!("name:{}\n", sticker.name));
+        response.push_str(&format!("tags:{}\n", sticker.tags.join(",")));
+        response.push_str(&format!("base64:{}\n", sticker.base64));
+        response.push_str("---\n");
+    }
+
+    content::RawText(response)
+}
+
+#[get("/api/stickers/<name>")]
+fn api_stickers_get(
+    name: String,
+    sticker_store: &State<StickerStore>,
+) -> Result<content::RawText<String>, Status> {
+    match sticker_store.get_by_name(&name) {
+        Some(sticker) => {
+            let response = format!(
+                "name:{}\ntags:{}\nbase64:{}\n",
+                sticker.name,
+                sticker.tags.join(","),
+                sticker.base64
+            );
+            Ok(content::RawText(response))
+        }
+        None => Err(Status::NotFound),
+    }
+}
+
 #[get("/robots.txt")]
 fn robots_txt() -> content::RawText<&'static str> {
     content::RawText(
@@ -805,6 +860,19 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     let storage = Arc::new(Mutex::new(PostCache::new(config.cache.max_cache_size_mb)));
     let file_save_sender = start_file_save_worker();
 
+    // Initialize sticker store
+    let sticker_store = match StickerStore::new() {
+        Ok(store) => {
+            println!("✅ Loaded {} stickers", store.count());
+            store
+        }
+        Err(e) => {
+            eprintln!("⚠️  Failed to load stickers: {}", e);
+            eprintln!("   Continuing with empty sticker store");
+            StickerStore::new().unwrap_or_else(|_| panic!("Failed to create empty sticker store"))
+        }
+    };
+
     rocket::build()
         .configure(rocket::Config {
             limits,
@@ -818,6 +886,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         })
         .manage(storage)
         .manage(FileSaveQueue::new(file_save_sender))
+        .manage(sticker_store)
         .manage(config)
         .mount(
             "/",
@@ -829,6 +898,9 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 legal_page,
                 about_page,
                 api_page,
+                api_stickers_all,
+                api_stickers_search,
+                api_stickers_get,
                 robots_txt,
                 nojs_index,
                 nojs_view_post,

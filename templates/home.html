@@ -258,6 +258,90 @@
                 margin-left: auto;
             }
 
+            /* Sticker Menu */
+            .sticker-menu {
+                position: fixed;
+                z-index: 1000;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                width: 280px;
+                max-height: 240px;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(-10px);
+                transition: all 0.2s ease;
+                overflow: hidden;
+            }
+            .sticker-menu.active {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+            }
+            .sticker-header {
+                padding: 8px 12px;
+                font-size: 12px;
+                color: #666;
+                background: #f8f8f8;
+                border-bottom: 1px solid #eee;
+                font-weight: 500;
+            }
+            .sticker-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 4px;
+                padding: 8px;
+                max-height: 192px;
+                overflow-y: auto;
+            }
+            .sticker-item {
+                padding: 8px;
+                text-align: center;
+                cursor: pointer;
+                border-radius: 4px;
+                transition: background 0.1s;
+                font-size: 11px;
+                line-height: 1.2;
+            }
+            .sticker-item:hover {
+                background: #f5f5f5;
+            }
+            .sticker-item.selected {
+                background: #e8f4ff;
+                border: 1px solid #007acc;
+            }
+            .sticker-image {
+                font-size: 20px;
+                margin-bottom: 2px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .sticker-name {
+                color: #333;
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                font-size: 10px;
+            }
+            .sticker-grid::-webkit-scrollbar {
+                width: 6px;
+            }
+            .sticker-grid::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+            .sticker-grid::-webkit-scrollbar-thumb {
+                background: #ccc;
+                border-radius: 3px;
+            }
+            .sticker-grid::-webkit-scrollbar-thumb:hover {
+                background: #999;
+            }
+
             /* Mobile Header */
             .mobile-header {
                 display: none;
@@ -493,12 +577,24 @@
         <!-- Slash Command Menu -->
         <div class="editor-menu" id="slashMenu"></div>
 
+        <!-- Sticker Menu -->
+        <div class="sticker-menu" id="stickerMenu">
+            <div class="sticker-header">
+                <span id="stickerSearchInfo">Type to search stickers...</span>
+            </div>
+            <div class="sticker-grid" id="stickerGrid"></div>
+        </div>
+
         <script>
             const textarea = document.querySelector('textarea[name="content"]');
             const charCount = document.getElementById("charCount");
             const mobileCharCount = document.getElementById("mobileCharCount");
             const form = document.getElementById("publishForm");
             const slashMenu = document.getElementById("slashMenu");
+            const stickerMenu = document.getElementById("stickerMenu");
+            const stickerGrid = document.getElementById("stickerGrid");
+            const stickerSearchInfo =
+                document.getElementById("stickerSearchInfo");
             const progressCircle = document.getElementById("progressCircle");
             const mobileProgressCircle = document.getElementById(
                 "mobileProgressCircle",
@@ -508,6 +604,14 @@
             let slashPosition = -1;
             let selectedMenuIndex = 0;
             let slashQuery = "";
+
+            // Sticker picker state
+            let stickerMenuActive = false;
+            let stickerPosition = -1;
+            let selectedStickerIndex = 0;
+            let stickerQuery = "";
+            let filteredStickers = [];
+            let stickerSearchTimeout;
 
             const menuItems = [
                 {
@@ -1151,6 +1255,174 @@
                 textarea.focus();
             }
 
+            // Sticker functions
+            async function searchStickers(query) {
+                try {
+                    const url = query.trim()
+                        ? `/api/stickers/search?q=${encodeURIComponent(query)}`
+                        : "/api/stickers";
+
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const text = await response.text();
+                        return parseStickers(text);
+                    }
+                } catch (error) {
+                    console.error("Failed to search stickers:", error);
+                }
+                return [];
+            }
+
+            function parseStickers(text) {
+                if (!text.trim()) return [];
+                return text
+                    .split("---")
+                    .filter((section) => section.trim())
+                    .map((section) => {
+                        const lines = section.trim().split("\n");
+                        const sticker = {};
+                        lines.forEach((line) => {
+                            if (line.startsWith("name:")) {
+                                sticker.name = line.substring(5);
+                            } else if (line.startsWith("tags:")) {
+                                sticker.tags = line
+                                    .substring(5)
+                                    .split(",")
+                                    .filter((tag) => tag.trim());
+                            } else if (line.startsWith("base64:")) {
+                                sticker.base64 = line.substring(7);
+                            }
+                        });
+                        return sticker;
+                    })
+                    .filter((sticker) => sticker.name);
+            }
+
+            async function showStickerMenu(x, y) {
+                stickerMenuActive = true; // Set this first like slash menu
+
+                // Get horizontal cursor position and textarea bounds (like slash menu)
+                const cursorX = getCursorHorizontalPosition();
+                const textareaRect = textarea.getBoundingClientRect();
+
+                // Calculate optimal position (same logic as slash menu)
+                const menuWidth = 280;
+                const menuHeight = 240;
+                const padding = 10;
+
+                // Use actual cursor X position, but keep within textarea bounds
+                let menuX = cursorX;
+                if (menuX + menuWidth > textareaRect.right - padding) {
+                    menuX = textareaRect.right - menuWidth - padding;
+                }
+                if (menuX < textareaRect.left + padding) {
+                    menuX = textareaRect.left + padding;
+                }
+
+                let menuY = y + 25;
+                if (menuY + menuHeight > window.innerHeight - padding) {
+                    menuY = y - menuHeight - 5;
+                }
+
+                stickerMenu.style.left = menuX + "px";
+                stickerMenu.style.top = menuY + "px";
+                stickerMenu.classList.add("active");
+
+                // Debounced search for content
+                clearTimeout(stickerSearchTimeout);
+                stickerSearchTimeout = setTimeout(async () => {
+                    filteredStickers = await searchStickers(stickerQuery);
+
+                    // Limit to 16 stickers for the 4x4 grid
+                    filteredStickers = filteredStickers.slice(0, 16);
+
+                    renderStickerGrid();
+                    selectedStickerIndex = 0;
+                    updateStickerSelection();
+                }, 100); // Reduced debounce for faster response
+            }
+
+            function hideStickerMenu() {
+                stickerMenu.classList.remove("active");
+                stickerMenuActive = false;
+                stickerPosition = -1;
+                selectedStickerIndex = 0;
+                stickerQuery = "";
+            }
+
+            function renderStickerGrid() {
+                const infoText = stickerQuery
+                    ? `${filteredStickers.length} stickers found`
+                    : "Type to search stickers...";
+                stickerSearchInfo.textContent = infoText;
+
+                if (filteredStickers.length === 0 && stickerQuery.trim()) {
+                    stickerGrid.innerHTML =
+                        '<div style="padding: 20px; text-align: center; color: #666; font-size: 12px;">No stickers found for "' +
+                        stickerQuery +
+                        '"<br>Try: marsey, pepe, react, animal</div>';
+                    return;
+                }
+
+                stickerGrid.innerHTML = filteredStickers
+                    .map(
+                        (sticker, index) => `
+                    <div class="sticker-item" data-index="${index}">
+                        <div class="sticker-image">
+                            ${
+                                sticker.base64
+                                    ? `<img src="${sticker.base64}" alt="${sticker.name}" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                 <span style="display:none;">📷</span>`
+                                    : "📷"
+                            }
+                        </div>
+                        <div class="sticker-name">${sticker.name}</div>
+                    </div>
+                `,
+                    )
+                    .join("");
+            }
+
+            function updateStickerSelection() {
+                const items = stickerGrid.querySelectorAll(".sticker-item");
+                items.forEach((item, index) => {
+                    if (index === selectedStickerIndex) {
+                        item.classList.add("selected");
+                        item.scrollIntoView({
+                            block: "nearest",
+                            behavior: "smooth",
+                        });
+                    } else {
+                        item.classList.remove("selected");
+                    }
+                });
+            }
+
+            function applyStickerFormat() {
+                if (
+                    selectedStickerIndex >= 0 &&
+                    selectedStickerIndex < filteredStickers.length
+                ) {
+                    const sticker = filteredStickers[selectedStickerIndex];
+                    const start = stickerPosition;
+                    const end = textarea.selectionStart;
+                    const text = textarea.value;
+                    const before = text.substring(0, start);
+                    const after = text.substring(end);
+                    const stickerText = `:${sticker.name}:`;
+
+                    const newText = before + stickerText + after;
+                    textarea.value = newText;
+
+                    const newCursorPos = start + stickerText.length;
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+
+                    hideStickerMenu();
+                    updateCharCount();
+                    textarea.focus();
+                }
+            }
+
             // Textarea event listeners
             textarea.addEventListener("input", function (e) {
                 const cursorPos = this.selectionStart;
@@ -1214,6 +1486,60 @@
                     }
                 }
 
+                // Handle sticker picker
+                if (lastChar === ":") {
+                    hideSlashMenu(); // Close slash menu if open
+
+                    const rect = this.getBoundingClientRect();
+                    const lines = textBeforeCursor.split("\n");
+                    const currentLine = lines.length;
+                    const lineHeight = 28.8;
+                    const styles = window.getComputedStyle(this);
+                    const paddingTop = parseFloat(styles.paddingTop);
+
+                    stickerPosition = cursorPos - 1;
+                    stickerQuery = "";
+
+                    // Calculate cursor Y position within textarea
+                    const cursorY =
+                        rect.top + paddingTop + (currentLine - 1) * lineHeight;
+
+                    showStickerMenu(rect.left, cursorY);
+                } else if (stickerMenuActive) {
+                    // Check if we're still typing after the colon
+                    const textAfterColon = textBeforeCursor.substring(
+                        stickerPosition + 1,
+                    );
+
+                    // If cursor is still after the colon and no spaces/newlines, update query
+                    if (
+                        cursorPos > stickerPosition &&
+                        !textAfterColon.includes(" ") &&
+                        !textAfterColon.includes("\n") &&
+                        !textAfterColon.includes(":")
+                    ) {
+                        stickerQuery = textAfterColon;
+                        selectedStickerIndex = 0; // Reset to first item
+
+                        const rect = this.getBoundingClientRect();
+                        const lines = textBeforeCursor.split("\n");
+                        const currentLine = lines.length;
+                        const lineHeight = 28.8;
+                        const styles = window.getComputedStyle(this);
+                        const paddingTop = parseFloat(styles.paddingTop);
+
+                        // Calculate cursor Y position within textarea
+                        const cursorY =
+                            rect.top +
+                            paddingTop +
+                            (currentLine - 1) * lineHeight;
+
+                        showStickerMenu(rect.left, cursorY);
+                    } else {
+                        hideStickerMenu();
+                    }
+                }
+
                 updateCharCount();
                 autoResize(this);
             });
@@ -1255,6 +1581,68 @@
                             hideSlashMenu();
                         }
                     }
+                } else if (stickerMenuActive) {
+                    // Handle sticker menu navigation
+                    if (filteredStickers.length === 0) {
+                        if (e.key === "Escape" || e.key === "Backspace") {
+                            e.preventDefault();
+                            hideStickerMenu();
+                        }
+                        return;
+                    }
+
+                    if (e.key === "ArrowRight") {
+                        e.preventDefault();
+                        selectedStickerIndex =
+                            (selectedStickerIndex + 1) %
+                            filteredStickers.length;
+                        updateStickerSelection();
+                    } else if (e.key === "ArrowLeft") {
+                        e.preventDefault();
+                        selectedStickerIndex =
+                            (selectedStickerIndex -
+                                1 +
+                                filteredStickers.length) %
+                            filteredStickers.length;
+                        updateStickerSelection();
+                    } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        if (
+                            selectedStickerIndex + 4 <
+                            filteredStickers.length
+                        ) {
+                            selectedStickerIndex = Math.min(
+                                selectedStickerIndex + 4,
+                                filteredStickers.length - 1,
+                            );
+                        } else {
+                            selectedStickerIndex = filteredStickers.length - 1;
+                        }
+                        updateStickerSelection();
+                    } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if (selectedStickerIndex >= 4) {
+                            selectedStickerIndex = Math.max(
+                                selectedStickerIndex - 4,
+                                0,
+                            );
+                        } else {
+                            selectedStickerIndex = 0;
+                        }
+                        updateStickerSelection();
+                    } else if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        applyStickerFormat();
+                    } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        hideStickerMenu();
+                    } else if (e.key === "Backspace") {
+                        // If backspacing and we're at the colon, close menu
+                        const cursorPos = this.selectionStart;
+                        if (cursorPos <= stickerPosition + 1) {
+                            hideStickerMenu();
+                        }
+                    }
                 } else {
                     // Keyboard shortcuts
                     const item = menuItems.find((item) => {
@@ -1285,8 +1673,13 @@
 
             // Click outside to close menus
             document.addEventListener("click", function (e) {
-                if (!slashMenu.contains(e.target) && e.target !== textarea) {
+                if (
+                    !slashMenu.contains(e.target) &&
+                    !stickerMenu.contains(e.target) &&
+                    e.target !== textarea
+                ) {
                     hideSlashMenu();
+                    hideStickerMenu();
                 }
             });
 
