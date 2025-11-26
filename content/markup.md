@@ -6,6 +6,18 @@ Nonograph supports a lot of concise markup options to make pages fun and express
 You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!
 
 ## Text Formatting
+You can now do stickers (aka emotes) in-line and standalone! Type `:` to search with javascript enabled.
+```md
+:marsey.hi:
+```
+:marsey.hi:
+
+or, do it in-line
+```md
+I like :marsey.hi: marsey, and :bandit.thumbsup: too!
+```
+I like :marsey.hi: marsey, and :bandit.thumbsup: too!
+
 ```md
 **bold**
 ```
