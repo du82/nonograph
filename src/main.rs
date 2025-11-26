@@ -17,7 +17,7 @@ use chrono::{DateTime, Utc};
 use deunicode::deunicode;
 use rand::{thread_rng, Rng};
 use rocket::{
-    http::Status,
+    http::{ContentType, Status},
     request::{FromRequest, Outcome},
     response::content,
     Request, State,
@@ -634,8 +634,9 @@ fn api_stickers_all(sticker_store: &State<StickerStore>) -> content::RawText<Str
 
     for sticker in stickers {
         response.push_str(&format!("name:{}\n", sticker.name));
-        response.push_str(&format!("tags:{}\n", sticker.tags.join(",")));
-        response.push_str(&format!("base64:{}\n", sticker.base64));
+        response.push_str(&format!("pack:{}\n", sticker.pack));
+        response.push_str(&format!("action:{}\n", sticker.action));
+        response.push_str(&format!("url:{}\n", sticker.url));
         response.push_str("---\n");
     }
 
@@ -653,8 +654,9 @@ fn api_stickers_search(
 
     for sticker in stickers {
         response.push_str(&format!("name:{}\n", sticker.name));
-        response.push_str(&format!("tags:{}\n", sticker.tags.join(",")));
-        response.push_str(&format!("base64:{}\n", sticker.base64));
+        response.push_str(&format!("pack:{}\n", sticker.pack));
+        response.push_str(&format!("action:{}\n", sticker.action));
+        response.push_str(&format!("url:{}\n", sticker.url));
         response.push_str("---\n");
     }
 
@@ -669,15 +671,44 @@ fn api_stickers_get(
     match sticker_store.get_by_name(&name) {
         Some(sticker) => {
             let response = format!(
-                "name:{}\ntags:{}\nbase64:{}\n",
-                sticker.name,
-                sticker.tags.join(","),
-                sticker.base64
+                "name:{}\npack:{}\naction:{}\nurl:{}\n",
+                sticker.name, sticker.pack, sticker.action, sticker.url
             );
             Ok(content::RawText(response))
         }
         None => Err(Status::NotFound),
     }
+}
+
+#[get("/stickers/<pack>/<file>")]
+fn serve_sticker(pack: String, file: String) -> Result<(ContentType, std::fs::File), Status> {
+    use std::path::PathBuf;
+
+    let mut path = PathBuf::from("stickers");
+    path.push(&pack);
+    path.push(&file);
+
+    // Security check - ensure path doesn't escape stickers directory
+    if !path.starts_with("stickers") {
+        return Err(Status::Forbidden);
+    }
+
+    let file_handle = std::fs::File::open(&path).map_err(|_| Status::NotFound)?;
+
+    // Determine MIME type based on file extension
+    let content_type = if let Some(extension) = path.extension() {
+        match extension.to_str().unwrap_or("").to_lowercase().as_str() {
+            "png" => ContentType::PNG,
+            "jpg" | "jpeg" => ContentType::JPEG,
+            "gif" => ContentType::GIF,
+            "webp" => ContentType::new("image", "webp"),
+            _ => ContentType::Binary,
+        }
+    } else {
+        ContentType::Binary
+    };
+
+    Ok((content_type, file_handle))
 }
 
 #[get("/robots.txt")]
@@ -901,6 +932,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 api_stickers_all,
                 api_stickers_search,
                 api_stickers_get,
+                serve_sticker,
                 robots_txt,
                 nojs_index,
                 nojs_view_post,

@@ -267,7 +267,7 @@
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                 width: 280px;
-                max-height: 240px;
+                max-height: 320px;
                 opacity: 0;
                 visibility: hidden;
                 transform: translateY(-10px);
@@ -292,17 +292,20 @@
                 grid-template-columns: repeat(4, 1fr);
                 gap: 4px;
                 padding: 8px;
-                max-height: 192px;
+                max-height: 280px;
                 overflow-y: auto;
+                overflow-x: hidden;
             }
             .sticker-item {
-                padding: 8px;
+                padding: 4px;
                 text-align: center;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: 3px;
                 transition: background 0.1s;
-                font-size: 11px;
-                line-height: 1.2;
+                aspect-ratio: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             .sticker-item:hover {
                 background: #f5f5f5;
@@ -312,21 +315,13 @@
                 border: 1px solid #007acc;
             }
             .sticker-image {
-                font-size: 20px;
-                margin-bottom: 2px;
-                height: 24px;
+                width: 100%;
+                height: 100%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
-            .sticker-name {
-                color: #333;
-                font-weight: 500;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                font-size: 10px;
-            }
+
             .sticker-grid::-webkit-scrollbar {
                 width: 6px;
             }
@@ -1284,13 +1279,12 @@
                         lines.forEach((line) => {
                             if (line.startsWith("name:")) {
                                 sticker.name = line.substring(5);
-                            } else if (line.startsWith("tags:")) {
-                                sticker.tags = line
-                                    .substring(5)
-                                    .split(",")
-                                    .filter((tag) => tag.trim());
-                            } else if (line.startsWith("base64:")) {
-                                sticker.base64 = line.substring(7);
+                            } else if (line.startsWith("pack:")) {
+                                sticker.pack = line.substring(5);
+                            } else if (line.startsWith("action:")) {
+                                sticker.action = line.substring(7);
+                            } else if (line.startsWith("url:")) {
+                                sticker.url = line.substring(4);
                             }
                         });
                         return sticker;
@@ -1307,7 +1301,7 @@
 
                 // Calculate optimal position (same logic as slash menu)
                 const menuWidth = 280;
-                const menuHeight = 240;
+                const menuHeight = 320;
                 const padding = 10;
 
                 // Use actual cursor X position, but keep within textarea bounds
@@ -1333,8 +1327,8 @@
                 stickerSearchTimeout = setTimeout(async () => {
                     filteredStickers = await searchStickers(stickerQuery);
 
-                    // Limit to 16 stickers for the 4x4 grid
-                    filteredStickers = filteredStickers.slice(0, 16);
+                    // Limit to 32 stickers for the 8x4 grid
+                    filteredStickers = filteredStickers.slice(0, 32);
 
                     renderStickerGrid();
                     selectedStickerIndex = 0;
@@ -1370,13 +1364,12 @@
                     <div class="sticker-item" data-index="${index}">
                         <div class="sticker-image">
                             ${
-                                sticker.base64
-                                    ? `<img src="${sticker.base64}" alt="${sticker.name}" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                 <span style="display:none;">📷</span>`
+                                sticker.url
+                                    ? `<img src="${sticker.url}" alt="${sticker.name}" style="width: 100%; height: 100%; object-fit: contain;" onload="console.log('Image loaded:', '${sticker.name}')" onerror="console.log('Image failed:', '${sticker.name}'); this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                 <div style="display: none; font-size: 16px;">📷</div>`
                                     : "📷"
                             }
                         </div>
-                        <div class="sticker-name">${sticker.name}</div>
                     </div>
                 `,
                     )

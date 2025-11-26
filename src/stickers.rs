@@ -5,13 +5,10 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sticker {
     pub name: String,
-    pub tags: Vec<String>,
-    pub base64: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct StickersConfig {
-    sticker: Vec<Sticker>,
+    pub pack: String,
+    pub action: String,
+    pub path: String,
+    pub url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -21,23 +18,81 @@ pub struct StickerStore {
 
 impl StickerStore {
     pub fn new() -> Result<Self, String> {
-        let stickers_path = Path::new("Stickers.toml");
+        let stickers_dir = Path::new("stickers");
 
-        if !stickers_path.exists() {
+        if !stickers_dir.exists() {
             return Ok(StickerStore {
                 stickers: Vec::new(),
             });
         }
 
-        let content = fs::read_to_string(stickers_path)
-            .map_err(|e| format!("Failed to read Stickers.toml: {}", e))?;
+        let mut stickers = Vec::new();
 
-        let config: StickersConfig = toml::from_str(&content)
-            .map_err(|e| format!("Failed to parse Stickers.toml: {}", e))?;
+        // Scan the stickers directory
+        match fs::read_dir(stickers_dir) {
+            Ok(pack_dirs) => {
+                for pack_entry in pack_dirs {
+                    if let Ok(pack_entry) = pack_entry {
+                        let pack_path = pack_entry.path();
+                        if pack_path.is_dir() {
+                            if let Some(pack_name) = pack_path.file_name() {
+                                if let Some(pack_name_str) = pack_name.to_str() {
+                                    // Scan files in the pack directory
+                                    if let Ok(sticker_files) = fs::read_dir(&pack_path) {
+                                        for sticker_entry in sticker_files {
+                                            if let Ok(sticker_entry) = sticker_entry {
+                                                let sticker_path = sticker_entry.path();
+                                                if sticker_path.is_file() {
+                                                    if let Some(file_name) =
+                                                        sticker_path.file_name()
+                                                    {
+                                                        if let Some(file_name_str) =
+                                                            file_name.to_str()
+                                                        {
+                                                            // Extract action name (filename without extension)
+                                                            let action = if let Some(stem) =
+                                                                sticker_path.file_stem()
+                                                            {
+                                                                stem.to_str()
+                                                                    .unwrap_or(file_name_str)
+                                                                    .to_string()
+                                                            } else {
+                                                                file_name_str.to_string()
+                                                            };
 
-        Ok(StickerStore {
-            stickers: config.sticker,
-        })
+                                                            let full_name = format!(
+                                                                "{}.{}",
+                                                                pack_name_str, action
+                                                            );
+                                                            let relative_path = format!(
+                                                                "stickers/{}/{}",
+                                                                pack_name_str, file_name_str
+                                                            );
+                                                            let url = format!("/{}", relative_path);
+
+                                                            stickers.push(Sticker {
+                                                                name: full_name,
+                                                                pack: pack_name_str.to_string(),
+                                                                action,
+                                                                path: relative_path,
+                                                                url,
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => return Err(format!("Failed to read stickers directory: {}", e)),
+        }
+
+        Ok(StickerStore { stickers })
     }
 
     pub fn search(&self, query: &str) -> Vec<&Sticker> {
@@ -50,10 +105,12 @@ impl StickerStore {
         self.stickers
             .iter()
             .filter(|sticker| {
-                // Search in sticker name
-                sticker.name.to_lowercase().contains(&query_lower) ||
-                // Search in tags
-                sticker.tags.iter().any(|tag| tag.to_lowercase().contains(&query_lower))
+                // Search in pack name
+                sticker.pack.to_lowercase().contains(&query_lower) ||
+                // Search in action name
+                sticker.action.to_lowercase().contains(&query_lower) ||
+                // Search in full name
+                sticker.name.to_lowercase().contains(&query_lower)
             })
             .collect()
     }
@@ -74,157 +131,110 @@ impl StickerStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use tempfile::NamedTempFile;
+    use std::fs;
+    use tempfile::TempDir;
 
-    fn create_test_stickers_file() -> NamedTempFile {
-        let mut file = NamedTempFile::new().unwrap();
-        writeln!(
-            file,
-            r#"
-[[sticker]]
-name = "marsey.happy"
-tags = ["happy", "emotion", "face", "marsey"]
-base64 = "data:image/png;base64,test1"
+    fn create_test_stickers_structure() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+        let stickers_dir = temp_dir.path().join("stickers");
 
-[[sticker]]
-name = "pepe.sad"
-tags = ["sad", "emotion", "pepe"]
-base64 = "data:image/png;base64,test2"
+        // Create marsey pack
+        let marsey_dir = stickers_dir.join("marsey");
+        fs::create_dir_all(&marsey_dir).unwrap();
+        fs::write(marsey_dir.join("happy.png"), b"fake png data").unwrap();
+        fs::write(marsey_dir.join("crying.png"), b"fake png data").unwrap();
 
-[[sticker]]
-name = "react.fire"
-tags = ["hot", "amazing", "cool", "react"]
-base64 = "data:image/png;base64,test3"
-"#
-        )
-        .unwrap();
-        file
+        // Create pepe pack
+        let pepe_dir = stickers_dir.join("pepe");
+        fs::create_dir_all(&pepe_dir).unwrap();
+        fs::write(pepe_dir.join("smug.png"), b"fake png data").unwrap();
+        fs::write(pepe_dir.join("sad.png"), b"fake png data").unwrap();
+
+        temp_dir
     }
 
     #[test]
     fn test_sticker_store_creation() {
-        // Test with non-existent file by temporarily changing directory
+        // Test with non-existent directory
+        let temp_dir = TempDir::new().unwrap();
         let original_dir = std::env::current_dir().unwrap();
-        let temp_dir = tempfile::tempdir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
         let store = StickerStore::new().unwrap();
         assert_eq!(store.count(), 0);
 
-        // Restore original directory
+        std::env::set_current_dir(original_dir).unwrap();
+    }
+
+    #[test]
+    fn test_filesystem_scanning() {
+        let temp_dir = create_test_stickers_structure();
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
+
+        let store = StickerStore::new().unwrap();
+        assert_eq!(store.count(), 4); // 2 marsey + 2 pepe stickers
+
+        // Check that stickers are properly named
+        let marsey_happy = store.get_by_name("marsey.happy");
+        assert!(marsey_happy.is_some());
+        assert_eq!(marsey_happy.unwrap().pack, "marsey");
+        assert_eq!(marsey_happy.unwrap().action, "happy");
+        assert_eq!(marsey_happy.unwrap().url, "/stickers/marsey/happy.png");
+
         std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[test]
     fn test_search_functionality() {
-        let stickers = vec![
-            Sticker {
-                name: "marsey.happy".to_string(),
-                tags: vec![
-                    "happy".to_string(),
-                    "emotion".to_string(),
-                    "marsey".to_string(),
-                ],
-                base64: "data:image/png;base64,test1".to_string(),
-            },
-            Sticker {
-                name: "pepe.sad".to_string(),
-                tags: vec!["sad".to_string(), "emotion".to_string(), "pepe".to_string()],
-                base64: "data:image/png;base64,test2".to_string(),
-            },
-            Sticker {
-                name: "react.fire".to_string(),
-                tags: vec![
-                    "hot".to_string(),
-                    "amazing".to_string(),
-                    "react".to_string(),
-                ],
-                base64: "data:image/png;base64,test3".to_string(),
-            },
-        ];
+        let temp_dir = create_test_stickers_structure();
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
 
-        let store = StickerStore { stickers };
+        let store = StickerStore::new().unwrap();
 
         // Test empty query returns all
         let results = store.search("");
-        assert_eq!(results.len(), 3);
+        assert_eq!(results.len(), 4);
 
-        // Test pack name search
+        // Test pack search
         let results = store.search("marsey");
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|s| s.pack == "marsey"));
+
+        // Test action search
+        let results = store.search("happy");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "marsey.happy");
-
-        // Test partial pack name search
-        let results = store.search("pepe");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "pepe.sad");
-
-        // Test tag search
-        let results = store.search("emotion");
-        assert_eq!(results.len(), 2); // marsey.happy and pepe.sad both have emotion tag
 
         // Test case insensitive search
-        let results = store.search("HAPPY");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "marsey.happy");
+        let results = store.search("PEPE");
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().all(|s| s.pack == "pepe"));
 
         // Test no matches
         let results = store.search("nonexistent");
         assert_eq!(results.len(), 0);
+
+        std::env::set_current_dir(original_dir).unwrap();
     }
 
     #[test]
     fn test_get_by_name() {
-        let stickers = vec![Sticker {
-            name: "marsey.happy".to_string(),
-            tags: vec!["happy".to_string(), "marsey".to_string()],
-            base64: "data:image/png;base64,test1".to_string(),
-        }];
+        let temp_dir = create_test_stickers_structure();
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(temp_dir.path()).unwrap();
 
-        let store = StickerStore { stickers };
+        let store = StickerStore::new().unwrap();
 
         let result = store.get_by_name("marsey.happy");
         assert!(result.is_some());
-        assert_eq!(result.unwrap().name, "marsey.happy");
+        assert_eq!(result.unwrap().pack, "marsey");
+        assert_eq!(result.unwrap().action, "happy");
 
-        let result = store.get_by_name("nonexistent");
+        let result = store.get_by_name("nonexistent.sticker");
         assert!(result.is_none());
-    }
 
-    #[test]
-    fn test_packname_action_search() {
-        let stickers = vec![
-            Sticker {
-                name: "marsey.happy".to_string(),
-                tags: vec!["happy".to_string(), "marsey".to_string()],
-                base64: "data:image/png;base64,test1".to_string(),
-            },
-            Sticker {
-                name: "marsey.crying".to_string(),
-                tags: vec!["sad".to_string(), "marsey".to_string()],
-                base64: "data:image/png;base64,test2".to_string(),
-            },
-            Sticker {
-                name: "pepe.smug".to_string(),
-                tags: vec!["smug".to_string(), "pepe".to_string()],
-                base64: "data:image/png;base64,test3".to_string(),
-            },
-        ];
-
-        let store = StickerStore { stickers };
-
-        // Test searching by pack name should find all stickers in that pack
-        let results = store.search("marsey");
-        assert_eq!(results.len(), 2);
-
-        let results = store.search("pepe");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "pepe.smug");
-
-        // Test searching by action should find stickers with that action
-        let results = store.search("happy");
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].name, "marsey.happy");
+        std::env::set_current_dir(original_dir).unwrap();
     }
 }
