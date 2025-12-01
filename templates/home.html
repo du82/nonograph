@@ -111,6 +111,10 @@
                 resize: none;
                 line-height: 1.6;
                 -webkit-overflow-scrolling: touch;
+                field-sizing: content;
+                overflow: hidden;
+                min-height: 200px;
+                height: auto;
             }
             button {
                 background: #333;
@@ -274,6 +278,156 @@
                 height: 48px; /* Fixed height for the header */
             }
 
+            .mobile-header-center {
+                display: none;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .help-link {
+                color: #666;
+                text-decoration: none;
+                font-size: 14px;
+                padding: 6px 8px;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+                display: none;
+            }
+
+            .help-link:hover {
+                background-color: #f5f5f5;
+                color: #333;
+            }
+
+            /* Bottom Sheet Styles */
+            .bottom-sheet-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 200;
+                opacity: 0;
+                visibility: hidden;
+                transition:
+                    opacity 0.3s,
+                    visibility 0.3s;
+            }
+
+            .bottom-sheet-overlay:target {
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .bottom-sheet {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 16px 16px 0 0;
+                max-height: 80vh;
+                transform: translateY(100%);
+                transition: transform 0.3s ease-out;
+                z-index: 201;
+                overflow-y: auto;
+            }
+
+            .bottom-sheet-overlay:target .bottom-sheet {
+                transform: translateY(0);
+            }
+
+            /* Click overlay to close */
+            .bottom-sheet-overlay:target::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: -1;
+            }
+
+            .bottom-sheet-header {
+                padding: 20px 20px 10px;
+                border-bottom: 1px solid #e0e0e0;
+                position: sticky;
+                top: 0;
+                background: white;
+                z-index: 1;
+            }
+
+            .bottom-sheet-title {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .bottom-sheet-close {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                color: #666;
+                text-decoration: none;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 50%;
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .bottom-sheet-close:hover {
+                background-color: #f0f0f0;
+            }
+
+            .bottom-sheet-content {
+                padding: 20px;
+            }
+
+            .help-section {
+                margin-bottom: 24px;
+            }
+
+            .help-section h3 {
+                margin: 0 0 12px 0;
+                font-size: 16px;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .help-section p {
+                margin: 0 0 8px 0;
+                line-height: 1.5;
+                color: #666;
+            }
+
+            .help-section ul {
+                margin: 8px 0;
+                padding-left: 20px;
+                color: #666;
+            }
+
+            .help-section li {
+                margin-bottom: 4px;
+                line-height: 1.4;
+            }
+
+            .help-section code {
+                background: #f5f5f5;
+                padding: 2px 4px;
+                border-radius: 3px;
+                font-family: "Courier New", monospace;
+                font-size: 13px;
+            }
+
             /* Mobile Styles */
             @media (max-width: 1040px) {
                 .container {
@@ -360,6 +514,14 @@
                     display: flex;
                 }
 
+                .mobile-header-center {
+                    display: flex;
+                }
+
+                .help-link {
+                    display: block;
+                }
+
                 .container {
                     padding: 0;
                 }
@@ -422,7 +584,127 @@
                 </svg>
                 <span>0 / 128,000</span>
             </div>
-            <button type="submit" form="publishForm">Publish</button>
+            <div class="mobile-header-center">
+                <a href="#help-sheet" class="help-link">Help</a>
+                <button type="submit" form="publishForm">Publish</button>
+            </div>
+        </div>
+
+        <!-- Bottom Sheet for Help -->
+        <div class="bottom-sheet-overlay" id="help-sheet">
+            <div class="bottom-sheet">
+                <div class="bottom-sheet-header">
+                    <h2 class="bottom-sheet-title">About Nonograph</h2>
+                    <a href="#" class="bottom-sheet-close"> &times; </a>
+                </div>
+                <div class="bottom-sheet-content">
+                    <div class="help-section">
+                        <h3>What is Nonograph?</h3>
+                        <p>
+                            Nonograph is a minimalist publishing platform.
+                            Anonymous by design: no accounts, no tracking, no
+                            compromise. Just write and publish.
+                        </p>
+                        <p>
+                            Your posts are completely public once published.
+                            Anyone with the link can read them, so share the
+                            link wisely. We store only the text you write—no IP
+                            addresses, cookies, or personal information.
+                        </p>
+                    </div>
+
+                    <div class="help-section">
+                        <h3>Why Use Nonograph?</h3>
+                        <ul>
+                            <li>
+                                <strong>No accounts:</strong> Just write and
+                                publish instantly
+                            </li>
+                            <li>
+                                <strong>Anonymous:</strong> We don't track who
+                                you are
+                            </li>
+                            <li>
+                                <strong>Open source:</strong> Free software you
+                                can trust
+                            </li>
+                            <li>
+                                <strong>Clean design:</strong> Focus on your
+                                words, not distractions
+                            </li>
+                            <li>
+                                <strong>Rich formatting:</strong> Beautiful
+                                typography and markup
+                            </li>
+                            <li>
+                                <strong>Permanent:</strong> Your posts stay
+                                online indefinitely
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="help-section">
+                        <h3>How to Format</h3>
+                        <p>
+                            Type "/" for commands, or use markdown syntax
+                            directly:
+                        </p>
+                        <ul>
+                            <li>
+                                <code>/h1</code> or <code># Heading</code> -
+                                Large heading
+                            </li>
+                            <li>
+                                <code>/h2</code> or <code>## Heading</code> -
+                                Medium heading
+                            </li>
+                            <li>
+                                <code>/bold</code> or <code>**text**</code> -
+                                Bold text
+                            </li>
+                            <li>
+                                <code>/italic</code> or <code>*text*</code> -
+                                Italic text
+                            </li>
+                            <li>
+                                <code>/link</code> or <code>[text](url)</code> -
+                                Links
+                            </li>
+                            <li>
+                                <code>/list</code> or <code>- item</code> -
+                                Bullet lists
+                            </li>
+                            <li>
+                                <code>/quote</code> or <code>> text</code> -
+                                Block quotes
+                            </li>
+                            <li>
+                                <code>/code</code> or <code>`text`</code> -
+                                Inline code
+                            </li>
+                        </ul>
+                        <p>
+                            Plus images, videos, tables, footnotes, and more.
+                            Add ".md" to any post URL to see the raw markdown.
+                        </p>
+                    </div>
+
+                    <div class="help-section">
+                        <h3>Publishing</h3>
+                        <p>
+                            Tap <strong>Publish</strong> when ready. Posts go
+                            live immediately and stay online as long as the
+                            servers remain up. 128,000 character limit—enough
+                            for long articles.
+                        </p>
+                        <p>
+                            <strong>Open source:</strong> View the complete
+                            source code at
+                            <strong>github.com/du82/nonograph</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="container">
@@ -767,11 +1049,6 @@
                 }
 
                 return filteredItems;
-            }
-
-            function autoResize(element) {
-                element.style.height = "auto";
-                element.style.height = element.scrollHeight + "px";
             }
 
             function updateProgressCircle(percentage, circleElement) {
@@ -1147,7 +1424,6 @@
                 }
 
                 updateCharCount();
-                autoResize(textarea);
                 textarea.focus();
             }
 
@@ -1215,7 +1491,6 @@
                 }
 
                 updateCharCount();
-                autoResize(this);
             });
 
             textarea.addEventListener("keydown", function (e) {
