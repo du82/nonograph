@@ -484,26 +484,21 @@
                 width: 100%;
             }
             .secret {
-                background: #000;
-                color: #000;
+                filter: blur(5px);
                 cursor: pointer;
                 user-select: none;
-                transition: background-color 0.2s ease;
+                transition: filter 0.2s ease;
                 -webkit-tap-highlight-color: transparent;
                 touch-action: manipulation;
-                align-items: center;
             }
             .secret.revealed {
-                background: #f0f0f0;
-                color: #333;
+                filter: none;
             }
             .secret:active {
-                background: #555;
-                transform: scale(0.98);
+                filter: blur(3px);
             }
             .noscript .secret {
-                background: #f0f0f0;
-                color: #333;
+                filter: none;
                 cursor: default;
             }
             .noscript .secret::before {
@@ -567,10 +562,7 @@
                     font-size: 16px;
                     line-height: 1.6;
                 }
-                .secret {
-                    padding: 6px 12px;
-                    min-height: 44px;
-                }
+
                 .article-content ol,
                 .article-content ul {
                     padding-left: 28px;
@@ -667,11 +659,7 @@
                     margin-top: 6px;
                     font-size: 0.85em;
                 }
-                .secret {
-                    padding: 8px 16px;
-                    min-height: 48px;
-                    font-size: 16px;
-                }
+
                 .article-content .divider-stars {
                     margin: 20px 0;
                     gap: 12px;
