@@ -65,9 +65,9 @@ If you prefer, you can run `./run` to compile and run without docker
 
 **True Anonymity**: No third-party servers logging IPs, no corporate surveillance.
 
-**Censorship Resistant**: Your `.onion` address can't be blocked or seized.
+**Censorship Resistant**: Your `.onion` address can't be blocked or seized without considerable effort.
 
-**Zero Dependencies**: No external APIs or services. Free and public domain forever.
+**Zero Rentseekers**: No external APIs or services. Free and public domain forever.
 
 ## Privacy by Design
 
@@ -97,8 +97,8 @@ If you prefer, you can run `./run` to compile and run without docker
 ## System Requirements
 
 - Any Debian-based Linux (Raspberry Pi OS, KDE Neon, Pop_OS, etc. NOT Ubuntu)
-- 128MB RAM minimum
-- 25MB disk space minimum
+- 64MB RAM minimum
+- 64MB disk space minimum
 - Internet connection if you wish to host on Tor
 
 Runs perfectly on a Raspberry Pi or cheap VPS.
