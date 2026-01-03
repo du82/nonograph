@@ -2054,15 +2054,6 @@ mod tests {
 
     #[test]
     fn test_nojs_post_creation_flow() {
-        use std::env;
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let original_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
-
-        std::fs::create_dir_all("content").unwrap();
-
         // Test data
         let post_title = "Test NoJS Post";
         let _post_content = "This is a test post created via nojs endpoint";
@@ -2095,9 +2086,6 @@ mod tests {
         let success_redirect = format!("/nojs/{}", post_id);
         assert!(success_redirect.starts_with("/nojs/"));
         assert!(success_redirect.contains(&post_id));
-
-        // Restore original directory
-        env::set_current_dir(original_dir).unwrap();
     }
 
     #[test]

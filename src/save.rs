@@ -3,20 +3,19 @@ use std::path::Path;
 
 use crate::Post;
 
-pub fn ensure_content_directory() -> Result<(), String> {
-    let content_dir = Path::new("content");
-    if !content_dir.exists() {
-        fs::create_dir_all(content_dir)
-            .map_err(|e| format!("Failed to create content directory: {}", e))?;
-    }
-    Ok(())
+pub fn save_post_to_file(post: &Post) -> Result<(), String> {
+    save_post_to_file_in_dir(post, ".")
 }
 
-pub fn save_post_to_file(post: &Post) -> Result<(), String> {
-    ensure_content_directory()?;
+pub fn save_post_to_file_in_dir(post: &Post, base_dir: &str) -> Result<(), String> {
+    let content_dir = Path::new(base_dir).join("content");
+    if !content_dir.exists() {
+        fs::create_dir_all(&content_dir)
+            .map_err(|e| format!("Failed to create content directory: {}", e))?;
+    }
 
-    let filename = format!("content/{}.md", post.id);
-    let file_path = Path::new(&filename);
+    let filename = format!("{}.md", post.id);
+    let file_path = content_dir.join(filename);
 
     // Create file content with date at top, optionally author with pipe, empty line, title as h1, then user content
     let header = if post.author.is_empty() {
@@ -27,23 +26,26 @@ pub fn save_post_to_file(post: &Post) -> Result<(), String> {
 
     let file_content = format!("{}\n\n# {}\n{}", header, post.title, post.raw_content);
 
-    fs::write(file_path, file_content)
-        .map_err(|e| format!("Failed to write post to file {}: {}", filename, e))?;
+    fs::write(&file_path, file_content)
+        .map_err(|e| format!("Failed to write post to file {:?}: {}", file_path, e))?;
 
     Ok(())
 }
 
 pub fn post_file_exists(post_id: &str) -> bool {
-    let filename = format!("content/{}.md", post_id);
-    Path::new(&filename).exists()
+    post_file_exists_in_dir(post_id, ".")
+}
+
+pub fn post_file_exists_in_dir(post_id: &str, base_dir: &str) -> bool {
+    let filename = format!("{}.md", post_id);
+    Path::new(base_dir).join("content").join(filename).exists()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use chrono::{Datelike, Utc};
     use serial_test::serial;
-    use std::env;
     use std::path::PathBuf;
     use tempfile::tempdir;
 
@@ -58,10 +60,7 @@ mod tests {
     fn test_ensure_content_directory() {
         let (_temp_dir, content_dir) = setup_test_env();
 
-        // Test the function directly
-        assert!(ensure_content_directory().is_ok());
-
-        // Also test that our setup worked
+        // Test that our setup worked - content directory should exist
         assert!(content_dir.exists());
         assert!(content_dir.is_dir());
     }
@@ -70,10 +69,6 @@ mod tests {
     #[serial]
     fn test_save_and_load_post() {
         let (temp_dir, _content_dir) = setup_test_env();
-
-        // Change to temp directory for this test
-        let old_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
 
         let post = Post {
             id: "test-post-01-01-2024".to_string(),
@@ -84,14 +79,13 @@ mod tests {
             created_at: Utc::now(),
         };
 
+        let temp_path = temp_dir.path().to_str().unwrap();
+
         // Save post
-        assert!(save_post_to_file(&post).is_ok());
+        assert!(save_post_to_file_in_dir(&post, temp_path).is_ok());
 
         // Check file exists
-        assert!(post_file_exists("test-post-01-01-2024"));
-
-        // Restore original directory
-        env::set_current_dir(old_dir).unwrap();
+        assert!(post_file_exists_in_dir("test-post-01-01-2024", temp_path));
     }
 
     #[test]
@@ -99,14 +93,10 @@ mod tests {
     fn test_load_nonexistent_post() {
         let (temp_dir, _content_dir) = setup_test_env();
 
-        // Change to temp directory for this test
-        let old_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
 
-        ensure_content_directory().unwrap();
-
-        // Restore original directory
-        env::set_current_dir(old_dir).unwrap();
+        // Test that a non-existent post doesn't exist
+        assert!(!post_file_exists_in_dir("nonexistent-post", temp_path));
     }
 
     #[test]
@@ -114,11 +104,7 @@ mod tests {
     fn test_delete_post_file() {
         let (temp_dir, _content_dir) = setup_test_env();
 
-        // Change to temp directory for this test
-        let old_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
-
-        ensure_content_directory().unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
 
         let post = Post {
             id: "delete-test-01-01-2024".to_string(),
@@ -130,11 +116,19 @@ mod tests {
         };
 
         // Save and verify exists
-        save_post_to_file(&post).unwrap();
-        assert!(post_file_exists("delete-test-01-01-2024"));
+        save_post_to_file_in_dir(&post, temp_path).unwrap();
+        assert!(post_file_exists_in_dir("delete-test-01-01-2024", temp_path));
 
-        // Restore original directory
-        env::set_current_dir(old_dir).unwrap();
+        // Delete the file
+        let file_path = temp_dir
+            .path()
+            .join("content")
+            .join("delete-test-01-01-2024.md");
+        fs::remove_file(file_path).unwrap();
+        assert!(!post_file_exists_in_dir(
+            "delete-test-01-01-2024",
+            temp_path
+        ));
     }
 
     #[test]
@@ -142,11 +136,7 @@ mod tests {
     fn test_file_format() {
         let (temp_dir, _content_dir) = setup_test_env();
 
-        // Change to temp directory for this test
-        let old_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
-
-        ensure_content_directory().unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
 
         let post = Post {
             id: "format-test-01-01-2024".to_string(),
@@ -157,16 +147,19 @@ mod tests {
             created_at: Utc::now(),
         };
 
-        assert!(save_post_to_file(&post).is_ok());
+        assert!(save_post_to_file_in_dir(&post, temp_path).is_ok());
 
         // Read raw file content to verify format
-        let raw_file = fs::read_to_string("content/format-test-01-01-2024.md").unwrap();
+        let file_path = temp_dir
+            .path()
+            .join("content")
+            .join("format-test-01-01-2024.md");
+        let raw_file = fs::read_to_string(file_path).unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
-        // First line should be date with author - check for current year range and author
-        assert!(
-            lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
-        );
+        // First line should be date with author - check for a reasonable year range and author
+        let current_year = post.created_at.year();
+        assert!(lines[0].contains(&current_year.to_string()));
         assert!(lines[0].contains(" | Test Author"));
         // Second line should be empty
         assert_eq!(lines[1], "");
@@ -175,9 +168,6 @@ mod tests {
         // Fourth line should start user content
         assert!(lines[3] == "This is the user content");
         assert!(lines[4] == "With multiple lines");
-
-        // Restore original directory
-        env::set_current_dir(old_dir).unwrap();
     }
 
     #[test]
@@ -185,9 +175,7 @@ mod tests {
     fn test_file_format_no_author() {
         let (temp_dir, _content_dir) = setup_test_env();
 
-        // Change to temp directory for this test
-        let old_dir = env::current_dir().unwrap();
-        env::set_current_dir(temp_dir.path()).unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
 
         let post = Post {
             id: "no-author-test-01-01-2024".to_string(),
@@ -198,16 +186,19 @@ mod tests {
             created_at: Utc::now(),
         };
 
-        assert!(save_post_to_file(&post).is_ok());
+        assert!(save_post_to_file_in_dir(&post, temp_path).is_ok());
 
         // Read raw file content to verify format
-        let raw_file = fs::read_to_string("content/no-author-test-01-01-2024.md").unwrap();
+        let file_path = temp_dir
+            .path()
+            .join("content")
+            .join("no-author-test-01-01-2024.md");
+        let raw_file = fs::read_to_string(file_path).unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
         // First line should be date only (no pipe or author)
-        assert!(
-            lines[0].contains("2025") || lines[0].contains("2024") || lines[0].contains("2023")
-        );
+        let current_year = post.created_at.year();
+        assert!(lines[0].contains(&current_year.to_string()));
         assert!(!lines[0].contains(" | "));
         // Second line should be empty
         assert_eq!(lines[1], "");
@@ -215,8 +206,5 @@ mod tests {
         assert_eq!(lines[2], "# No Author Test");
         // Fourth line should start user content
         assert!(lines[3] == "Content without author");
-
-        // Restore original directory
-        env::set_current_dir(old_dir).unwrap();
     }
 }

@@ -1025,6 +1025,101 @@
                 return lastChar === "\n" || textBeforeCheck.length === 0;
             }
 
+            // Helper functions for bullet point handling
+            function getCurrentLineStart() {
+                const cursorPos = textarea.selectionStart;
+                const textBeforeCursor = textarea.value.substring(0, cursorPos);
+                const lastNewlineIndex = textBeforeCursor.lastIndexOf("\n");
+                return lastNewlineIndex === -1 ? 0 : lastNewlineIndex + 1;
+            }
+
+            function getCurrentLineText() {
+                const lineStart = getCurrentLineStart();
+                const cursorPos = textarea.selectionStart;
+                const textFromLineStart = textarea.value.substring(lineStart);
+                const nextNewlineIndex = textFromLineStart.indexOf("\n");
+                return nextNewlineIndex === -1
+                    ? textFromLineStart
+                    : textFromLineStart.substring(0, nextNewlineIndex);
+            }
+
+            function isOnListLine() {
+                const lineText = getCurrentLineText();
+                return /^(\s*(?:[-*]|\d+\.)\s+)/.test(lineText);
+            }
+
+            function getListPrefix() {
+                const lineText = getCurrentLineText();
+                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)/);
+                return match ? match[1] : null;
+            }
+
+            function isListLineEmpty() {
+                const lineText = getCurrentLineText();
+                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)(.*)$/);
+                return match ? match[2].trim() === "" : false;
+            }
+
+            function getNextListPrefix() {
+                const lineText = getCurrentLineText();
+                const bulletMatch = lineText.match(/^(\s*)([-*])(\s+)/);
+                if (bulletMatch) {
+                    // Return same bullet prefix
+                    return bulletMatch[1] + bulletMatch[2] + bulletMatch[3];
+                }
+
+                const numberedMatch = lineText.match(/^(\s*)(\d+)(\.\s+)/);
+                if (numberedMatch) {
+                    // Increment the number
+                    const indent = numberedMatch[1];
+                    const currentNumber = parseInt(numberedMatch[2]);
+                    const suffix = numberedMatch[3];
+                    return indent + (currentNumber + 1) + suffix;
+                }
+
+                return null;
+            }
+
+            function resizeTextarea() {
+                // Force textarea to recalculate its height
+                textarea.style.height = "auto";
+                textarea.style.height = textarea.scrollHeight + "px";
+
+                // Trigger input event to ensure any other resize handlers are called
+                textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+
+            function handleListEnter(e) {
+                if (!isOnListLine()) return false;
+
+                e.preventDefault();
+
+                const cursorPos = textarea.selectionStart;
+                const lineStart = getCurrentLineStart();
+
+                if (isListLineEmpty()) {
+                    // Remove the list item and go back to normal text
+                    const lineEnd = lineStart + getCurrentLineText().length;
+                    const textBefore = textarea.value.substring(0, lineStart);
+                    const textAfter = textarea.value.substring(lineEnd);
+                    textarea.value = textBefore + textAfter;
+                    textarea.setSelectionRange(lineStart, lineStart);
+                } else {
+                    // Create new list item with proper prefix
+                    const nextPrefix = getNextListPrefix();
+                    const textBefore = textarea.value.substring(0, cursorPos);
+                    const textAfter = textarea.value.substring(cursorPos);
+                    const newText = textBefore + "\n" + nextPrefix + textAfter;
+                    textarea.value = newText;
+                    const newCursorPos = cursorPos + 1 + nextPrefix.length;
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+                }
+
+                updateCharCount();
+                resizeTextarea();
+                return true;
+            }
+
             function getContextualMenuItems() {
                 const atLineStart = isAtLineStart();
 
@@ -1424,6 +1519,7 @@
                 }
 
                 updateCharCount();
+                resizeTextarea();
                 textarea.focus();
             }
 
@@ -1531,6 +1627,11 @@
                         }
                     }
                 } else {
+                    // Handle Enter key for list auto-continuation (bullets and numbers)
+                    if (e.key === "Enter" && handleListEnter(e)) {
+                        return;
+                    }
+
                     // Keyboard shortcuts
                     const item = menuItems.find((item) => {
                         if (!item.key) return false;
