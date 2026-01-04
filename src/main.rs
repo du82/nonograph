@@ -569,7 +569,7 @@ fn view_post(
             let html_404 = r#"<!doctype html>
 <html>
 <head>
-    <title>404 - Nonograph not found</title>
+    <title>404 - Page not found</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
@@ -585,15 +585,15 @@ fn view_post(
     </style>
 </head>
 <body>
-    <h1>404 - Nonograph Not Found</h1>
-    <p><a href="/">← Write Your Own</a></p>
+    <h1>Page Not Found</h1>
+    <p><a href="/">Write Your Own</a></p>
 </body>
 </html>"#;
 
             if is_raw_request {
                 Err((
                     Status::NotFound,
-                    rocket::Either::Left(content::RawText("Post not found".to_string())),
+                    rocket::Either::Left(content::RawText("Page not found".to_string())),
                 ))
             } else {
                 Err((

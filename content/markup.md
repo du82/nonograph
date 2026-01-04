@@ -196,6 +196,13 @@ All text formatting works inside lists:
 | Data A   | Data B   | Data C   |
 ```
 
+Like so:
+
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Data A   | Data B   | Data C   |
+
 Align columns with colons in separator row:
 - `:---` Left align
 - `:---:` Center align
