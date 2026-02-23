@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+mod archiver;
 mod config;
 mod nojs;
 mod parser;
@@ -791,7 +792,38 @@ fn start_file_save_worker() -> mpsc::Sender<Post> {
     tx
 }
 
-#[launch]
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.len() > 1 && args[1] == "archive" {
+        if args.len() < 3 {
+            eprintln!("Usage: cargo run archive <telegraph_url>");
+            std::process::exit(1);
+        }
+
+        let url = &args[2];
+        let archiver = archiver::TelegraphArchiver::new();
+
+        match archiver.archive_url(url).await {
+            Ok(nonograph_url) => {
+                println!("Successfully archived Telegraph page!");
+                println!("View at: http://localhost:8009{}", nonograph_url);
+            }
+            Err(e) => {
+                eprintln!("Error archiving page: {}", e);
+                std::process::exit(1);
+            }
+        }
+
+        return Ok(());
+    }
+
+    // Default behavior - launch web server
+    let _rocket = rocket().launch().await?;
+    Ok(())
+}
+
 fn rocket() -> rocket::Rocket<rocket::Build> {
     use rocket::data::{Limits, ToByteUnit};
 
