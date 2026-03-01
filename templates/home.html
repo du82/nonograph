@@ -760,7 +760,7 @@
                     <textarea
                         name="content"
                         placeholder="Write something with markdown or type / for formatting options..."
-                        maxlength="128000"
+                        maxlength="{{content_max_length}}"
                         title="Mind your opsec, be careful what you share."
                         required
                     ></textarea>
@@ -1214,7 +1214,7 @@
             function updateCharCount() {
                 const count = textarea.value.length;
                 const button = document.querySelector('button[type="submit"]');
-                const limit = 128000;
+                const limit = {{content_max_length}};
                 const countText =
                     count.toLocaleString() + " / " + limit.toLocaleString();
                 const percentage = (count / limit) * 100;
@@ -1711,7 +1711,7 @@
             });
 
             form.addEventListener("submit", function (e) {
-                const limit = 128000;
+                const limit = {{content_max_length}};
                 if (textarea.value.length > limit) {
                     e.preventDefault();
                     alert(
