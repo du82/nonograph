@@ -131,15 +131,12 @@
                 color: #666;
             }
             textarea {
-                min-height: 100px;
                 font-size: 18px;
                 resize: none;
                 line-height: 1.6;
                 -webkit-overflow-scrolling: touch;
-                field-sizing: content;
                 overflow: hidden;
                 min-height: 200px;
-                height: auto;
             }
             button {
                 background: #333;
@@ -1125,12 +1122,8 @@
             }
 
             function resizeTextarea() {
-                // Force textarea to recalculate its height
                 textarea.style.height = "auto";
                 textarea.style.height = textarea.scrollHeight + "px";
-
-                // Trigger input event to ensure any other resize handlers are called
-                textarea.dispatchEvent(new Event("input", { bubbles: true }));
             }
 
             function handleListEnter(e) {
@@ -1631,6 +1624,7 @@
                 }
 
                 updateCharCount();
+                resizeTextarea();
             });
 
             textarea.addEventListener("keydown", function (e) {
@@ -1724,6 +1718,7 @@
             });
 
             updateCharCount();
+            resizeTextarea();
 
             // Handle window resize to adjust menu if needed
             window.addEventListener("resize", function () {
