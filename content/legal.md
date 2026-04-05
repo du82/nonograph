@@ -29,6 +29,13 @@ We will only remove content that is actually illegal under applicable law, const
 
 You are responsible for everything you publish. You must have the right to publish anything you submit. Remember that once you publish something, it's public and we cannot control who sees it or what they do with it.
 
+### Content subject to removal
+* Pages selling things commonly used in fraud (IDs, CCs, obvious scams)
+* Anything encouraging / normalizing pedophilia or links to CSAM
+* Pages selling suspicious items (dick pills, body parts, etc..)
+
+Neither age nor suitibility for age-specific audiences is checked. No ID surveillance.
+
 ## How We Handle Your Data
 Your content is stored as simple text files on our server. We take reasonable steps to keep these files secure, but we cannot guarantee perfect security or that your content will be preserved forever. Your content will remain available indefinitely unless we need to remove it for legal reasons or service maintenance. You can always get your content back in its original markdown format by adding ".md" to the end of any post's URL.
 

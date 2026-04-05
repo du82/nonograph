@@ -130,6 +130,35 @@
                 margin-bottom: 16px;
                 color: #666;
             }
+            .alias-rand {
+                position: absolute;
+                left: -28px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 0;
+                color: #bbb;
+                margin: 0;
+                min-height: unset;
+                line-height: 0;
+                transition: color 0.15s;
+            }
+            .alias-rand:hover {
+                background: none;
+                color: #555;
+            }
+            .alias-rand:active {
+                transform: translateY(-50%);
+            }
+            .alias-anchor {
+                position: relative;
+                margin-bottom: 16px;
+            }
+            .alias-anchor input[type="text"].author-input {
+                margin-bottom: 0;
+            }
             textarea {
                 font-size: 18px;
                 resize: none;
@@ -452,6 +481,9 @@
 
             /* Mobile Styles */
             @media (max-width: 1040px) {
+                .alias-rand {
+                    display: none;
+                }
                 .container {
                 }
                 .writingarea {
@@ -746,14 +778,39 @@
                         title="Mind your opsec. Limited to 128 characters."
                         required
                     ></textarea>
-                    <input
-                        type="text"
-                        name="alias"
-                        placeholder="Alias (optional)"
-                        maxlength="32"
-                        class="author-input"
-                        title="Mind your opsec. Limited to 32 chracters."
-                    ></input>
+                    <div class="alias-anchor">
+                        <button
+                            type="button"
+                            class="alias-rand"
+                            id="aliasRand"
+                            title="Generate random alias"
+                        >
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <polyline points="1 4 1 10 7 10" />
+                                <polyline points="23 20 23 14 17 14" />
+                                <path
+                                    d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"
+                                />
+                            </svg>
+                        </button>
+                        <input
+                            type="text"
+                            name="alias"
+                            placeholder="Alias (optional)"
+                            maxlength="32"
+                            class="author-input"
+                            title="Mind your opsec. Limited to 32 characters."
+                        />
+                    </div>
                     <textarea
                         name="content"
                         placeholder="Write something with markdown or type / for formatting options..."
@@ -1719,6 +1776,48 @@
 
             updateCharCount();
             resizeTextarea();
+
+            document.getElementById("aliasRand").addEventListener("click", function () {
+                const pools = [
+                    ["aarav","arjun","asha","ayaan","devi","jaya","kali","priya","riya","rohan","rupa","sana","tara","uma","vara","veda","vikram","yara"],
+                    ["bao","bo","cai","chen","cheng","dao","fang","feng","gang","hao","hu","hui","jian","jing","jun","kai","lang","lei","li","liang","lin","ling","liu","long","mei","ming","na","ning","peng","ping","qian","qing","quan","rui","shan","sheng","tao","wei","wen","xia","xin","xing","xu","yan","yang","yi","ying","yu","yuan","yun","zhen","zheng","zhi","zhong","zhou","zhu"],
+                    ["andile","dayo","fatou","jomo","kofi","mali","nala","nia","olu","osei","zuri","amara","dara","leya","kwame","abena","esi","yaw"],
+                    ["amir","amira","bashir","cyrus","elif","emre","farrukh","idris","nour","omar","pari","rafi","rami","rana","reem","tariq","yael","zara"],
+                    ["ana","diego","finn","ines","isla","lars","lena","luca","luna","maia","maren","nils","ona","orla","paz","rhea","rio","rosa","sion","sol","thea","tomás","wren"],
+                    ["cleo","dani","dean","ezra","ivan","jade","ira","lior","mia","milo","mira","nadia","neo","noa","quinn","sasha","sera","shay","sia","zoe"],
+                ];
+                const pick = (a) => a[(Math.random() * a.length) | 0];
+                const pool = pick(pools);
+                const w = pool;
+                const rnd = (n) => Math.random() * n | 0;
+                const cap = (s) => s[0].toUpperCase() + s.slice(1);
+                const sep = () => pick(["","","","_",".","-"," "]);
+                const num = () => pick([
+                    () => rnd(9) + 1,
+                    () => rnd(90) + 10,
+                    () => rnd(900) + 100,
+                    () => rnd(9000) + 1000,
+                    () => pick(["x","v","ii","iii","iv"]),
+                ]);
+                const maybe = (fn) => Math.random() < 0.5 ? fn() : "";
+                const a = pick(w), b = pick(w), s = sep();
+                const formats = [
+                    () => a + s + b,
+                    () => a + s + b + num()(),
+                    () => a + num()(),
+                    () => cap(a) + b,
+                    () => cap(a) + s + b + num()(),
+                    () => a + s + cap(b),
+                    () => cap(a) + cap(b),
+                    () => cap(a) + cap(b) + num()(),
+                    () => a + num()() + b,
+                    () => a + b + maybe(() => num()()),
+                    () => cap(a) + " " + cap(b),
+                    () => cap(a) + " " + cap(b) + " " + cap(pick(w)),
+                ];
+                const name = pick(formats)();
+                document.querySelector("input[name=alias]").value = name.slice(0, 32);
+            });
 
             // Handle window resize to adjust menu if needed
             window.addEventListener("resize", function () {
