@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 |--------|---------------|---------------------------------|------------------------------------------------------------------------|
 | 100%   | 🏴‍☠️ Unknown    | https://nonogra.ph              | http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/ |
 | 100%   | 🏴‍☠️ Unknown    | https://write.daun.world/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
-| 100%   | 🇫🇮 Finand     | https://proxy.write.daun.world/ | see above                                                              |
+| 100%   | 🇫🇮 Finland    | https://proxy.write.daun.world/ | see above                                                              |
 | 14%    | 🇰🇿 Kazakhstan |                                 | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
 
 ## Deploy as a hidden service on Tor with Docker!
