@@ -1,4 +1,4 @@
-FROM rust:1.82-slim-bullseye as builder
+FROM rust:latest as builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -15,7 +15,7 @@ COPY templates/ ./templates/
 COPY Config.toml ./
 RUN touch src/main.rs && cargo build --release
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
