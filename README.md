@@ -28,10 +28,10 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 ## Known Instances
 | Uptime | Location      | Clearnet                        | Onion                                                                  |
 |--------|---------------|---------------------------------|------------------------------------------------------------------------|
-| 100%   | 🏴‍☠️ Unknown    | https://nonogra.ph              | http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/ |
-| 100%   | 🏴‍☠️ Unknown    | https://write.daun.world/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
-| 100%   | 🇫🇮 Finland    | https://proxy.write.daun.world/ | see above                                                              |
-| 14%    | 🇰🇿 Kazakhstan |                                 | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonogra.ph) | 🏴‍☠️ Unknown    | https://nonogra.ph              | http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.daun.world) | 🏴‍☠️ Unknown    | https://write.daun.world/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world) | 🇫🇮 Finland    | https://proxy.write.daun.world/ | see above                                                              |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull) | 🇰🇿 Kazakhstan |                                 | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
 
 ## Deploy as a hidden service on Tor with Docker!
 
