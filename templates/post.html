@@ -714,6 +714,7 @@
                     padding: 8px;
                 }
             }
+
             .footer {
                 width: 100vw;
                 background: #fff;
@@ -747,7 +748,7 @@
             <div class="content">
                 <h1>{{title}}</h1>
                 <div class="article-meta">{{author_display}}{{created_at}}</div>
-                <div class="article-content">{{content}}</div>
+                <div class="article-content" id="CONTENT">{{content}}</div>
             </div>
         </div>
 
@@ -805,6 +806,79 @@
                 secret.addEventListener("click", function () {
                     this.classList.toggle("revealed");
                 });
+            });
+
+            // Walk all element/text nodes in #CONTENT, calling visitor(node, pos)
+            // at each step. Uses the same positional encoding as the hash format.
+            // Code blatantly stolen from archive.today; hey it works great!
+            function walkContent(visitor) {
+                var pos = 0;
+                function recur(e) {
+                    if (
+                        e.nodeType == 1 &&
+                        (e.tagName == "OLD-META" || e.tagName == "OLD-SCRIPT")
+                    )
+                        return;
+                    if (e.nodeType == 1) pos = (pos & ~1) + 2;
+                    if (e.nodeType == 3) pos = pos | 1;
+                    visitor(e, pos);
+                    var lastChild = null;
+                    for (var i = 0; i < e.childNodes.length; i++)
+                        if (
+                            e.childNodes[i].nodeType == 1 ||
+                            e.childNodes[i].nodeType == 3
+                        )
+                            recur((lastChild = e.childNodes[i]));
+                    if (lastChild && lastChild.nodeType == 3)
+                        pos = (pos & ~1) + 2;
+                }
+                recur(document.getElementById("CONTENT"));
+            }
+
+            function computeSelectionHash() {
+                if (!document.getSelection) return "";
+                var sel = document.getSelection();
+                if (sel.isCollapsed) return "";
+                var range = sel.getRangeAt(0);
+                var begin = [0, 0],
+                    end = [0, 0];
+                walkContent(function (e, pos) {
+                    if (range.startContainer === e)
+                        begin = [pos, range.startOffset];
+                    if (range.endContainer === e) end = [pos, range.endOffset];
+                });
+                if (begin[0] > 0 && end[0] > 0)
+                    return (
+                        "selection-" +
+                        begin[0] +
+                        "." +
+                        begin[1] +
+                        "-" +
+                        end[0] +
+                        "." +
+                        end[1]
+                    );
+                return "";
+            }
+
+            function applySelectionHash(newhash) {
+                var oldhash = location.hash.replace(/^#/, "");
+                if (oldhash == newhash) return;
+                if (history.replaceState) {
+                    history.replaceState(
+                        "",
+                        document.title,
+                        document.location.origin +
+                            document.location.pathname +
+                            (newhash.length > 0 ? "#" + newhash : ""),
+                    );
+                } else if (newhash.length > 0) {
+                    location.hash = newhash;
+                }
+            }
+
+            document.addEventListener("selectionchange", function () {
+                applySelectionHash(computeSelectionHash());
             });
 
             // Process pre-rendered code blocks to add interactivity
