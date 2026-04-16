@@ -529,10 +529,15 @@ fn view_post(
                 context.insert("title".to_string(), post.title.clone());
                 context.insert("content".to_string(), rendered_content);
                 context.insert("raw_content".to_string(), post.raw_content.clone());
-                context.insert("author".to_string(), post.author.clone());
+                let author = if post.author.is_empty() {
+                    "Anonymous".to_string()
+                } else {
+                    post.author.clone()
+                };
+                context.insert("author".to_string(), author);
 
                 let author_display = if post.author.is_empty() {
-                    String::new()
+                    "by Anonymous · ".to_string()
                 } else {
                     format!("by {} · ", post.author)
                 };
