@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Telegraph Archiver</title>
+        <link rel="icon" href="data:," />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }
+            body {
+                line-height: 1.6;
+                background: #ffffff;
+                color: #333;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                overflow-x: hidden;
+            }
+            .container {
+                padding: 40px;
+                flex: 1;
+                position: relative;
+            }
+            .writingarea {
+                width: 700px;
+                margin: 0 auto;
+                position: relative;
+            }
+            .sidebar {
+                position: absolute;
+                left: 50%;
+                margin-left: 390px;
+                top: 40px;
+                width: 200px;
+                text-align: left;
+            }
+            h1 {
+                font-size: 30px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #333;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                box-shadow: none;
+                -webkit-box-shadow: none;
+                -moz-box-shadow: none;
+            }
+            .article-meta {
+                color: #666;
+                font-size: 14px;
+                margin-bottom: 32px;
+            }
+            .article-content {
+                font-size: 18px;
+                line-height: 1.6;
+                font-family: Georgia, "Times New Roman", Times, serif;
+            }
+            .article-content p {
+                margin-bottom: 16px;
+            }
+            label {
+                display: block;
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 4px;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+            input[type="url"] {
+                width: 100%;
+                padding: 0;
+                border: none;
+                font-size: 18px;
+                background: transparent;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                color: #333;
+                box-shadow: none;
+                -webkit-box-shadow: none;
+                -moz-box-shadow: none;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+            }
+            input[type="url"]:focus {
+                outline: none;
+            }
+            input[type="url"]::placeholder {
+                color: #999;
+                opacity: 1;
+            }
+            .input-wrap {
+                border-bottom: 1px solid #e9ecef;
+                padding-bottom: 8px;
+                margin-bottom: 24px;
+                transition: border-color 0.15s;
+            }
+            .input-wrap:focus-within {
+                border-color: #aaa;
+            }
+            button {
+                background: #333;
+                color: white;
+                padding: 16px 32px;
+                border: none;
+                border-radius: 2px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-bottom: 16px;
+                box-shadow: none;
+                -webkit-box-shadow: none;
+                -moz-box-shadow: none;
+                margin-top: 0;
+                min-height: 44px;
+                transition: background-color 0.2s ease;
+                -webkit-tap-highlight-color: transparent;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+            button:hover {
+                background: #000;
+            }
+            button:active {
+                background: #111;
+                transform: translateY(1px);
+            }
+            button:disabled {
+                background: #999;
+                cursor: not-allowed;
+            }
+            .links {
+                font-size: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+            .links a {
+                color: #666;
+                text-decoration: none;
+            }
+            .links a:hover {
+                color: #333;
+                text-decoration: underline;
+            }
+            .status {
+                font-size: 14px;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                margin-top: 8px;
+                min-height: 22px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #666;
+            }
+            .status:empty {
+                display: none;
+            }
+            .status.error {
+                color: #c0392b;
+            }
+            .status.success {
+                color: #27ae60;
+            }
+            .spinner {
+                display: none;
+                width: 13px;
+                height: 13px;
+                border: 2px solid #ddd;
+                border-top-color: #666;
+                border-radius: 50%;
+                animation: spin 0.7s linear infinite;
+                flex-shrink: 0;
+            }
+            .status.loading .spinner {
+                display: inline-block;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .log {
+                display: none;
+                margin-top: 24px;
+                border-left: 2px solid #e9ecef;
+                padding-left: 16px;
+            }
+            .log.visible {
+                display: block;
+            }
+            .log-line {
+                font-size: 13px;
+                font-family:
+                    ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas,
+                    "Liberation Mono", monospace;
+                color: #888;
+                line-height: 1.7;
+                white-space: pre-wrap;
+                word-break: break-all;
+            }
+            .log-line.log-error {
+                color: #c0392b;
+            }
+            .log-line.log-done {
+                color: #27ae60;
+            }
+            .log-line::before {
+                content: "> ";
+                color: #ccc;
+                user-select: none;
+            }
+            .info-note {
+                color: #666;
+                font-size: 14px;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                border-left: 2px solid #e9ecef;
+                padding-left: 16px;
+                margin-bottom: 32px;
+            }
+            .footer {
+                width: 100vw;
+                background: #fff;
+                text-align: center;
+                font-size: 13px;
+                padding: 6px 0;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+            .footer a {
+                color: #999;
+                text-decoration: none;
+                margin: 0 12px;
+            }
+            .footer a:hover {
+                color: #666;
+                text-decoration: underline;
+            }
+            @media (max-width: 1040px) {
+                .writingarea {
+                    width: 100%;
+                    max-width: 700px;
+                }
+                .sidebar {
+                    position: static;
+                    left: auto;
+                    margin-left: 0;
+                    margin-top: 32px;
+                    top: auto;
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 16px;
+                }
+                .sidebar button {
+                    width: 100%;
+                    max-width: 200px;
+                }
+            }
+            @media (max-width: 768px) {
+                .container {
+                    padding: 24px 20px;
+                }
+                h1 {
+                    font-size: 26px;
+                }
+                .article-content {
+                    font-size: 17px;
+                }
+                input[type="url"] {
+                    font-size: 17px;
+                }
+                .sidebar button {
+                    padding: 14px 28px;
+                    font-size: 16px;
+                    min-height: 48px;
+                }
+                .links {
+                    font-size: 14px;
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                }
+                .links a {
+                    padding: 8px 0;
+                    min-height: 44px;
+                    display: flex;
+                    align-items: center;
+                }
+                .footer {
+                    margin-top: 40px;
+                    font-size: 12px;
+                }
+                .footer a {
+                    margin: 0 8px;
+                }
+            }
+            @media (max-width: 480px) {
+                .container {
+                    padding: 20px 16px;
+                }
+                h1 {
+                    font-size: 22px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="writingarea">
+                <h1>Telegraph Archiver</h1>
+                <div class="article-meta">
+                    archive a telegra.ph page to this server
+                </div>
+
+                <label for="telegraph-url">Telegraph URL</label>
+                <div class="input-wrap">
+                    <input
+                        type="url"
+                        id="telegraph-url"
+                        placeholder="https://telegra.ph/..."
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                    />
+                </div>
+
+                <div class="status" id="status">
+                    <div class="spinner"></div>
+                    <span id="status-text"></span>
+                </div>
+
+                <div class="log" id="log"></div>
+            </div>
+
+            <div class="sidebar">
+                <button id="archive-btn" type="button">Archive</button>
+                <div class="links">
+                    <a href="/" target="_blank">write your own</a>
+                    <a href="/legal" target="_blank">legal &amp; privacy</a>
+                    <a href="/api" target="_blank">api</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <a href="/" target="_blank">write your own</a>
+            <a href="/legal" target="_blank">legal</a>
+            <a href="/api" target="_blank">api</a>
+            <a href="https://github.com/du82/nonograph" target="_blank"
+                >source code</a
+            >
+        </div>
+
+        <script>
+            const urlInput = document.getElementById("telegraph-url");
+            const btn = document.getElementById("archive-btn");
+            const statusEl = document.getElementById("status");
+            const statusTxt = document.getElementById("status-text");
+            const logEl = document.getElementById("log");
+
+            function setStatus(state, msg) {
+                statusEl.className = "status " + state;
+                statusTxt.textContent = msg;
+            }
+
+            function resetLog() {
+                logEl.innerHTML = "";
+                logEl.classList.remove("visible");
+            }
+
+            function appendLog(msg, cls) {
+                logEl.classList.add("visible");
+                const line = document.createElement("div");
+                line.className = "log-line" + (cls ? " " + cls : "");
+                line.textContent = msg;
+                logEl.appendChild(line);
+            }
+
+            function extractPath(raw) {
+                try {
+                    const u = new URL(raw.trim());
+                    if (u.hostname !== "telegra.ph") return null;
+                    const p = u.pathname
+                        .replace(/^\/+/, "")
+                        .replace(/\/+$/, "");
+                    return p.length > 0 ? p : null;
+                } catch (_) {
+                    return null;
+                }
+            }
+
+            async function doArchive() {
+                const raw = urlInput.value.trim();
+                if (!raw) {
+                    setStatus("error", "Please enter a telegra.ph URL.");
+                    urlInput.focus();
+                    return;
+                }
+
+                const path = extractPath(raw);
+                if (!path) {
+                    setStatus(
+                        "error",
+                        "That doesn't look like a valid telegra.ph URL.",
+                    );
+                    urlInput.focus();
+                    return;
+                }
+
+                btn.disabled = true;
+                resetLog();
+                setStatus("loading", "");
+
+                // Step 1: browser fetches the Telegraph API directly.
+                // The server's IP is never involved in this request.
+                let telegraphJson;
+                try {
+                    const apiUrl =
+                        "https://api.telegra.ph/getPage/" +
+                        encodeURIComponent(path) +
+                        "?return_content=true";
+
+                    appendLog("Resolving telegra.ph API endpoint");
+                    appendLog("Fetching: " + apiUrl);
+
+                    const res = await fetch(apiUrl);
+
+                    appendLog(
+                        "Response received: HTTP " +
+                            res.status +
+                            " " +
+                            res.statusText,
+                    );
+
+                    if (!res.ok) {
+                        throw new Error(
+                            "Telegraph API returned HTTP " + res.status,
+                        );
+                    }
+
+                    appendLog("Reading response body");
+                    telegraphJson = await res.text();
+                    appendLog(
+                        "Response body: " + telegraphJson.length + " bytes",
+                    );
+
+                    appendLog("Validating Telegraph API response");
+                    const parsed = JSON.parse(telegraphJson);
+                    if (!parsed.ok) {
+                        throw new Error(
+                            parsed.error || "Telegraph returned ok=false",
+                        );
+                    }
+
+                    appendLog("Telegraph response OK");
+
+                    if (parsed.result) {
+                        const r = parsed.result;
+                        if (r.title) appendLog("Title: " + r.title);
+                        if (r.author_name)
+                            appendLog("Author: " + r.author_name);
+                        if (r.views !== undefined)
+                            appendLog("Views: " + r.views);
+                        if (r.content)
+                            appendLog("Content nodes: " + r.content.length);
+                    }
+                } catch (err) {
+                    appendLog("Error: " + err.message, "log-error");
+                    setStatus("error", "Failed to fetch from Telegraph.");
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Step 2: POST the raw JSON blob to our server.
+                // The server only ever sees our own request.
+                appendLog("Sending payload to server");
+                appendLog("POST /archive (" + telegraphJson.length + " bytes)");
+
+                let result;
+                try {
+                    const res = await fetch("/archive", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ json: telegraphJson }),
+                    });
+
+                    appendLog("Server response: HTTP " + res.status);
+                    result = await res.json();
+                } catch (err) {
+                    appendLog("Error: " + err.message, "log-error");
+                    setStatus("error", "Server error.");
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Print every step the server reported
+                if (Array.isArray(result.log)) {
+                    result.log.forEach(function (line) {
+                        appendLog(line);
+                    });
+                }
+
+                if (result.ok && result.url) {
+                    appendLog(
+                        "Done. Redirecting to " + result.url + " in 2 seconds",
+                        "log-done",
+                    );
+                    setStatus("success", "Archived.");
+                    setTimeout(function () {
+                        window.location.href = result.url;
+                    }, 2000);
+                } else {
+                    appendLog(
+                        "Archive failed: " + (result.error || "unknown error"),
+                        "log-error",
+                    );
+                    setStatus("error", "Archive failed.");
+                    btn.disabled = false;
+                }
+            }
+
+            btn.addEventListener("click", doArchive);
+
+            urlInput.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    doArchive();
+                }
+            });
+
+            urlInput.focus();
+        </script>
+    </body>
+</html>

@@ -4,36 +4,39 @@ use std::collections::HashMap;
 use std::fs;
 
 #[derive(Debug, Deserialize)]
-struct TelegraphResponse {
-    ok: bool,
-    result: Option<TelegraphPage>,
-    error: Option<String>,
+pub struct TelegraphResponse {
+    pub ok: bool,
+    pub result: Option<TelegraphPage>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
-struct TelegraphPage {
-    path: String,
-    url: String,
-    title: String,
+pub struct TelegraphPage {
+    pub path: String,
     #[allow(dead_code)]
-    description: String,
-    author_name: Option<String>,
-    author_url: Option<String>,
+    pub url: String,
+    pub title: String,
     #[allow(dead_code)]
-    image_url: Option<String>,
-    content: Option<Vec<Node>>,
-    views: u32,
+    pub description: String,
+    pub author_name: Option<String>,
+    #[allow(dead_code)]
+    pub author_url: Option<String>,
+    #[allow(dead_code)]
+    pub image_url: Option<String>,
+    pub content: Option<Vec<Node>>,
+    #[allow(dead_code)]
+    pub views: u32,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-enum Node {
+pub(crate) enum Node {
     Text(String),
     Element(NodeElement),
 }
 
 #[derive(Debug, Deserialize, Clone)]
-struct NodeElement {
+pub(crate) struct NodeElement {
     tag: String,
     attrs: Option<HashMap<String, String>>,
     children: Option<Vec<Node>>,
@@ -66,6 +69,79 @@ impl TelegraphArchiver {
         // Return Nonograph URL
         let nonograph_id = filename.trim_end_matches(".md");
         Ok(format!("/{}", nonograph_id))
+    }
+
+    #[allow(dead_code)]
+    pub fn archive_from_json(&self, json: &str) -> Result<String, Box<dyn std::error::Error>> {
+        self.archive_from_json_with_log(json, &mut |_| {})
+    }
+
+    /// Same as `archive_from_json` but calls `log` with a progress message at each step.
+    pub fn archive_from_json_with_log(
+        &self,
+        json: &str,
+        log: &mut dyn FnMut(&str),
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        log("Parsing Telegraph API response");
+        let telegraph_response: TelegraphResponse = serde_json::from_str(json)
+            .map_err(|e| format!("Failed to parse Telegraph JSON: {}", e))?;
+
+        if !telegraph_response.ok {
+            let err = telegraph_response
+                .error
+                .as_deref()
+                .unwrap_or("unknown error");
+            return Err(format!("Telegraph API returned an error: {}", err).into());
+        }
+
+        log("Extracting page data");
+        let page = telegraph_response
+            .result
+            .ok_or("No result field in Telegraph response")?;
+
+        log(&format!("Found page: \"{}\"", page.title));
+
+        if let Some(ref author) = page.author_name {
+            log(&format!("Author: {}", author));
+        }
+
+        if let Some(ref content) = page.content {
+            log(&format!("Content nodes to convert: {}", content.len()));
+        } else {
+            log("No content nodes found in page");
+        }
+
+        let filename = self.generate_filename(&page);
+        let file_path = format!("content/{}", filename);
+        let nonograph_id = filename.trim_end_matches(".md");
+        let url = format!("/{}", nonograph_id);
+
+        if std::path::Path::new(&file_path).exists() {
+            log(&format!("File already exists: {}", file_path));
+            log(&format!(
+                "Skipping conversion and write. Already available at {}",
+                url
+            ));
+            return Ok(url);
+        }
+
+        log("Converting Telegraph nodes to Markdown");
+        let markdown = self.convert_to_markdown(&page)?;
+
+        let line_count = markdown.lines().count();
+        let byte_count = markdown.len();
+        log(&format!(
+            "Markdown conversion complete: {} lines, {} bytes",
+            line_count, byte_count
+        ));
+
+        log(&format!("Writing to {}", file_path));
+
+        fs::write(&file_path, markdown)
+            .map_err(|e| format!("Failed to write file \"{}\": {}", file_path, e))?;
+
+        log(&format!("Saved. Available at {}", url));
+        Ok(url)
     }
 
     fn extract_path_from_url(&self, url: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -289,7 +365,10 @@ impl TelegraphArchiver {
                                     src.clone()
                                 };
                                 let caption = image_caption.unwrap_or("");
-                                output.push_str(&format!("![{}]({})", caption, full_url));
+                                output.push_str(&format!("![{}]({})\n\n", caption, full_url));
+                                if !caption.is_empty() {
+                                    output.push_str(&format!("*{}*\n\n", caption));
+                                }
                             }
                         }
                     }
@@ -394,34 +473,32 @@ impl TelegraphArchiver {
                         output.push_str("---\n\n");
                     }
                     "figure" => {
-                        // Extract caption from figcaption first
+                        // First pass: collect caption text from figcaption,
+                        // recursing into any inline elements inside it.
                         let mut caption = String::new();
                         if let Some(children) = &element.children {
                             for child in children {
                                 if let Node::Element(elem) = child {
                                     if elem.tag == "figcaption" {
-                                        if let Some(caption_children) = &elem.children {
-                                            for caption_child in caption_children {
-                                                if let Node::Text(text) = caption_child {
-                                                    caption.push_str(text);
-                                                }
-                                            }
-                                        }
+                                        Self::collect_text(elem, &mut caption);
                                     }
                                 }
                             }
                         }
 
-                        // Now process all children with the caption context
+                        let caption_ref = if caption.is_empty() {
+                            None
+                        } else {
+                            Some(caption.as_str())
+                        };
+
+                        // Second pass: render every child that is not a
+                        // figcaption, passing the caption as alt-text context.
                         if let Some(children) = &element.children {
                             for child in children {
-                                if let Node::Element(elem) = child {
-                                    if elem.tag != "figcaption" {
-                                        let caption_ref = if caption.is_empty() {
-                                            None
-                                        } else {
-                                            Some(caption.as_str())
-                                        };
+                                match child {
+                                    Node::Element(elem) if elem.tag == "figcaption" => {}
+                                    _ => {
                                         self.convert_node_to_markdown_with_context(
                                             child,
                                             output,
@@ -432,11 +509,16 @@ impl TelegraphArchiver {
                                 }
                             }
                         }
-                        output.push_str("\n");
                     }
                     "figcaption" => {
-                        // Figcaptions are now handled by the figure element above
-                        // Skip processing them directly to avoid duplication
+                        // Figcaptions are handled by the figure element above.
+                        // If a bare figcaption appears outside a figure, render
+                        // it as italic text so it is not silently dropped.
+                        let mut caption = String::new();
+                        Self::collect_text(element, &mut caption);
+                        if !caption.is_empty() {
+                            output.push_str(&format!("*{}*\n\n", caption));
+                        }
                     }
                     "iframe" | "video" => {
                         if let Some(attrs) = &element.attrs {
@@ -483,6 +565,18 @@ impl TelegraphArchiver {
             }
         }
         Ok(())
+    }
+
+    /// Recursively collect all plain text content from a NodeElement into `out`.
+    fn collect_text(elem: &NodeElement, out: &mut String) {
+        if let Some(children) = &elem.children {
+            for child in children {
+                match child {
+                    Node::Text(t) => out.push_str(t),
+                    Node::Element(e) => Self::collect_text(e, out),
+                }
+            }
+        }
     }
 
     fn clean_excessive_newlines(&self, content: &str) -> String {

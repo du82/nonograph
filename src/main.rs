@@ -616,6 +616,37 @@ fn markup_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("markup", config)
 }
 
+#[get("/archive")]
+fn archive_page() -> content::RawHtml<String> {
+    match std::fs::read_to_string("templates/archiver.html") {
+        Ok(html) => content::RawHtml(html),
+        Err(_) => content::RawHtml("<h1>Archive page not found</h1>".to_string()),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ArchivePayload {
+    json: String,
+}
+
+#[post("/archive", data = "<payload>")]
+fn archive_post(
+    payload: rocket::serde::json::Json<ArchivePayload>,
+) -> rocket::serde::json::Json<serde_json::Value> {
+    let archiver = archiver::TelegraphArchiver::new();
+    let mut log_lines: Vec<String> = Vec::new();
+    match archiver.archive_from_json_with_log(&payload.json, &mut |msg| {
+        log_lines.push(msg.to_string());
+    }) {
+        Ok(url) => rocket::serde::json::Json(
+            serde_json::json!({ "ok": true, "url": url, "log": log_lines }),
+        ),
+        Err(e) => rocket::serde::json::Json(
+            serde_json::json!({ "ok": false, "error": e.to_string(), "log": log_lines }),
+        ),
+    }
+}
+
 #[get("/legal")]
 fn legal_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("legal", config)
@@ -866,6 +897,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 legal_page,
                 about_page,
                 api_page,
+                archive_page,
+                archive_post,
                 robots_txt,
                 nojs_index,
                 nojs_view_post,
