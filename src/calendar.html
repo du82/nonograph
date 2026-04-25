@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Writing Activity Heatmap</title>
+        <style>
+            :root {
+                --bg: #ffffff;
+                --text: #111827;
+                --muted: #6b7280;
+                --empty: #f3f4f6;
+                --l1: #e5e7eb;
+                --l2: #d1d5db;
+                --l3: #9ca3af;
+                --l4: #6b7280;
+                --l5: #374151;
+                --size: 12px;
+                --gap: 3px;
+            }
+
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                margin: 0;
+                padding: 2rem;
+                box-sizing: border-box;
+            }
+
+            h2 {
+                margin: 0 0 0.25rem;
+                font-weight: 600;
+                font-size: 1.25rem;
+            }
+            p.sub {
+                margin: 0 0 1.5rem;
+                color: var(--muted);
+                font-size: 0.875rem;
+            }
+
+            .wrapper {
+                display: flex;
+                gap: 0.5rem;
+                overflow-x: auto;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--l2);
+                align-items: start;
+            }
+
+            .labels {
+                display: grid;
+                grid-template-rows: repeat(7, var(--size));
+                gap: var(--gap);
+                font-size: 0.6rem;
+                color: var(--muted);
+                height: calc(7 * var(--size) + 6 * var(--gap));
+            }
+            .labels div {
+                height: var(--size);
+                display: flex;
+                align-items: center;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-rows: repeat(7, var(--size));
+                grid-auto-columns: var(--size);
+                grid-auto-flow: column;
+                gap: var(--gap);
+            }
+
+            .day {
+                width: var(--size);
+                height: var(--size);
+                border-radius: 2px;
+                background: var(--empty);
+                position: relative;
+                cursor: pointer;
+                transition:
+                    transform 0.1s ease,
+                    box-shadow 0.1s ease;
+            }
+            .day:hover {
+                transform: scale(1.4);
+                box-shadow: 0 0 0 2px var(--l4);
+                z-index: 2;
+            }
+
+            .day::after {
+                content: attr(data-tip);
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%) translateY(-4px);
+                background: var(--text);
+                color: #fff;
+                padding: 4px 6px;
+                border-radius: 4px;
+                font-size: 0.65rem;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+                z-index: 10;
+            }
+            .day:hover::after {
+                opacity: 1;
+            }
+
+            .day.l1 {
+                background: var(--l1);
+            }
+            .day.l2 {
+                background: var(--l2);
+            }
+            .day.l3 {
+                background: var(--l3);
+            }
+            .day.l4 {
+                background: var(--l4);
+            }
+            .day.l5 {
+                background: var(--l5);
+            }
+            .day.empty {
+                background: transparent;
+                cursor: default;
+            }
+
+            .legend {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin-top: 1rem;
+                font-size: 0.75rem;
+                color: var(--muted);
+            }
+            .legend .box {
+                width: var(--size);
+                height: var(--size);
+                border-radius: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>2026 Writing & Publishing Activity</h2>
+        <p class="sub">
+            Realistic creator rhythm • Bursts, burnout, launches & NaNoWriMo •
+            Pure HTML/CSS
+        </p>
+
+        <div class="wrapper">
+            <div class="labels">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+            <div class="grid">
+                <!-- JANUARY (Starts Thursday: +3 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l3" data-tip="Jan 1: Resumed draft (22)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 2: Deep edit session (34)"
+                ></div>
+                <div class="day l1" data-tip="Jan 3: Quick note (5)"></div>
+                <div class="day empty" data-tip="Jan 4: Off day (0)"></div>
+                <div class="day l2" data-tip="Jan 5: Outline post (9)"></div>
+                <div class="day l3" data-tip="Jan 6: Drafted Ch. 3 (18)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 7: Published 'CSS Grid Guide' (41)"
+                ></div>
+                <div
+                    class="day l1"
+                    data-tip="Jan 8: Reply to comments (4)"
+                ></div>
+                <div
+                    class="day l5"
+                    data-tip="Jan 9: Viral share: 8.2k reads (52)"
+                ></div>
+                <div
+                    class="day empty"
+                    data-tip="Jan 10: Weekend rest (0)"
+                ></div>
+                <div class="day l2" data-tip="Jan 11: Brainstorming (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jan 12: Drafting tutorial (20)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 13: Heavy editing day (31)"
+                ></div>
+                <div class="day l1" data-tip="Jan 14: Quick SEO fix (3)"></div>
+                <div
+                    class="day empty"
+                    data-tip="Jan 15: Burnout break (0)"
+                ></div>
+                <div class="day l2" data-tip="Jan 16: Light writing (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jan 17: Published 'Flexbox Tricks' (24)"
+                ></div>
+                <div class="day l1" data-tip="Jan 18: Weekend read (6)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Jan 19: Drafted outline (12)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 20: Long form post (38)"
+                ></div>
+                <div class="day l2" data-tip="Jan 21: Edited intro (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jan 22: Published draft (21)"
+                ></div>
+                <div class="day empty" data-tip="Jan 23: Off day (0)"></div>
+                <div class="day l1" data-tip="Jan 24: Quick edit (7)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 25: Published 'JS Patterns' (33)"
+                ></div>
+                <div class="day empty" data-tip="Jan 26: Weekend off (0)"></div>
+                <div class="day l2" data-tip="Jan 27: Planning Q1 (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jan 28: Drafting Ch. 4 (19)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Jan 29: Heavy writing day (35)"
+                ></div>
+                <div class="day l2" data-tip="Jan 30: Light edits (11)"></div>
+                <div
+                    class="day l5"
+                    data-tip="Jan 31: Monthly wrap-up (48)"
+                ></div>
+
+                <!-- FEBRUARY (Starts Sunday) -->
+                <div class="day empty" data-tip="Feb 1: Rest day (0)"></div>
+                <div class="day l2" data-tip="Feb 2: Back to routine (8)"></div>
+                <div class="day l3" data-tip="Feb 3: Drafting post (17)"></div>
+                <div class="day l1" data-tip="Feb 4: Quick note (4)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Feb 5: Published 'React Hooks' (39)"
+                ></div>
+                <div class="day l2" data-tip="Feb 6: Edit pass (10)"></div>
+                <div class="day empty" data-tip="Feb 7: Off day (0)"></div>
+                <div class="day empty" data-tip="Feb 8: Weekend (0)"></div>
+                <div class="day l3" data-tip="Feb 9: Drafting Ch. 5 (22)"></div>
+                <div
+                    class="day l5"
+                    data-tip="Feb 10: Published feature (54)"
+                ></div>
+                <div
+                    class="day l2"
+                    data-tip="Feb 11: Reply to emails (9)"
+                ></div>
+                <div
+                    class="day empty"
+                    data-tip="Feb 12: Research gap (0)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Feb 13: Valentine's promo (20)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Feb 14: Special post live (42)"
+                ></div>
+                <div
+                    class="day empty"
+                    data-tip="Feb 15: Rest after spike (0)"
+                ></div>
+                <div class="day l1" data-tip="Feb 16: Minor fixes (5)"></div>
+                <div class="day l2" data-tip="Feb 17: Light writing (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Feb 18: Drafting tutorial (23)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Feb 19: Published draft (36)"
+                ></div>
+                <div class="day l1" data-tip="Feb 20: SEO tweaks (6)"></div>
+                <div class="day empty" data-tip="Feb 21: Off day (0)"></div>
+                <div class="day empty" data-tip="Feb 22: Weekend (0)"></div>
+                <div class="day l2" data-tip="Feb 23: Back to work (12)"></div>
+                <div class="day l3" data-tip="Feb 24: Editing Ch. 6 (18)"></div>
+                <div class="day l1" data-tip="Feb 25: Quick note (4)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Feb 26: Long form post (32)"
+                ></div>
+                <div class="day l2" data-tip="Feb 27: Light edits (9)"></div>
+                <div class="day empty" data-tip="Feb 28: Rest day (0)"></div>
+
+                <!-- MARCH (Starts Sunday) -->
+                <div class="day empty" data-tip="Mar 1: Research day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Mar 2: Outline new series (10)"
+                ></div>
+                <div class="day l3" data-tip="Mar 3: Drafted intro (21)"></div>
+                <div class="day l1" data-tip="Mar 4: Quick fix (5)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Mar 5: Published 'TypeScript Tips' (40)"
+                ></div>
+                <div
+                    class="day l2"
+                    data-tip="Mar 6: Engagement check (8)"
+                ></div>
+                <div class="day empty" data-tip="Mar 7: Off day (0)"></div>
+                <div class="day empty" data-tip="Mar 8: Weekend (0)"></div>
+                <div class="day l3" data-tip="Mar 9: Drafting Ch. 1 (19)"></div>
+                <div class="day l4" data-tip="Mar 10: Heavy writing (35)"></div>
+                <div class="day l2" data-tip="Mar 11: Light editing (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Mar 12: Published draft (24)"
+                ></div>
+                <div class="day l1" data-tip="Mar 13: Quick note (4)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Mar 14: Published 'Node Setup' (38)"
+                ></div>
+                <div class="day empty" data-tip="Mar 15: Rest (0)"></div>
+                <div class="day l2" data-tip="Mar 16: Back to desk (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Mar 17: Drafting tutorial (20)"
+                ></div>
+                <div class="day l1" data-tip="Mar 18: SEO check (6)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Mar 19: Long form post (41)"
+                ></div>
+                <div class="day l2" data-tip="Mar 20: Light edits (10)"></div>
+                <div
+                    class="day l5"
+                    data-tip="Mar 21: Viral post hit (53)"
+                ></div>
+                <div class="day empty" data-tip="Mar 22: Weekend off (0)"></div>
+                <div class="day l2" data-tip="Mar 23: Planning next (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Mar 24: Drafting Ch. 2 (22)"
+                ></div>
+                <div class="day l1" data-tip="Mar 25: Quick fix (5)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Mar 26: Published series (34)"
+                ></div>
+                <div class="day l2" data-tip="Mar 27: Light writing (8)"></div>
+                <div class="day l3" data-tip="Mar 28: Editing pass (19)"></div>
+                <div class="day l1" data-tip="Mar 29: Weekend note (3)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Mar 30: Back to routine (10)"
+                ></div>
+                <div class="day l4" data-tip="Mar 31: March recap (37)"></div>
+
+                <!-- APRIL (Starts Wednesday: +3 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l2" data-tip="Apr 1: Light drafting (9)"></div>
+                <div class="day l1" data-tip="Apr 2: Quick edit (4)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Apr 3: Published 'CSS Anim' (23)"
+                ></div>
+                <div class="day empty" data-tip="Apr 4: Off day (0)"></div>
+                <div class="day empty" data-tip="Apr 5: Rest weekend (0)"></div>
+                <div class="day l2" data-tip="Apr 6: Research phase (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Apr 7: Drafting outline (20)"
+                ></div>
+                <div class="day l1" data-tip="Apr 8: Quick note (5)"></div>
+                <div class="day l2" data-tip="Apr 9: Light writing (8)"></div>
+                <div class="day l4" data-tip="Apr 10: Heavy edit (32)"></div>
+                <div class="day l1" data-tip="Apr 11: Weekend check (6)"></div>
+                <div class="day empty" data-tip="Apr 12: Off day (0)"></div>
+                <div class="day l2" data-tip="Apr 13: Back to work (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Apr 14: Drafting Ch. 3 (19)"
+                ></div>
+                <div class="day l1" data-tip="Apr 15: Quick fix (4)"></div>
+                <div class="day l2" data-tip="Apr 16: Light edits (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Apr 17: Published draft (22)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Apr 18: Published 'React State' (36)"
+                ></div>
+                <div class="day empty" data-tip="Apr 19: Rest day (0)"></div>
+                <div class="day l2" data-tip="Apr 20: Planning (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Apr 21: Drafting tutorial (21)"
+                ></div>
+                <div class="day l1" data-tip="Apr 22: Quick note (5)"></div>
+                <div class="day l2" data-tip="Apr 23: Light writing (10)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Apr 24: Published draft (38)"
+                ></div>
+                <div class="day l1" data-tip="Apr 25: Weekend read (3)"></div>
+                <div class="day empty" data-tip="Apr 26: Off day (0)"></div>
+                <div class="day l2" data-tip="Apr 27: Back to desk (11)"></div>
+                <div class="day l3" data-tip="Apr 28: Editing pass (20)"></div>
+                <div class="day l1" data-tip="Apr 29: Quick fix (4)"></div>
+                <div class="day l2" data-tip="Apr 30: Light wrap (8)"></div>
+
+                <!-- MAY (Starts Friday: +5 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l1" data-tip="May 1: Weekend note (5)"></div>
+                <div class="day empty" data-tip="May 2: Off day (0)"></div>
+                <div class="day l2" data-tip="May 3: Brainstorm (10)"></div>
+                <div class="day l3" data-tip="May 4: Drafting Ch. 1 (22)"></div>
+                <div class="day l4" data-tip="May 5: Heavy writing (34)"></div>
+                <div class="day l2" data-tip="May 6: Light edit (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="May 7: Published 'JS Async' (21)"
+                ></div>
+                <div class="day l1" data-tip="May 8: Quick fix (4)"></div>
+                <div class="day empty" data-tip="May 9: Rest day (0)"></div>
+                <div class="day empty" data-tip="May 10: Off day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="May 11: Planning series (11)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="May 12: Drafting tutorial (20)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="May 13: Published draft (37)"
+                ></div>
+                <div class="day l1" data-tip="May 14: SEO check (5)"></div>
+                <div class="day l2" data-tip="May 15: Light edits (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="May 16: Drafting Ch. 2 (19)"
+                ></div>
+                <div
+                    class="day empty"
+                    data-tip="May 17: Weekend rest (0)"
+                ></div>
+                <div
+                    class="day l2"
+                    data-tip="May 18: Back to routine (10)"
+                ></div>
+                <div class="day l3" data-tip="May 19: Heavy edit (22)"></div>
+                <div
+                    class="day l4"
+                    data-tip="May 20: Published 'API Guide' (39)"
+                ></div>
+                <div class="day l1" data-tip="May 21: Quick note (3)"></div>
+                <div class="day l2" data-tip="May 22: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="May 23: Drafting Ch. 3 (21)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="May 24: Published draft (33)"
+                ></div>
+                <div class="day empty" data-tip="May 25: Rest day (0)"></div>
+                <div class="day l2" data-tip="May 26: Engagement (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="May 27: Drafting tutorial (20)"
+                ></div>
+                <div class="day l1" data-tip="May 28: Quick fix (4)"></div>
+                <div class="day l2" data-tip="May 29: Light edits (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="May 30: Published draft (24)"
+                ></div>
+                <div class="day empty" data-tip="May 31: Off day (0)"></div>
+
+                <!-- JUNE (Starts Monday: +1 empty) -->
+                <div class="day empty"></div>
+                <div
+                    class="day l4"
+                    data-tip="Jun 1: LAUNCH WEEK START (35)"
+                ></div>
+                <div
+                    class="day l5"
+                    data-tip="Jun 2: Published 'Major Guide' (56)"
+                ></div>
+                <div class="day l5" data-tip="Jun 3: Promo blast (52)"></div>
+                <div class="day l5" data-tip="Jun 4: 10k reads hit (61)"></div>
+                <div class="day l4" data-tip="Jun 5: Heavy updates (41)"></div>
+                <div class="day l2" data-tip="Jun 6: Light fixes (9)"></div>
+                <div class="day empty" data-tip="Jun 7: Burnout rest (0)"></div>
+                <div class="day empty" data-tip="Jun 8: Off day (0)"></div>
+                <div class="day l1" data-tip="Jun 9: Quick check (3)"></div>
+                <div class="day l2" data-tip="Jun 10: Back to desk (10)"></div>
+                <div
+                    class="day empty"
+                    data-tip="Jun 11: Research gap (0)"
+                ></div>
+                <div class="day l2" data-tip="Jun 12: Light drafting (8)"></div>
+                <div class="day l3" data-tip="Jun 13: Editing pass (18)"></div>
+                <div class="day l1" data-tip="Jun 14: Weekend note (4)"></div>
+                <div class="day empty" data-tip="Jun 15: Rest day (0)"></div>
+                <div class="day l2" data-tip="Jun 16: Planning (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jun 17: Drafting Ch. 1 (20)"
+                ></div>
+                <div class="day l1" data-tip="Jun 18: Quick fix (5)"></div>
+                <div class="day l2" data-tip="Jun 19: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jun 20: Published draft (21)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Jun 21: Published 'React 19' (38)"
+                ></div>
+                <div class="day empty" data-tip="Jun 22: Off day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Jun 23: Back to routine (10)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Jun 24: Drafting tutorial (19)"
+                ></div>
+                <div class="day l1" data-tip="Jun 25: Quick edit (4)"></div>
+                <div class="day l2" data-tip="Jun 26: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jun 27: Published draft (22)"
+                ></div>
+                <div class="day l1" data-tip="Jun 28: Weekend check (3)"></div>
+                <div class="day empty" data-tip="Jun 29: Rest day (0)"></div>
+                <div class="day l2" data-tip="Jun 30: June recap (11)"></div>
+
+                <!-- JULY (Starts Wednesday: +3 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l1" data-tip="Jul 1: Quick note (4)"></div>
+                <div class="day empty" data-tip="Jul 2: Vacation (0)"></div>
+                <div class="day l1" data-tip="Jul 3: Light edit (3)"></div>
+                <div class="day empty" data-tip="Jul 4: Weekend off (0)"></div>
+                <div class="day empty" data-tip="Jul 5: Rest day (0)"></div>
+                <div class="day l1" data-tip="Jul 6: Quick check (2)"></div>
+                <div class="day empty" data-tip="Jul 7: Off day (0)"></div>
+                <div class="day l1" data-tip="Jul 8: Brief draft (5)"></div>
+                <div class="day l2" data-tip="Jul 9: Light writing (9)"></div>
+                <div class="day empty" data-tip="Jul 10: Rest day (0)"></div>
+                <div class="day l1" data-tip="Jul 11: Quick note (4)"></div>
+                <div class="day empty" data-tip="Jul 12: Off day (0)"></div>
+                <div class="day l2" data-tip="Jul 13: Back to desk (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jul 14: Drafting Ch. 1 (20)"
+                ></div>
+                <div class="day l1" data-tip="Jul 15: Quick edit (5)"></div>
+                <div class="day l2" data-tip="Jul 16: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jul 17: Published draft (21)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Jul 18: Published 'CSS Tips' (35)"
+                ></div>
+                <div
+                    class="day empty"
+                    data-tip="Jul 19: Weekend rest (0)"
+                ></div>
+                <div class="day empty" data-tip="Jul 20: Off day (0)"></div>
+                <div class="day l2" data-tip="Jul 21: Planning Q3 (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jul 22: Drafting tutorial (22)"
+                ></div>
+                <div class="day l1" data-tip="Jul 23: Quick fix (4)"></div>
+                <div class="day l2" data-tip="Jul 24: Light edits (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Jul 25: Published draft (20)"
+                ></div>
+                <div class="day l1" data-tip="Jul 26: Weekend note (3)"></div>
+                <div class="day empty" data-tip="Jul 27: Off day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Jul 28: Back to routine (9)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Jul 29: Drafting Ch. 2 (19)"
+                ></div>
+                <div class="day l1" data-tip="Jul 30: Quick edit (5)"></div>
+                <div class="day l2" data-tip="Jul 31: Light wrap (11)"></div>
+
+                <!-- AUGUST (Starts Saturday: +6 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l1" data-tip="Aug 2: Weekend note (3)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Aug 3: Back to routine (10)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 4: Drafting tutorial (20)"
+                ></div>
+                <div class="day l4" data-tip="Aug 5: Heavy edit (34)"></div>
+                <div class="day l2" data-tip="Aug 6: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 7: Published 'Node Guide' (23)"
+                ></div>
+                <div class="day l1" data-tip="Aug 8: Quick fix (4)"></div>
+                <div class="day empty" data-tip="Aug 9: Off day (0)"></div>
+                <div class="day l2" data-tip="Aug 10: Planning (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 11: Drafting Ch. 1 (19)"
+                ></div>
+                <div class="day l1" data-tip="Aug 12: Quick edit (5)"></div>
+                <div class="day l2" data-tip="Aug 13: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 14: Published draft (21)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Aug 15: Published 'TS Patterns' (38)"
+                ></div>
+                <div class="day empty" data-tip="Aug 16: Rest day (0)"></div>
+                <div class="day empty" data-tip="Aug 17: Off day (0)"></div>
+                <div class="day l2" data-tip="Aug 18: Back to desk (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 19: Drafting Ch. 2 (22)"
+                ></div>
+                <div class="day l1" data-tip="Aug 20: Quick fix (4)"></div>
+                <div class="day l2" data-tip="Aug 21: Light edits (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 22: Published draft (20)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Aug 23: Published 'React Hooks' (36)"
+                ></div>
+                <div class="day empty" data-tip="Aug 24: Off day (0)"></div>
+                <div class="day empty" data-tip="Aug 25: Rest day (0)"></div>
+                <div class="day l2" data-tip="Aug 26: Planning Q4 (12)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 27: Drafting tutorial (19)"
+                ></div>
+                <div class="day l1" data-tip="Aug 28: Quick edit (5)"></div>
+                <div class="day l2" data-tip="Aug 29: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Aug 30: Published draft (21)"
+                ></div>
+                <div class="day l1" data-tip="Aug 31: Weekend check (4)"></div>
+
+                <!-- SEPTEMBER (Starts Tuesday: +2 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div
+                    class="day l2"
+                    data-tip="Sep 1: Back to routine (10)"
+                ></div>
+                <div class="day l3" data-tip="Sep 2: Drafting Ch. 1 (22)"></div>
+                <div class="day l4" data-tip="Sep 3: Heavy edit (35)"></div>
+                <div class="day l2" data-tip="Sep 4: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 5: Published 'JS Modules' (20)"
+                ></div>
+                <div class="day l1" data-tip="Sep 6: Quick fix (4)"></div>
+                <div class="day empty" data-tip="Sep 7: Rest day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Sep 8: Planning series (11)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 9: Drafting tutorial (21)"
+                ></div>
+                <div class="day l1" data-tip="Sep 10: Quick note (3)"></div>
+                <div class="day l2" data-tip="Sep 11: Light edits (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 12: Published draft (19)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Sep 13: Published 'CSS Flex' (34)"
+                ></div>
+                <div class="day empty" data-tip="Sep 14: Off day (0)"></div>
+                <div class="day l2" data-tip="Sep 15: Back to desk (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 16: Drafting Ch. 2 (23)"
+                ></div>
+                <div class="day l1" data-tip="Sep 17: Quick edit (5)"></div>
+                <div class="day l2" data-tip="Sep 18: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 19: Published draft (22)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Sep 20: Published 'API Design' (39)"
+                ></div>
+                <div class="day empty" data-tip="Sep 21: Rest day (0)"></div>
+                <div class="day empty" data-tip="Sep 22: Off day (0)"></div>
+                <div class="day l2" data-tip="Sep 23: Planning fall (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 24: Drafting Ch. 3 (20)"
+                ></div>
+                <div class="day l1" data-tip="Sep 25: Quick fix (4)"></div>
+                <div class="day l2" data-tip="Sep 26: Light edits (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Sep 27: Published draft (21)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Sep 28: Published 'React 19' (37)"
+                ></div>
+                <div class="day empty" data-tip="Sep 29: Off day (0)"></div>
+                <div class="day l2" data-tip="Sep 30: Month recap (12)"></div>
+
+                <!-- OCTOBER (Starts Thursday: +4 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div class="day l2" data-tip="Oct 1: Back to routine (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 2: Drafting tutorial (22)"
+                ></div>
+                <div class="day l4" data-tip="Oct 3: Heavy edit (36)"></div>
+                <div class="day empty" data-tip="Oct 4: Rest day (0)"></div>
+                <div class="day l2" data-tip="Oct 5: Planning NaNo (11)"></div>
+                <div class="day l3" data-tip="Oct 6: Drafting Ch. 1 (20)"></div>
+                <div class="day l4" data-tip="Oct 7: Published prep (34)"></div>
+                <div class="day l2" data-tip="Oct 8: Light edits (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 9: Published draft (21)"
+                ></div>
+                <div class="day l5" data-tip="Oct 10: Viral post (55)"></div>
+                <div class="day l1" data-tip="Oct 11: Quick fix (3)"></div>
+                <div class="day empty" data-tip="Oct 12: Off day (0)"></div>
+                <div class="day l2" data-tip="Oct 13: Back to desk (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 14: Drafting Ch. 2 (19)"
+                ></div>
+                <div class="day l4" data-tip="Oct 15: Heavy writing (35)"></div>
+                <div class="day l2" data-tip="Oct 16: Light edits (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 17: Published 'Node Guide' (23)"
+                ></div>
+                <div class="day l1" data-tip="Oct 18: Weekend note (4)"></div>
+                <div class="day empty" data-tip="Oct 19: Rest day (0)"></div>
+                <div class="day l2" data-tip="Oct 20: NaNo prep (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 21: Drafting outline (20)"
+                ></div>
+                <div class="day l1" data-tip="Oct 22: Quick fix (5)"></div>
+                <div class="day l2" data-tip="Oct 23: Light writing (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 24: Published draft (22)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Oct 25: Published 'CSS Grid' (38)"
+                ></div>
+                <div class="day empty" data-tip="Oct 26: Off day (0)"></div>
+                <div class="day empty" data-tip="Oct 27: Rest day (0)"></div>
+                <div class="day l2" data-tip="Oct 28: NaNo warmup (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Oct 29: Drafting Ch. 3 (21)"
+                ></div>
+                <div class="day l4" data-tip="Oct 30: Heavy edit (33)"></div>
+                <div class="day l1" data-tip="Oct 31: Quick wrap (4)"></div>
+
+                <!-- NOVEMBER (Starts Sunday) -->
+                <div class="day empty" data-tip="Nov 1: NaNo day 1 (0)"></div>
+                <div class="day l3" data-tip="Nov 2: Drafting 1.5k (19)"></div>
+                <div class="day l4" data-tip="Nov 3: Heavy writing (36)"></div>
+                <div class="day l3" data-tip="Nov 4: Drafting 2k (22)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Nov 5: Published draft (38)"
+                ></div>
+                <div class="day l2" data-tip="Nov 6: Light edits (11)"></div>
+                <div class="day l3" data-tip="Nov 7: Drafting 1.8k (20)"></div>
+                <div class="day l1" data-tip="Nov 8: Quick fix (3)"></div>
+                <div class="day empty" data-tip="Nov 9: Rest day (0)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Nov 10: Drafting Ch. 2 (23)"
+                ></div>
+                <div class="day l4" data-tip="Nov 11: Heavy writing (39)"></div>
+                <div class="day l2" data-tip="Nov 12: Light editing (9)"></div>
+                <div class="day l3" data-tip="Nov 13: Drafting 2k (21)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Nov 14: Published draft (34)"
+                ></div>
+                <div
+                    class="day l5"
+                    data-tip="Nov 15: Milestone post (51)"
+                ></div>
+                <div class="day empty" data-tip="Nov 16: Off day (0)"></div>
+                <div class="day l2" data-tip="Nov 17: Planning end (10)"></div>
+                <div class="day l3" data-tip="Nov 18: Drafting 1.6k (20)"></div>
+                <div class="day l4" data-tip="Nov 19: Heavy edit (35)"></div>
+                <div class="day l2" data-tip="Nov 20: Light fixes (8)"></div>
+                <div class="day l3" data-tip="Nov 21: Drafting 2k (22)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Nov 22: Published draft (33)"
+                ></div>
+                <div class="day l1" data-tip="Nov 23: Weekend note (4)"></div>
+                <div class="day empty" data-tip="Nov 24: Rest day (0)"></div>
+                <div class="day l2" data-tip="Nov 25: Back to desk (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Nov 26: Drafting Ch. 3 (19)"
+                ></div>
+                <div class="day l4" data-tip="Nov 27: Heavy writing (38)"></div>
+                <div class="day l1" data-tip="Nov 28: Quick fix (5)"></div>
+                <div class="day l2" data-tip="Nov 29: Light edits (10)"></div>
+                <div class="day l3" data-tip="Nov 30: Nov recap (24)"></div>
+
+                <!-- DECEMBER (Starts Tuesday: +2 empty) -->
+                <div class="day empty"></div>
+                <div class="day empty"></div>
+                <div
+                    class="day l2"
+                    data-tip="Dec 1: Back to routine (10)"
+                ></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 2: Drafting outline (21)"
+                ></div>
+                <div class="day l4" data-tip="Dec 3: Heavy edit (36)"></div>
+                <div class="day l2" data-tip="Dec 4: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 5: Published 'JS Tips' (22)"
+                ></div>
+                <div class="day l1" data-tip="Dec 6: Quick fix (4)"></div>
+                <div class="day empty" data-tip="Dec 7: Rest day (0)"></div>
+                <div class="day empty" data-tip="Dec 8: Off day (0)"></div>
+                <div class="day l2" data-tip="Dec 9: Planning wrap (11)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 10: Drafting Ch. 1 (20)"
+                ></div>
+                <div class="day l1" data-tip="Dec 11: Quick edit (3)"></div>
+                <div class="day l2" data-tip="Dec 12: Light edits (8)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 13: Published draft (23)"
+                ></div>
+                <div
+                    class="day l4"
+                    data-tip="Dec 14: Published 'CSS 2027' (37)"
+                ></div>
+                <div class="day empty" data-tip="Dec 15: Off day (0)"></div>
+                <div class="day l2" data-tip="Dec 16: Back to desk (10)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 17: Drafting tutorial (19)"
+                ></div>
+                <div class="day l4" data-tip="Dec 18: Heavy edit (34)"></div>
+                <div class="day l2" data-tip="Dec 19: Light writing (9)"></div>
+                <div
+                    class="day l3"
+                    data-tip="Dec 20: Published draft (21)"
+                ></div>
+                <div class="day l5" data-tip="Dec 21: Year review (49)"></div>
+                <div class="day empty" data-tip="Dec 22: Rest day (0)"></div>
+                <div class="day l1" data-tip="Dec 23: Quick note (5)"></div>
+                <div class="day l2" data-tip="Dec 24: Holiday break (8)"></div>
+                <div class="day empty" data-tip="Dec 25: Christmas (0)"></div>
+                <div class="day l1" data-tip="Dec 26: Weekend read (3)"></div>
+                <div class="day empty" data-tip="Dec 27: Off day (0)"></div>
+                <div
+                    class="day l2"
+                    data-tip="Dec 28: Light planning (10)"
+                ></div>
+                <div class="day l3" data-tip="Dec 29: Drafting 2027 (22)"></div>
+                <div
+                    class="day l4"
+                    data-tip="Dec 30: Published draft (38)"
+                ></div>
+                <div class="day l5" data-tip="Dec 31: Final wrap-up (52)"></div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <span>Less</span>
+            <div class="box" style="background: var(--empty)"></div>
+            <div class="box" style="background: var(--l1)"></div>
+            <div class="box" style="background: var(--l2)"></div>
+            <div class="box" style="background: var(--l3)"></div>
+            <div class="box" style="background: var(--l4)"></div>
+            <div class="box" style="background: var(--l5)"></div>
+            <span>More</span>
+        </div>
+    </body>
+</html>

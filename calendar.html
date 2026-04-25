@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Writing Activity Heatmap</title>
+        <style>
+            :root {
+                --bg: #ffffff;
+                --text: #111827;
+                --muted: #6b7280;
+                --empty: #f3f4f6;
+                --l1: #e5e7eb;
+                --l2: #d1d5db;
+                --l3: #9ca3af;
+                --l4: #6b7280;
+                --l5: #374151;
+                --size: 12px;
+                --gap: 3px;
+            }
+
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                margin: 0;
+                padding: 2rem;
+                box-sizing: border-box;
+            }
+
+            h2 {
+                margin: 0 0 0.25rem;
+                font-weight: 600;
+                font-size: 1.25rem;
+            }
+            p.sub {
+                margin: 0 0 1.5rem;
+                color: var(--muted);
+                font-size: 0.875rem;
+            }
+
+            .wrapper {
+                display: flex;
+                gap: 0.5rem;
+                overflow-x: auto;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--l2);
+                align-items: start;
+            }
+
+            .labels {
+                display: grid;
+                grid-template-rows: repeat(7, var(--size));
+                gap: var(--gap);
+                font-size: 0.6rem;
+                color: var(--muted);
+                height: calc(7 * var(--size) + 6 * var(--gap));
+            }
+            .labels div {
+                height: var(--size);
+                display: flex;
+                align-items: center;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-rows: repeat(7, var(--size));
+                grid-auto-columns: var(--size);
+                grid-auto-flow: column;
+                gap: var(--gap);
+            }
+
+            .day {
+                width: var(--size);
+                height: var(--size);
+                border-radius: 2px;
+                background: var(--empty);
+                position: relative;
+                cursor: pointer;
+                transition:
+                    transform 0.1s ease,
+                    box-shadow 0.1s ease;
+            }
+            .day:hover {
+                transform: scale(1.4);
+                box-shadow: 0 0 0 2px var(--l4);
+                z-index: 2;
+            }
+
+            .day::after {
+                content: attr(data-tip);
+                position: absolute;
+                bottom: 100%;
+                left: 50%;
+                transform: translateX(-50%) translateY(-4px);
+                background: var(--text);
+                color: #fff;
+                padding: 4px 6px;
+                border-radius: 4px;
+                font-size: 0.65rem;
+                white-space: nowrap;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.15s ease;
+                z-index: 10;
+            }
+            .day:hover::after {
+                opacity: 1;
+            }
+
+            .day.l1 { background: var(--l1); }
+            .day.l2 { background: var(--l2); }
+            .day.l3 { background: var(--l3); }
+            .day.l4 { background: var(--l4); }
+            .day.l5 { background: var(--l5); }
+            .day.empty {
+                background: transparent;
+                cursor: default;
+            }
+
+            .legend {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin-top: 1rem;
+                font-size: 0.75rem;
+                color: var(--muted);
+            }
+            .legend .box {
+                width: var(--size);
+                height: var(--size);
+                border-radius: 2px;
+            }
+
+            .year-row {
+                display: flex;
+                align-items: start;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .year-label {
+                font-size: 0.8rem;
+                font-weight: 700;
+                color: var(--muted);
+                width: 2.5rem;
+                padding-top: 2px;
+                flex-shrink: 0;
+                text-align: right;
+            }
+
+            .year-body {
+                flex: 1;
+            }
+
+            .year-stats {
+                margin: 0.4rem 0 0;
+                font-size: 0.75rem;
+                color: var(--muted);
+            }
+
+            .legend {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin-top: 0.5rem;
+                font-size: 0.75rem;
+                color: var(--muted);
+            }
+            .legend .box {
+                width: var(--size);
+                height: var(--size);
+                border-radius: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Writing &amp; Publishing Activity</h2>
+        <p class="sub">242 total posts across all years</p>
+        <div class="year-row">
+            <div class="year-label">2025</div>
+            <div class="year-body">
+                <div class="wrapper">
+                    <div class="labels">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div class="grid">
+                        <div class="day empty"></div>
+                        <div class="day empty"></div>
+                        <div class="day empty"></div>
+                        <div class="day" data-tip="Jan 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 14, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Jan 15, 2025: 1 post"></div>
+                        <div class="day" data-tip="Jan 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Jan 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Feb 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Mar 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Apr 30, 2025: No posts"></div>
+                        <div class="day" data-tip="May 1, 2025: No posts"></div>
+                        <div class="day" data-tip="May 2, 2025: No posts"></div>
+                        <div class="day" data-tip="May 3, 2025: No posts"></div>
+                        <div class="day" data-tip="May 4, 2025: No posts"></div>
+                        <div class="day" data-tip="May 5, 2025: No posts"></div>
+                        <div class="day" data-tip="May 6, 2025: No posts"></div>
+                        <div class="day" data-tip="May 7, 2025: No posts"></div>
+                        <div class="day" data-tip="May 8, 2025: No posts"></div>
+                        <div class="day" data-tip="May 9, 2025: No posts"></div>
+                        <div class="day" data-tip="May 10, 2025: No posts"></div>
+                        <div class="day" data-tip="May 11, 2025: No posts"></div>
+                        <div class="day" data-tip="May 12, 2025: No posts"></div>
+                        <div class="day" data-tip="May 13, 2025: No posts"></div>
+                        <div class="day" data-tip="May 14, 2025: No posts"></div>
+                        <div class="day" data-tip="May 15, 2025: No posts"></div>
+                        <div class="day" data-tip="May 16, 2025: No posts"></div>
+                        <div class="day" data-tip="May 17, 2025: No posts"></div>
+                        <div class="day" data-tip="May 18, 2025: No posts"></div>
+                        <div class="day" data-tip="May 19, 2025: No posts"></div>
+                        <div class="day" data-tip="May 20, 2025: No posts"></div>
+                        <div class="day" data-tip="May 21, 2025: No posts"></div>
+                        <div class="day" data-tip="May 22, 2025: No posts"></div>
+                        <div class="day" data-tip="May 23, 2025: No posts"></div>
+                        <div class="day" data-tip="May 24, 2025: No posts"></div>
+                        <div class="day" data-tip="May 25, 2025: No posts"></div>
+                        <div class="day" data-tip="May 26, 2025: No posts"></div>
+                        <div class="day" data-tip="May 27, 2025: No posts"></div>
+                        <div class="day" data-tip="May 28, 2025: No posts"></div>
+                        <div class="day" data-tip="May 29, 2025: No posts"></div>
+                        <div class="day" data-tip="May 30, 2025: No posts"></div>
+                        <div class="day" data-tip="May 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Jun 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Jul 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Aug 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 22, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Sep 23, 2025: 1 post"></div>
+                        <div class="day" data-tip="Sep 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Sep 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 4, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Oct 5, 2025: 2 posts"></div>
+                        <div class="day" data-tip="Oct 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 25, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 26, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 28, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 29, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Oct 31, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 1, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 2, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 3, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 4, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 5, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 6, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 7, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 8, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 9, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 13, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 14, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 16, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 17, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Nov 22, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Nov 23, 2025: 1 post"></div>
+                        <div class="day l2" data-tip="Nov 24, 2025: 6 posts"></div>
+                        <div class="day l2" data-tip="Nov 25, 2025: 4 posts"></div>
+                        <div class="day l5" data-tip="Nov 26, 2025: 15 posts"></div>
+                        <div class="day l3" data-tip="Nov 27, 2025: 9 posts"></div>
+                        <div class="day l3" data-tip="Nov 28, 2025: 7 posts"></div>
+                        <div class="day" data-tip="Nov 29, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Nov 30, 2025: 2 posts"></div>
+                        <div class="day l1" data-tip="Dec 1, 2025: 1 post"></div>
+                        <div class="day l2" data-tip="Dec 2, 2025: 4 posts"></div>
+                        <div class="day l1" data-tip="Dec 3, 2025: 1 post"></div>
+                        <div class="day l1" data-tip="Dec 4, 2025: 1 post"></div>
+                        <div class="day l1" data-tip="Dec 5, 2025: 2 posts"></div>
+                        <div class="day l2" data-tip="Dec 6, 2025: 6 posts"></div>
+                        <div class="day l1" data-tip="Dec 7, 2025: 1 post"></div>
+                        <div class="day" data-tip="Dec 8, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Dec 9, 2025: 2 posts"></div>
+                        <div class="day" data-tip="Dec 10, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 11, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 12, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 13, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Dec 14, 2025: 1 post"></div>
+                        <div class="day" data-tip="Dec 15, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 16, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Dec 17, 2025: 2 posts"></div>
+                        <div class="day" data-tip="Dec 18, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 19, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 20, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 21, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 22, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 23, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 24, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 25, 2025: No posts"></div>
+                        <div class="day l1" data-tip="Dec 26, 2025: 2 posts"></div>
+                        <div class="day" data-tip="Dec 27, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 28, 2025: No posts"></div>
+                        <div class="day l2" data-tip="Dec 29, 2025: 5 posts"></div>
+                        <div class="day" data-tip="Dec 30, 2025: No posts"></div>
+                        <div class="day" data-tip="Dec 31, 2025: No posts"></div>
+                    </div>
+                </div>
+                <p class="year-stats">76 posts &nbsp;·&nbsp; 22 active days &nbsp;·&nbsp; 3.5 avg posts/active day</p>
+            </div>
+        </div>
+        <div class="year-row">
+            <div class="year-label">2026</div>
+            <div class="year-body">
+                <div class="wrapper">
+                    <div class="labels">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div class="grid">
+                        <div class="day empty"></div>
+                        <div class="day empty"></div>
+                        <div class="day empty"></div>
+                        <div class="day empty"></div>
+                        <div class="day" data-tip="Jan 1, 2026: No posts"></div>
+                        <div class="day l2" data-tip="Jan 2, 2026: 4 posts"></div>
+                        <div class="day l1" data-tip="Jan 3, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Jan 4, 2026: 2 posts"></div>
+                        <div class="day l1" data-tip="Jan 5, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Jan 6, 2026: 1 post"></div>
+                        <div class="day" data-tip="Jan 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 10, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Jan 11, 2026: 1 post"></div>
+                        <div class="day" data-tip="Jan 12, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Jan 13, 2026: 2 posts"></div>
+                        <div class="day l3" data-tip="Jan 14, 2026: 9 posts"></div>
+                        <div class="day l1" data-tip="Jan 15, 2026: 1 post"></div>
+                        <div class="day" data-tip="Jan 16, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Jan 17, 2026: 2 posts"></div>
+                        <div class="day" data-tip="Jan 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 24, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Jan 25, 2026: 1 post"></div>
+                        <div class="day l4" data-tip="Jan 26, 2026: 11 posts"></div>
+                        <div class="day l1" data-tip="Jan 27, 2026: 2 posts"></div>
+                        <div class="day" data-tip="Jan 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Jan 30, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Jan 31, 2026: 1 post"></div>
+                        <div class="day" data-tip="Feb 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 17, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Feb 18, 2026: 1 post"></div>
+                        <div class="day l1" data-tip="Feb 19, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Feb 20, 2026: 1 post"></div>
+                        <div class="day" data-tip="Feb 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Feb 22, 2026: No posts"></div>
+                        <div class="day l2" data-tip="Feb 23, 2026: 4 posts"></div>
+                        <div class="day l2" data-tip="Feb 24, 2026: 4 posts"></div>
+                        <div class="day" data-tip="Feb 25, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Feb 26, 2026: 2 posts"></div>
+                        <div class="day l2" data-tip="Feb 27, 2026: 5 posts"></div>
+                        <div class="day l1" data-tip="Feb 28, 2026: 2 posts"></div>
+                        <div class="day l2" data-tip="Mar 1, 2026: 4 posts"></div>
+                        <div class="day l1" data-tip="Mar 2, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Mar 3, 2026: 2 posts"></div>
+                        <div class="day" data-tip="Mar 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 5, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 6, 2026: 1 post"></div>
+                        <div class="day" data-tip="Mar 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 8, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 9, 2026: 1 post"></div>
+                        <div class="day l1" data-tip="Mar 10, 2026: 2 posts"></div>
+                        <div class="day l1" data-tip="Mar 11, 2026: 1 post"></div>
+                        <div class="day l1" data-tip="Mar 12, 2026: 1 post"></div>
+                        <div class="day" data-tip="Mar 13, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 14, 2026: 1 post"></div>
+                        <div class="day" data-tip="Mar 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 18, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 19, 2026: 1 post"></div>
+                        <div class="day" data-tip="Mar 20, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 21, 2026: 1 post"></div>
+                        <div class="day l1" data-tip="Mar 22, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Mar 23, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Mar 24, 2026: 1 post"></div>
+                        <div class="day" data-tip="Mar 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 27, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 28, 2026: 3 posts"></div>
+                        <div class="day" data-tip="Mar 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Mar 30, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Mar 31, 2026: 2 posts"></div>
+                        <div class="day l1" data-tip="Apr 1, 2026: 1 post"></div>
+                        <div class="day" data-tip="Apr 2, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Apr 3, 2026: 1 post"></div>
+                        <div class="day l1" data-tip="Apr 4, 2026: 3 posts"></div>
+                        <div class="day" data-tip="Apr 5, 2026: No posts"></div>
+                        <div class="day l3" data-tip="Apr 6, 2026: 8 posts"></div>
+                        <div class="day l1" data-tip="Apr 7, 2026: 3 posts"></div>
+                        <div class="day" data-tip="Apr 8, 2026: No posts"></div>
+                        <div class="day l2" data-tip="Apr 9, 2026: 4 posts"></div>
+                        <div class="day l1" data-tip="Apr 10, 2026: 3 posts"></div>
+                        <div class="day l1" data-tip="Apr 11, 2026: 1 post"></div>
+                        <div class="day" data-tip="Apr 12, 2026: No posts"></div>
+                        <div class="day l1" data-tip="Apr 13, 2026: 2 posts"></div>
+                        <div class="day l4" data-tip="Apr 14, 2026: 11 posts"></div>
+                        <div class="day l2" data-tip="Apr 15, 2026: 6 posts"></div>
+                        <div class="day l2" data-tip="Apr 16, 2026: 5 posts"></div>
+                        <div class="day l3" data-tip="Apr 17, 2026: 7 posts"></div>
+                        <div class="day l1" data-tip="Apr 18, 2026: 1 post"></div>
+                        <div class="day l5" data-tip="Apr 19, 2026: 15 posts"></div>
+                        <div class="day" data-tip="Apr 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Apr 30, 2026: No posts"></div>
+                        <div class="day" data-tip="May 1, 2026: No posts"></div>
+                        <div class="day" data-tip="May 2, 2026: No posts"></div>
+                        <div class="day" data-tip="May 3, 2026: No posts"></div>
+                        <div class="day" data-tip="May 4, 2026: No posts"></div>
+                        <div class="day" data-tip="May 5, 2026: No posts"></div>
+                        <div class="day" data-tip="May 6, 2026: No posts"></div>
+                        <div class="day" data-tip="May 7, 2026: No posts"></div>
+                        <div class="day" data-tip="May 8, 2026: No posts"></div>
+                        <div class="day" data-tip="May 9, 2026: No posts"></div>
+                        <div class="day" data-tip="May 10, 2026: No posts"></div>
+                        <div class="day" data-tip="May 11, 2026: No posts"></div>
+                        <div class="day" data-tip="May 12, 2026: No posts"></div>
+                        <div class="day" data-tip="May 13, 2026: No posts"></div>
+                        <div class="day" data-tip="May 14, 2026: No posts"></div>
+                        <div class="day" data-tip="May 15, 2026: No posts"></div>
+                        <div class="day" data-tip="May 16, 2026: No posts"></div>
+                        <div class="day" data-tip="May 17, 2026: No posts"></div>
+                        <div class="day" data-tip="May 18, 2026: No posts"></div>
+                        <div class="day" data-tip="May 19, 2026: No posts"></div>
+                        <div class="day" data-tip="May 20, 2026: No posts"></div>
+                        <div class="day" data-tip="May 21, 2026: No posts"></div>
+                        <div class="day" data-tip="May 22, 2026: No posts"></div>
+                        <div class="day" data-tip="May 23, 2026: No posts"></div>
+                        <div class="day" data-tip="May 24, 2026: No posts"></div>
+                        <div class="day" data-tip="May 25, 2026: No posts"></div>
+                        <div class="day" data-tip="May 26, 2026: No posts"></div>
+                        <div class="day" data-tip="May 27, 2026: No posts"></div>
+                        <div class="day" data-tip="May 28, 2026: No posts"></div>
+                        <div class="day" data-tip="May 29, 2026: No posts"></div>
+                        <div class="day" data-tip="May 30, 2026: No posts"></div>
+                        <div class="day" data-tip="May 31, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Jun 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Jul 31, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Aug 31, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Sep 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Oct 31, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Nov 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 1, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 2, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 3, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 4, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 5, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 6, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 7, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 8, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 9, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 10, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 11, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 12, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 13, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 14, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 15, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 16, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 17, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 18, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 19, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 20, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 21, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 22, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 23, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 24, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 25, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 26, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 27, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 28, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 29, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 30, 2026: No posts"></div>
+                        <div class="day" data-tip="Dec 31, 2026: No posts"></div>
+                    </div>
+                </div>
+                <p class="year-stats">166 posts &nbsp;·&nbsp; 53 active days &nbsp;·&nbsp; 3.1 avg posts/active day</p>
+            </div>
+        </div>
+        <div class="legend">
+            <span>Less</span>
+            <div class="box" style="background: var(--empty)"></div>
+            <div class="box" style="background: var(--l1)"></div>
+            <div class="box" style="background: var(--l2)"></div>
+            <div class="box" style="background: var(--l3)"></div>
+            <div class="box" style="background: var(--l4)"></div>
+            <div class="box" style="background: var(--l5)"></div>
+            <span>More</span>
+        </div>
+    </body>
+</html>

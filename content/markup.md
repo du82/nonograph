@@ -6,6 +6,18 @@ Nonograph supports a lot of concise markup options to make pages fun and express
 You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!
 
 ## Text Formatting
+You can now do stickers (aka emotes) in-line and standalone! Type `:` to search with javascript enabled.
+```md
+:marsey.hi:
+```
+:marsey.hi:
+
+or, do it in-line
+```md
+I like :marsey.hi: marsey, and :bandit.thumbsup: too!
+```
+I like :marsey.hi: marsey, and :bandit.thumbsup: too!
+
 ```md
 **bold**
 ```
@@ -195,13 +207,6 @@ All text formatting works inside lists:
 | Cell 1   | Cell 2   | Cell 3   |
 | Data A   | Data B   | Data C   |
 ```
-
-Like so:
-
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Cell 1   | Cell 2   | Cell 3   |
-| Data A   | Data B   | Data C   |
 
 Align columns with colons in separator row:
 - `:---` Left align
