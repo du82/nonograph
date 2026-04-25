@@ -1,11 +1,78 @@
+use std::net::IpAddr;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::html::{styled_line_to_highlighted_html, IncludeBackground};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
+use url::Url;
 
 fn process_images(text: &str) -> String {
     process_images_with_config(text, &crate::config::Config::default())
+}
+
+fn is_ip_blocked(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            let o = v4.octets();
+            // Loopback: 127.0.0.0/8
+            if o[0] == 127 {
+                return true;
+            }
+            // Unspecified / any: 0.0.0.0/8
+            if o[0] == 0 {
+                return true;
+            }
+            // Private: 10.0.0.0/8
+            if o[0] == 10 {
+                return true;
+            }
+            // Private: 172.16.0.0/12
+            if o[0] == 172 && o[1] >= 16 && o[1] <= 31 {
+                return true;
+            }
+            // Private: 192.168.0.0/16
+            if o[0] == 192 && o[1] == 168 {
+                return true;
+            }
+            // Link-local: 169.254.0.0/16
+            if o[0] == 169 && o[1] == 254 {
+                return true;
+            }
+            // Broadcast / limited broadcast
+            if o == [255, 255, 255, 255] {
+                return true;
+            }
+            false
+        }
+        IpAddr::V6(v6) => {
+            // Loopback: ::1
+            if v6.is_loopback() {
+                return true;
+            }
+            // Unspecified: ::
+            if v6.is_unspecified() {
+                return true;
+            }
+            // IPv4-mapped IPv6 (::ffff:0:0/96) — check the embedded v4 address
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_ip_blocked(IpAddr::V4(v4));
+            }
+            // IPv4-compatible (deprecated but still parseable)
+            if let Some(v4) = v6.to_ipv4() {
+                return is_ip_blocked(IpAddr::V4(v4));
+            }
+            // Unique local: fc00::/7
+            let first = v6.segments()[0];
+            if first & 0xfe00 == 0xfc00 {
+                return true;
+            }
+            // Link-local: fe80::/10
+            if first & 0xffc0 == 0xfe80 {
+                return true;
+            }
+            false
+        }
+    }
 }
 
 fn is_safe_url(url: &str) -> bool {
@@ -13,65 +80,46 @@ fn is_safe_url(url: &str) -> bool {
         return true;
     }
 
-    // Block dangerous protocols
-    if url.starts_with("javascript:")
-        || url.starts_with("data:")
-        || url.starts_with("file:")
-        || url.starts_with("ftp:")
-    {
-        return false;
+    let parsed = match Url::parse(url) {
+        Ok(u) => u,
+        Err(_) => return false,
+    };
+
+    // Only allow http and https
+    match parsed.scheme() {
+        "http" | "https" => {}
+        _ => return false,
     }
 
-    // Only allow http and https for absolute URLs
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return false;
-    }
+    let host = match parsed.host() {
+        Some(h) => h,
+        None => return false,
+    };
 
-    // Parse URL to extract host
-    if let Some(host_start) = url.find("://").map(|i| i + 3) {
-        let remaining = &url[host_start..];
-        let host = if let Some(slash_pos) = remaining.find('/') {
-            &remaining[..slash_pos]
-        } else {
-            remaining
-        };
-
-        // Remove port if present
-        let host = if let Some(colon_pos) = host.find(':') {
-            &host[..colon_pos]
-        } else {
-            host
-        };
-
-        // Block localhost variations
-        if host == "localhost" || host == "127.0.0.1" || host.starts_with("127.") {
-            return false;
-        }
-
-        // Block private IP ranges
-        if host.starts_with("192.168.") || host.starts_with("10.") || host.starts_with("172.") {
-            // Check if it's in 172.16.0.0/12 range
-            if host.starts_with("172.") {
-                if let Some(third_octet_start) = host[4..].find('.') {
-                    if let Ok(second_octet) = host[4..4 + third_octet_start].parse::<u8>() {
-                        if second_octet >= 16 && second_octet <= 31 {
-                            return false;
-                        }
-                    }
-                }
-            } else {
+    match host {
+        url::Host::Ipv4(v4) => {
+            if is_ip_blocked(IpAddr::V4(v4)) {
                 return false;
             }
         }
-
-        // Block link-local addresses (169.254.0.0/16)
-        if host.starts_with("169.254.") {
-            return false;
+        url::Host::Ipv6(v6) => {
+            if is_ip_blocked(IpAddr::V6(v6)) {
+                return false;
+            }
         }
+        url::Host::Domain(domain) => {
+            let ascii_domain = deunicode::deunicode(domain).to_lowercase();
 
-        // Block other internal addresses
-        if host == "0.0.0.0" || host.starts_with("0.") {
-            return false;
+            if ascii_domain == "localhost" {
+                return false;
+            }
+
+            let lookup = ascii_domain.trim_end_matches('.');
+            if let Ok(ip) = lookup.parse::<IpAddr>() {
+                if is_ip_blocked(ip) {
+                    return false;
+                }
+            }
         }
     }
 
@@ -3324,6 +3372,15 @@ Final paragraph with normal text."#;
             "javascript:alert(1)",
             "data:text/html,<script>alert(1)</script>",
             "file:///etc/passwd",
+            "http://2130706433/",
+            "http://0x7f000001/",
+            "http://ⓛⓞⓒⓐⓛⓗⓞⓢⓣ/",
+            "http://[::1]/",
+            "http://0/",
+            "http://localhost%00/",
+            "http://[::ffff:127.0.0.1]/",
+            "http://[fc00::1]/",
+            "http://[fe80::1]/",
         ];
 
         for dangerous_url in dangerous_urls {
