@@ -44,15 +44,17 @@ RUN mkdir -p /app/content /app/templates /var/lib/tor && \
     chmod 700 /var/lib/tor/hidden_service && \
     chown -R nonograph:nonograph /app && \
     chown -R debian-tor:debian-tor /var/lib/tor && \
-    echo "nonograph ALL=(debian-tor) NOPASSWD: /usr/bin/tor" >> /etc/sudoers
+    echo "nonograph ALL=(debian-tor) NOPASSWD: /usr/bin/tor" >> /etc/sudoers && \
+    echo "root ALL=(nonograph) NOPASSWD: /app/nonograph" >> /etc/sudoers
 
 COPY --from=builder /app/target/release/nonograph /app/
 COPY --from=builder /app/Config.toml /app/
 COPY --from=builder /app/templates/ /app/templates/
+COPY entrypoint.sh /app/entrypoint.sh
 
-RUN sed -i 's/address = "127.0.0.1"/address = "0.0.0.0"/' /app/Config.toml || true
+RUN sed -i 's/address = "127.0.0.1"/address = "0.0.0.0"/' /app/Config.toml || true && \
+    chmod +x /app/entrypoint.sh
 
-USER nonograph
 WORKDIR /app
 EXPOSE 8009
 
@@ -62,4 +64,4 @@ ENV ROCKET_PORT=8009
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8009/ || exit 1
 
-CMD ["sh", "-c", "sudo -u debian-tor tor -f /etc/tor/torrc & exec ./nonograph"]
+CMD ["/app/entrypoint.sh"]

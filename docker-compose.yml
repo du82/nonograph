@@ -5,7 +5,7 @@ services:
     ports:
       - "8009:8009"
     volumes:
-      - ./content:/app/content
+      - ${HOME}/nonograph/content:/app/content
       - tor_data:/var/lib/tor
     environment:
       - ROCKET_ADDRESS=0.0.0.0
