@@ -66,5 +66,9 @@ Hate Docker? Run `./run` to build and run natively (Linux only).
 ## Name
 `anonymous` + `monograph` + `telegraph` = `nonograph`
 
+## Audits
+[Security Assessment Report Redacted.pdf](https://github.com/user-attachments/files/27242849/Security.Assessment.Report.Redacted.pdf) - 10/15/2025 audit of the initial release (v0.0.1), paid for in Monero. Only the auditors name and email were redacted.
+
+
 ## License
 Public domain ([Unlicense](https://unlicense.org)). This software belongs to everyone. Use it, modify it, share it without restriction. No attribution required, no strings attached, no warranties provided.
