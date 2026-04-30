@@ -18,6 +18,9 @@
   <a href="http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/">
     <img src="https://img.shields.io/badge/Tor-Hidden%20Service-7d4698?style=flat&logo=torproject&logoColor=white" alt="Tor Hidden Service">
   </a>
+
+English | [简体中文](README.zh.md)
+
 </div>
 
 Self-hosted anonymous publishing. No accounts, no tracking. Write, publish, share. Nothing else collected.
