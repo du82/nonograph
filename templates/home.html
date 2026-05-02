@@ -95,7 +95,7 @@
                 opacity: 1;
             }
             input[type="text"],
-            textarea {
+            textarea[name="title"] {
                 width: 100%;
                 padding: 0;
                 border: none;
@@ -109,11 +109,11 @@
                 -moz-appearance: none;
             }
             input[type="text"]:focus,
-            textarea:focus {
+            textarea[name="title"]:focus {
                 outline: none;
             }
             input[type="text"]::placeholder,
-            textarea::placeholder {
+            textarea[name="title"]::placeholder {
                 color: #999;
                 opacity: 1;
             }
@@ -159,13 +159,188 @@
             .alias-anchor input[type="text"].author-input {
                 margin-bottom: 0;
             }
-            textarea {
-                font-size: 18px;
-                resize: none;
-                line-height: 1.6;
-                -webkit-overflow-scrolling: touch;
-                overflow: hidden;
+            /* Block Editor Styles */
+            .block-editor {
+                width: 100%;
                 min-height: 200px;
+                padding: 0;
+                position: relative;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 18px;
+                line-height: 1.6;
+                outline: none;
+            }
+            .block-editor:focus-within {
+                outline: none;
+            }
+            .block-wrapper {
+                position: relative;
+            }
+            .block {
+                width: 100%;
+                min-height: 1.6em;
+                padding: 2px 0 2px 0;
+                border: none;
+                outline: none;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                font-size: 18px;
+                line-height: 1.6;
+                color: #333;
+                background: transparent;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                position: relative;
+            }
+            .block:focus {
+                outline: none;
+            }
+            .block[data-type="paragraph"] {
+                font-size: 18px;
+                font-weight: 400;
+            }
+            .block[data-type="h1"] {
+                font-size: 28px;
+                font-weight: 600;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                line-height: 1.3;
+            }
+            .block[data-type="h2"] {
+                font-size: 22px;
+                font-weight: 600;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                line-height: 1.3;
+            }
+            .block[data-type="h3"] {
+                font-size: 18px;
+                font-weight: 600;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                line-height: 1.3;
+            }
+            .block[data-type="h4"] {
+                font-size: 16px;
+                font-weight: 600;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                line-height: 1.3;
+            }
+            .block[data-type="blockquote"] {
+                border-left: 3px solid #ddd;
+                padding-left: 16px;
+                color: #666;
+                font-style: italic;
+            }
+            .block[data-type="code"] {
+                font-family: "Courier New", Courier, monospace;
+                font-size: 14px;
+                background: #f5f5f5;
+                padding: 12px;
+                border-radius: 4px;
+                white-space: pre;
+                overflow-x: auto;
+                -webkit-user-modify: read-write;
+            }
+            .block[data-type="bullet"] {
+                padding-left: 24px;
+                position: relative;
+            }
+            .block[data-type="bullet"]::before {
+                content: "•";
+                position: absolute;
+                left: 8px;
+                color: #333;
+            }
+            .block[data-type="numbered"] {
+                padding-left: 32px;
+                position: relative;
+            }
+            .block[data-type="numbered"]::before {
+                content: attr(data-number) ".";
+                position: absolute;
+                left: 0;
+                color: #333;
+                min-width: 28px;
+            }
+            .block[data-type="divider"] {
+                border: none;
+                border-top: 2px solid #ddd;
+                margin: 8px 0;
+                padding: 0;
+                min-height: 0;
+                height: 0;
+                cursor: default;
+                overflow: visible;
+            }
+            .block[data-indent="1"] {
+                padding-left: 40px;
+            }
+            .block[data-indent="1"]::before {
+                left: 24px;
+            }
+            .block[data-indent="2"] {
+                padding-left: 64px;
+            }
+            .block[data-indent="2"]::before {
+                left: 48px;
+            }
+            .block-type-label {
+                position: absolute;
+                left: -40px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 10px;
+                color: #ccc;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                font-weight: 500;
+                letter-spacing: 0.05em;
+                pointer-events: none;
+                user-select: none;
+                text-transform: uppercase;
+                white-space: nowrap;
+                display: none;
+            }
+            @media (min-width: 769px) {
+                .block-wrapper:focus-within .block-type-label {
+                    display: block;
+                }
+            }
+            /* Placeholder styles */
+            /* First paragraph block in the editor gets the full placeholder */
+            .block-wrapper:first-child
+                .block[data-empty="true"][data-type="paragraph"]::before {
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+                font-weight: 400;
+            }
+            /* All other empty paragraph blocks show nothing */
+            .block-wrapper:not(:first-child)
+                .block[data-empty="true"][data-type="paragraph"]::before {
+                content: "";
+            }
+            /* Headings and blockquote — no pseudo-content placeholder needed */
+            .block[data-empty="true"][data-type="h1"]::before,
+            .block[data-empty="true"][data-type="h2"]::before,
+            .block[data-empty="true"][data-type="h3"]::before,
+            .block[data-empty="true"][data-type="h4"]::before,
+            .block[data-empty="true"][data-type="blockquote"]::before {
+                content: "";
+            }
+            /* Bullet: keep the bullet dot (from ::before) — no extra content */
+            .block[data-empty="true"][data-type="bullet"]::before {
+                content: "•";
+            }
+            /* Numbered: keep the number (from ::before) */
+            .block[data-empty="true"][data-type="numbered"]::before {
+                content: attr(data-number) ".";
             }
             button {
                 background: #333;
@@ -527,10 +702,13 @@
                     font-size: 16px;
                     height: 32px;
                 }
-                textarea {
+                .block-editor {
                     font-size: 16px;
                     line-height: 1.5;
                     min-height: 200px;
+                }
+                .block[data-type="paragraph"] {
+                    font-size: 16px;
                 }
                 .sidebar {
                     margin-top: 24px;
@@ -590,9 +768,12 @@
                     font-size: 16px;
                     height: 32px;
                 }
-                textarea {
+                .block-editor {
                     font-size: 16px;
                     min-height: 180px;
+                }
+                .block[data-type="paragraph"] {
+                    font-size: 16px;
                 }
 
                 /* Hide the original sidebar elements on mobile */
@@ -811,13 +992,8 @@
                             title="Mind your opsec. Limited to 32 characters."
                         />
                     </div>
-                    <textarea
-                        name="content"
-                        placeholder="Write something with markdown or type / for formatting options..."
-                        maxlength="{{content_max_length}}"
-                        title="Mind your opsec, be careful what you share."
-                        required
-                    ></textarea>
+                    <div id="blockEditor" class="block-editor"></div>
+                    <input type="hidden" name="content" id="contentHidden" />
                     <input
                         type="hidden"
                         name="csrf_token"
@@ -856,7 +1032,9 @@
         <div class="editor-menu" id="slashMenu"></div>
 
         <script>
-            const textarea = document.querySelector('textarea[name="content"]');
+            // ─── Block Editor State ───────────────────────────────────────────
+            const blockEditorEl = document.getElementById("blockEditor");
+            const contentHidden = document.getElementById("contentHidden");
             const charCount = document.getElementById("charCount");
             const mobileCharCount = document.getElementById("mobileCharCount");
             const form = document.getElementById("publishForm");
@@ -867,10 +1045,12 @@
             );
 
             let slashMenuActive = false;
-            let slashPosition = -1;
-            let selectedMenuIndex = 0;
+            let slashAnchorBlock = null; // the block where / was typed
             let slashQuery = "";
+            let selectedMenuIndex = 0;
+            let activeBlock = null; // currently focused block element
 
+            // ─── Menu Items ───────────────────────────────────────────────────
             const menuItems = [
                 {
                     label: "Heading 1",
@@ -1094,152 +1274,288 @@
                 titleTextarea.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        this.blur(); // Optionally move focus away
+                        this.blur();
                         return false;
                     }
                 });
-
-                // Auto-resize title textarea
                 titleTextarea.addEventListener('input', function() {
                     this.style.height = 'auto';
                     this.style.height = this.scrollHeight + 'px';
                 });
             }
 
-            function isAtLineStart() {
-                // When slash menu is active, use slash position for context
-                const checkPos = slashMenuActive
-                    ? slashPosition
-                    : textarea.selectionStart;
-                const textBeforeCheck = textarea.value.substring(0, checkPos);
+            // ─── Block Editor Core ────────────────────────────────────────────
 
-                if (checkPos === 0) return true;
+            /** Create a new block wrapper + block element */
+            function createBlock(type, text, indentLevel) {
+                type = type || "paragraph";
+                text = text || "";
+                indentLevel = indentLevel || 0;
 
-                const lastChar = textBeforeCheck.charAt(
-                    textBeforeCheck.length - 1,
-                );
+                const wrapper = document.createElement("div");
+                wrapper.className = "block-wrapper";
 
-                // At line start if previous char is newline or we're at document start
-                return lastChar === "\n" || textBeforeCheck.length === 0;
-            }
+                const label = document.createElement("span");
+                label.className = "block-type-label";
+                label.textContent = blockTypeLabel(type);
+                wrapper.appendChild(label);
 
-            // Helper functions for bullet point handling
-            function getCurrentLineStart() {
-                const cursorPos = textarea.selectionStart;
-                const textBeforeCursor = textarea.value.substring(0, cursorPos);
-                const lastNewlineIndex = textBeforeCursor.lastIndexOf("\n");
-                return lastNewlineIndex === -1 ? 0 : lastNewlineIndex + 1;
-            }
-
-            function getCurrentLineText() {
-                const lineStart = getCurrentLineStart();
-                const cursorPos = textarea.selectionStart;
-                const textFromLineStart = textarea.value.substring(lineStart);
-                const nextNewlineIndex = textFromLineStart.indexOf("\n");
-                return nextNewlineIndex === -1
-                    ? textFromLineStart
-                    : textFromLineStart.substring(0, nextNewlineIndex);
-            }
-
-            function isOnListLine() {
-                const lineText = getCurrentLineText();
-                return /^(\s*(?:[-*]|\d+\.)\s+)/.test(lineText);
-            }
-
-            function getListPrefix() {
-                const lineText = getCurrentLineText();
-                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)/);
-                return match ? match[1] : null;
-            }
-
-            function isListLineEmpty() {
-                const lineText = getCurrentLineText();
-                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)(.*)$/);
-                return match ? match[2].trim() === "" : false;
-            }
-
-            function getNextListPrefix() {
-                const lineText = getCurrentLineText();
-                const bulletMatch = lineText.match(/^(\s*)([-*])(\s+)/);
-                if (bulletMatch) {
-                    // Return same bullet prefix
-                    return bulletMatch[1] + bulletMatch[2] + bulletMatch[3];
+                if (type === "divider") {
+                    const div = document.createElement("div");
+                    div.className = "block";
+                    div.dataset.type = "divider";
+                    div.contentEditable = "false";
+                    wrapper.appendChild(div);
+                    return wrapper;
                 }
 
-                const numberedMatch = lineText.match(/^(\s*)(\d+)(\.\s+)/);
-                if (numberedMatch) {
-                    // Increment the number
-                    const indent = numberedMatch[1];
-                    const currentNumber = parseInt(numberedMatch[2]);
-                    const suffix = numberedMatch[3];
-                    return indent + (currentNumber + 1) + suffix;
+                const block = document.createElement("div");
+                block.className = "block";
+                block.contentEditable = "true";
+                block.dataset.type = type;
+                block.dataset.placeholder = "Write something with markdown or type / for formatting options...";
+                if (indentLevel > 0) block.dataset.indent = indentLevel;
+                block.textContent = text;
+                updateBlockEmpty(block);
+                wrapper.appendChild(block);
+                attachBlockListeners(block);
+                return wrapper;
+            }
+
+            function blockTypeLabel(type) {
+                const labels = { h1:"H1", h2:"H2", h3:"H3", h4:"H4",
+                    blockquote:"Quote", code:"Code", bullet:"List",
+                    numbered:"Num", divider:"—", paragraph:"" };
+                return labels[type] || "";
+            }
+
+            function updateBlockEmpty(block) {
+                if (block.dataset.type === "divider") return;
+                const isEmpty = block.textContent === "";
+                block.dataset.empty = isEmpty ? "true" : "false";
+            }
+
+            function getAllBlocks() {
+                return Array.from(blockEditorEl.querySelectorAll(".block"));
+            }
+
+            function getAllWrappers() {
+                return Array.from(blockEditorEl.querySelectorAll(".block-wrapper"));
+            }
+
+            function getBlockIndex(block) {
+                return getAllBlocks().indexOf(block);
+            }
+
+            function getBlockWrapper(block) {
+                return block.closest(".block-wrapper");
+            }
+
+            function ensureAtLeastOneBlock() {
+                if (blockEditorEl.querySelectorAll(".block").length === 0) {
+                    blockEditorEl.appendChild(createBlock("paragraph", ""));
+                }
+                renumberBlocks();
+            }
+
+            /** Re-assign data-number to all numbered blocks sequentially */
+            function renumberBlocks() {
+                let n = 1;
+                getAllBlocks().forEach(b => {
+                    if (b.dataset.type === "numbered") {
+                        b.dataset.number = n++;
+                    } else {
+                        n = 1; // reset counter when list is broken
+                    }
+                });
+            }
+
+            /** Get the caret offset (character index) within a contenteditable element */
+            function getCaretOffset(el) {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return 0;
+                const range = sel.getRangeAt(0);
+                const preRange = range.cloneRange();
+                preRange.selectNodeContents(el);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                return preRange.toString().length;
+            }
+
+            /** Set caret to a specific character offset within el */
+            function setCaretOffset(el, offset) {
+                el.focus();
+                const sel = window.getSelection();
+                if (!sel) return;
+                const range = document.createRange();
+                let node = el;
+                let remaining = offset;
+
+                function walk(n) {
+                    if (n.nodeType === Node.TEXT_NODE) {
+                        if (remaining <= n.textContent.length) {
+                            range.setStart(n, remaining);
+                            range.collapse(true);
+                            return true;
+                        }
+                        remaining -= n.textContent.length;
+                    } else {
+                        for (const child of n.childNodes) {
+                            if (walk(child)) return true;
+                        }
+                    }
+                    return false;
                 }
 
-                return null;
+                if (!walk(el)) {
+                    // Place at end
+                    range.selectNodeContents(el);
+                    range.collapse(false);
+                }
+                sel.removeAllRanges();
+                sel.addRange(range);
             }
 
-            function resizeTextarea() {
-                textarea.style.height = "auto";
-                textarea.style.height = textarea.scrollHeight + "px";
+            /** Focus a block at a given offset (default = end) */
+            function focusBlock(block, offset) {
+                if (block.dataset.type === "divider") {
+                    block.focus();
+                    return;
+                }
+                const len = block.textContent.length;
+                if (offset === undefined || offset === null) offset = len;
+                offset = Math.min(Math.max(0, offset), len);
+                setCaretOffset(block, offset);
             }
 
-            function handleListEnter(e) {
-                if (!isOnListLine()) return false;
+            /** Insert a new block after a given block, return the new block element */
+            function insertBlockAfter(refBlock, type, text, indentLevel) {
+                const wrapper = createBlock(type, text, indentLevel);
+                const refWrapper = getBlockWrapper(refBlock);
+                refWrapper.after(wrapper);
+                renumberBlocks();
+                return wrapper.querySelector(".block");
+            }
 
-                e.preventDefault();
+            /** Insert a new block before a given block */
+            function insertBlockBefore(refBlock, type, text) {
+                const wrapper = createBlock(type, text);
+                const refWrapper = getBlockWrapper(refBlock);
+                refWrapper.before(wrapper);
+                renumberBlocks();
+                return wrapper.querySelector(".block");
+            }
 
-                const cursorPos = textarea.selectionStart;
-                const lineStart = getCurrentLineStart();
+            /** Delete a block's wrapper */
+            function deleteBlock(block) {
+                const wrapper = getBlockWrapper(block);
+                if (wrapper) wrapper.remove();
+                ensureAtLeastOneBlock();
+            }
 
-                if (isListLineEmpty()) {
-                    // Remove the list item and go back to normal text
-                    const lineEnd = lineStart + getCurrentLineText().length;
-                    const textBefore = textarea.value.substring(0, lineStart);
-                    const textAfter = textarea.value.substring(lineEnd);
-                    textarea.value = textBefore + textAfter;
-                    textarea.setSelectionRange(lineStart, lineStart);
+            /** Convert current block to a different type */
+            function convertBlock(block, newType) {
+                const oldType = block.dataset.type;
+                block.dataset.type = newType;
+                block.closest(".block-wrapper").querySelector(".block-type-label").textContent = blockTypeLabel(newType);
+                if (newType === "divider") {
+                    block.contentEditable = "false";
+                    block.textContent = "";
                 } else {
-                    // Create new list item with proper prefix
-                    const nextPrefix = getNextListPrefix();
-                    const textBefore = textarea.value.substring(0, cursorPos);
-                    const textAfter = textarea.value.substring(cursorPos);
-                    const newText = textBefore + "\n" + nextPrefix + textAfter;
-                    textarea.value = newText;
-                    const newCursorPos = cursorPos + 1 + nextPrefix.length;
-                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+                    block.contentEditable = "true";
                 }
+                if (newType === "code") {
+                    block.style.whiteSpace = "pre";
+                } else {
+                    block.style.whiteSpace = "";
+                }
+                updateBlockEmpty(block);
+                renumberBlocks();
+            }
 
-                updateCharCount();
-                resizeTextarea();
-                return true;
+            // ─── Serialization ────────────────────────────────────────────────
+
+            function serializeBlocks() {
+                const blocks = getAllBlocks();
+                const parts = [];
+                let prevType = null;
+
+                blocks.forEach((block, i) => {
+                    const type = block.dataset.type;
+                    const text = (block.innerText || block.textContent || "").replace(/\n+$/, ""); // strip trailing newlines contenteditable may insert
+
+                    let line = "";
+                    if (type === "paragraph") {
+                        line = text;
+                    } else if (type === "h1") {
+                        line = "# " + text;
+                    } else if (type === "h2") {
+                        line = "## " + text;
+                    } else if (type === "h3") {
+                        line = "### " + text;
+                    } else if (type === "h4") {
+                        line = "#### " + text;
+                    } else if (type === "blockquote") {
+                        line = "> " + text;
+                    } else if (type === "code") {
+                        line = "```\n" + text + "\n```";
+                    } else if (type === "bullet") {
+                        const indent = parseInt(block.dataset.indent || 0);
+                        line = "  ".repeat(indent) + "- " + text;
+                    } else if (type === "numbered") {
+                        const indent = parseInt(block.dataset.indent || 0);
+                        const num = block.dataset.number || (i + 1);
+                        line = "  ".repeat(indent) + num + ". " + text;
+                    } else if (type === "divider") {
+                        line = "---";
+                    } else {
+                        line = text;
+                    }
+
+                    // Use single \n between consecutive list items; \n\n elsewhere
+                    const isListType = (t) => t === "bullet" || t === "numbered";
+                    if (i > 0 && isListType(type) && isListType(prevType)) {
+                        parts.push("\n" + line);
+                    } else if (i > 0) {
+                        parts.push("\n\n" + line);
+                    } else {
+                        parts.push(line);
+                    }
+                    prevType = type;
+                });
+
+                return parts.join("");
+            }
+
+            // ─── Slash Menu (block-editor aware) ─────────────────────────────
+
+            function isAtLineStartInBlock(block) {
+                const offset = getCaretOffset(block);
+                const text = block.textContent;
+                if (offset === 0) return true;
+                return text[offset - 1] === "\n";
             }
 
             function getContextualMenuItems() {
-                const atLineStart = isAtLineStart();
+                const atLineStart = slashAnchorBlock
+                    ? isAtLineStartInBlock(slashAnchorBlock)
+                    : true;
 
                 let filteredItems = menuItems.filter((item) => {
-                    // Always show items that work both inline and at line start
                     if (!item.blockLevel && !item.inline) return true;
-
-                    // At line start: show all items
                     if (atLineStart) return true;
-
-                    // In middle of line: only show inline items
                     return item.inline === true;
                 });
 
-                // Further filter by search query if there's text after slash
                 if (slashQuery.trim()) {
                     filteredItems = filteredItems.filter((item) =>
-                        item.label
-                            .toLowerCase()
-                            .includes(slashQuery.toLowerCase()),
+                        item.label.toLowerCase().includes(slashQuery.toLowerCase())
                     );
                 }
 
                 return filteredItems;
             }
 
+            // ─── Progress / Char Count ────────────────────────────────────────
             function updateProgressCircle(percentage, circleElement) {
                 if (!circleElement) return;
 
@@ -1262,522 +1578,597 @@
             }
 
             function updateCharCount() {
-                const count = textarea.value.length;
+                const serialized = serializeBlocks();
+                const count = serialized.length;
                 const button = document.querySelector('button[type="submit"]');
                 const limit = {{content_max_length}};
                 const countText =
                     count.toLocaleString() + " / " + limit.toLocaleString();
                 const percentage = (count / limit) * 100;
 
-                // Update desktop character count
                 if (charCount) {
                     const span = charCount.querySelector("span");
                     if (span) span.textContent = countText;
                     updateProgressCircle(percentage, progressCircle);
                 }
 
-                // Update mobile character count
                 if (mobileCharCount) {
                     const span = mobileCharCount.querySelector("span");
                     if (span) span.textContent = countText;
                     updateProgressCircle(percentage, mobileProgressCircle);
                 }
 
-                // Update button state and character count styling
                 if (count > limit) {
                     if (charCount) charCount.classList.add("over-limit");
-                    if (mobileCharCount)
-                        mobileCharCount.classList.add("over-limit");
+                    if (mobileCharCount) mobileCharCount.classList.add("over-limit");
                     button.disabled = true;
                 } else {
                     if (charCount) charCount.classList.remove("over-limit");
-                    if (mobileCharCount)
-                        mobileCharCount.classList.remove("over-limit");
+                    if (mobileCharCount) mobileCharCount.classList.remove("over-limit");
                     button.disabled = false;
                 }
             }
 
-            function getCursorHorizontalPosition() {
-                const cursorPos = textarea.selectionStart;
-                const textUpToCursor = textarea.value.substring(0, cursorPos);
-                const lines = textUpToCursor.split("\n");
-                const currentLineText = lines[lines.length - 1];
-
-                // Get textarea positioning and styling
-                const rect = textarea.getBoundingClientRect();
-                const styles = window.getComputedStyle(textarea);
-                const paddingLeft = parseFloat(styles.paddingLeft);
-
-                // Create temporary element to measure text width
-                const measurer = document.createElement("span");
-                measurer.style.font = styles.font;
-                measurer.style.fontSize = styles.fontSize;
-                measurer.style.fontFamily = styles.fontFamily;
-                measurer.style.visibility = "hidden";
-                measurer.style.position = "absolute";
-                measurer.style.whiteSpace = "pre";
-                measurer.textContent = currentLineText;
-                document.body.appendChild(measurer);
-
-                const textWidth = measurer.getBoundingClientRect().width;
-                document.body.removeChild(measurer);
-
-                // Calculate horizontal cursor position
-                return rect.left + paddingLeft + textWidth;
-            }
-
-            function showSlashMenu(x, y) {
-                slashMenuActive = true; // Set this first so isAtLineStart() works correctly
+            /** Position and show the slash menu using the actual caret rect */
+            function showSlashMenu() {
+                slashMenuActive = true;
                 const contextualItems = getContextualMenuItems();
                 slashMenu.innerHTML = "";
+                if (contextualItems.length === 0) {
+                    hideSlashMenu();
+                    return;
+                }
                 contextualItems.forEach((item, index) => {
                     const div = document.createElement("div");
-                    div.className =
-                        "menu-item" + (index === 0 ? " selected" : "");
-                    div.innerHTML = `
-                    <span class="menu-label">${item.label}</span>
-                    ${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ""}
-                `;
-                    div.addEventListener("click", () => applyFormat(item));
+                    div.className = "menu-item" + (index === 0 ? " selected" : "");
+                    div.innerHTML = `<span class="menu-label">${item.label}</span>${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ""}`;
+                    div.addEventListener("mousedown", (e) => {
+                        e.preventDefault(); // prevent blur
+                        applyBlockFormat(item);
+                    });
                     slashMenu.appendChild(div);
                 });
 
-                // Get horizontal cursor position and textarea bounds
-                const cursorX = getCursorHorizontalPosition();
-                const textareaRect = textarea.getBoundingClientRect();
-
-                // Calculate optimal position
-                const menuWidth = 300;
-                const menuHeight = Math.min(
-                    contextualItems.length * 40 + 10,
-                    300,
-                );
-                // Use fixed height for positioning to maintain consistency
-                const positioningHeight = 50; // Height of single item for positioning
-                const padding = 10;
-
-                // Use actual cursor X position, but keep within textarea bounds
-                let menuX = cursorX;
-                if (menuX + menuWidth > textareaRect.right - padding) {
-                    menuX = textareaRect.right - menuWidth - padding;
-                }
-                if (menuX < textareaRect.left + padding) {
-                    menuX = textareaRect.left + padding;
+                // Position using getBoundingClientRect on the actual caret range
+                const sel = window.getSelection();
+                let x = 0, y = 0;
+                if (sel && sel.rangeCount > 0) {
+                    const range = sel.getRangeAt(0).cloneRange();
+                    range.collapse(true);
+                    const rect = range.getBoundingClientRect();
+                    x = rect.left + window.scrollX;
+                    y = rect.bottom + window.scrollY;
                 }
 
-                // Always position menu below the cursor line
-                let menuY = y + 35; // Fixed offset below cursor line
+                const menuWidth = 260;
+                const padding = 8;
+                const viewportWidth = window.innerWidth;
 
-                // Only adjust if menu would go completely outside textarea
-                // Use fixed positioning height so position is consistent
-                if (menuY + positioningHeight > textareaRect.bottom) {
-                    // If menu is too tall for textarea, position at bottom and let it scroll
-                    menuY = Math.max(
-                        y - positioningHeight - 15,
-                        textareaRect.top + padding,
-                    );
+                let menuX = x;
+                if (menuX + menuWidth > viewportWidth - padding) {
+                    menuX = viewportWidth - menuWidth - padding;
                 }
+                if (menuX < padding) menuX = padding;
+
+                let menuY = y + 4;
 
                 slashMenu.style.left = menuX + "px";
                 slashMenu.style.top = menuY + "px";
                 slashMenu.classList.add("active");
                 selectedMenuIndex = 0;
-
-                // Reset scroll position to top
                 slashMenu.scrollTop = 0;
             }
 
             function hideSlashMenu() {
                 slashMenu.classList.remove("active");
                 slashMenuActive = false;
-                slashPosition = -1;
+                slashAnchorBlock = null;
                 slashQuery = "";
+                selectedMenuIndex = 0;
             }
 
             function updateMenuSelection() {
                 const items = slashMenu.querySelectorAll(".menu-item");
-                const contextualItems = getContextualMenuItems();
-
                 items.forEach((item, index) => {
                     if (index === selectedMenuIndex) {
                         item.classList.add("selected");
-                        // Scroll the selected item into view
-                        item.scrollIntoView({
-                            block: "nearest",
-                            behavior: "smooth",
-                        });
+                        item.scrollIntoView({ block: "nearest", behavior: "smooth" });
                     } else {
                         item.classList.remove("selected");
                     }
                 });
             }
 
-            function applyFormat(item, selectedText = null) {
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const text = textarea.value;
+            // ─── Apply Format (block-editor version) ─────────────────────────
 
-                if (slashMenuActive) {
-                    // Remove the slash and any search query
-                    const before = text.substring(0, slashPosition);
-                    const after = text.substring(start);
-                    const newText = before + item.format + after;
-                    textarea.value = newText;
+            /**
+             * Inline format helpers: insert markdown syntax around selection or at cursor
+             * within a contenteditable block.
+             */
+            function applyInlineFormat(block, item) {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return;
+                const range = sel.getRangeAt(0);
 
-                    const cursorPos =
-                        slashPosition +
-                        item.format.length +
-                        (item.cursorOffset || 0);
-                    textarea.setSelectionRange(cursorPos, cursorPos);
-                    hideSlashMenu();
-                } else {
-                    // Apply to selection or insert at cursor
-                    selectedText = selectedText || text.substring(start, end);
-                    const hasSelection = start !== end;
-                    let newText, cursorPos;
+                // Determine if selection spans within this block
+                const selectedText = sel.toString();
+                const hasSelection = selectedText.length > 0;
 
-                    if (item.label === "Bold") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                selectedText +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "****" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Italic") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "*" +
-                                selectedText +
-                                "*" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Underline") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "_" +
-                                selectedText +
-                                "_" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "__" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Strikethrough") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "~" +
-                                selectedText +
-                                "~" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "~~" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Superscript") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "^" +
-                                selectedText +
-                                "^" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "^^" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Highlight") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "==" +
-                                selectedText +
-                                "==" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "====" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Inline Code") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "`" +
-                                selectedText +
-                                "`" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "``" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Code Block") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n" +
-                                selectedText +
-                                "\n```" +
-                                text.substring(end);
-                            cursorPos = end + 8;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n\n```" +
-                                text.substring(end);
-                            cursorPos = start + 4;
-                        }
-                    } else if (item.label === "Link") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "[" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 3;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "[](url)" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Image") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "![" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "![](url)" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else {
-                        // Generic handling for other formats
-                        newText =
-                            text.substring(0, start) +
-                            item.format +
-                            text.substring(end);
-                        cursorPos =
-                            start +
-                            item.format.length +
-                            (item.cursorOffset || 0);
-                    }
+                // We'll manipulate via textContent + caret offset
+                const fullText = block.textContent;
+                const startOffset = getCaretOffset(block);
 
-                    textarea.value = newText;
-                    textarea.setSelectionRange(cursorPos, cursorPos);
+                // Compute the selection range within the block text
+                // (clamp to block)
+                let selStart = startOffset;
+                let selEnd = startOffset;
+                if (hasSelection) {
+                    // walk both ends
+                    const preStart = (() => {
+                        const r = range.cloneRange();
+                        r.selectNodeContents(block);
+                        r.setEnd(range.startContainer, range.startOffset);
+                        return r.toString().length;
+                    })();
+                    const preEnd = (() => {
+                        const r = range.cloneRange();
+                        r.selectNodeContents(block);
+                        r.setEnd(range.endContainer, range.endOffset);
+                        return r.toString().length;
+                    })();
+                    selStart = preStart;
+                    selEnd = preEnd;
                 }
 
+                let newText, newCaret;
+                const lbl = item.label;
+
+                const wrap = (open, close) => {
+                    if (hasSelection) {
+                        newText = fullText.slice(0, selStart) + open + selectedText + close + fullText.slice(selEnd);
+                        newCaret = selEnd + open.length + close.length;
+                    } else {
+                        newText = fullText.slice(0, selStart) + open + close + fullText.slice(selStart);
+                        newCaret = selStart + open.length;
+                    }
+                };
+
+                if (lbl === "Bold") { wrap("**", "**"); }
+                else if (lbl === "Italic") { wrap("*", "*"); }
+                else if (lbl === "Underline") { wrap("_", "_"); }
+                else if (lbl === "Strikethrough") { wrap("~~", "~~"); }
+                else if (lbl === "Superscript") { wrap("^", "^"); }
+                else if (lbl === "Highlight") { wrap("==", "=="); }
+                else if (lbl === "Inline Code") { wrap("`", "`"); }
+                else if (lbl === "Link") {
+                    if (hasSelection) {
+                        newText = fullText.slice(0, selStart) + "[" + selectedText + "](url)" + fullText.slice(selEnd);
+                        newCaret = selStart + selectedText.length + 3;
+                    } else {
+                        newText = fullText.slice(0, selStart) + "[](url)" + fullText.slice(selStart);
+                        newCaret = selStart + 1;
+                    }
+                } else if (lbl === "Image") {
+                    if (hasSelection) {
+                        newText = fullText.slice(0, selStart) + "![" + selectedText + "](url)" + fullText.slice(selEnd);
+                        newCaret = selStart + selectedText.length + 4;
+                    } else {
+                        newText = fullText.slice(0, selStart) + "![](url)" + fullText.slice(selStart);
+                        newCaret = selStart + 2;
+                    }
+                } else {
+                    // Generic inline: use item.format
+                    const fmt = item.format || "";
+                    newText = fullText.slice(0, selStart) + fmt + fullText.slice(selStart);
+                    newCaret = selStart + fmt.length + (item.cursorOffset || 0);
+                }
+
+                if (newText !== undefined) {
+                    block.textContent = newText;
+                    updateBlockEmpty(block);
+                    setCaretOffset(block, newCaret);
+                }
                 updateCharCount();
-                resizeTextarea();
-                textarea.focus();
             }
 
-            // Textarea event listeners
-            textarea.addEventListener("input", function (e) {
-                const cursorPos = this.selectionStart;
-                const textBeforeCursor = this.value.substring(0, cursorPos);
-                const lastChar = textBeforeCursor.charAt(
-                    textBeforeCursor.length - 1,
-                );
+            /**
+             * Apply a menu item to the currently active block.
+             * Block-level items convert the block type; inline items insert markdown.
+             */
+            function applyBlockFormat(item) {
+                const block = slashAnchorBlock || activeBlock;
+                if (!block) { hideSlashMenu(); return; }
 
-                if (
-                    lastChar === "/" &&
-                    (cursorPos === 1 ||
-                        textBeforeCursor.charAt(cursorPos - 2) === "\n" ||
-                        textBeforeCursor.charAt(cursorPos - 2) === " ")
-                ) {
-                    const rect = this.getBoundingClientRect();
-                    const lines = textBeforeCursor.split("\n");
-                    const currentLine = lines.length;
-                    const lineHeight = 28.8;
-                    const styles = window.getComputedStyle(this);
-                    const paddingTop = parseFloat(styles.paddingTop);
+                if (item.blockLevel) {
+                    // Remove the slash + query from the block text
+                    const text = block.textContent;
+                    // Find and remove /query
+                    const slashIdx = text.lastIndexOf("/");
+                    const cleanText = slashIdx >= 0 ? text.slice(0, slashIdx) : text;
 
-                    slashPosition = cursorPos - 1;
-                    slashQuery = "";
+                    const fmt = item.format ? item.format.trim() : "";
 
-                    // Calculate cursor Y position within textarea
-                    const cursorY =
-                        rect.top + paddingTop + (currentLine - 1) * lineHeight;
+                    // Map known formats to block types
+                    const typeMap = {
+                        "# ": "h1", "## ": "h2", "### ": "h3", "#### ": "h4",
+                        "> ": "blockquote", "- ": "bullet", "1. ": "numbered",
+                        "---": "divider",
+                    };
+                    // Code block
+                    const isCodeBlock = item.label === "Code Block";
+                    const isDivider = item.label === "Thin Line Divider" || fmt === "---" || fmt === "\n---\n";
 
-                    showSlashMenu(rect.left, cursorY);
-                } else if (slashMenuActive) {
-                    // Check if we're still typing after the slash
-                    const textAfterSlash = textBeforeCursor.substring(
-                        slashPosition + 1,
-                    );
-
-                    // If cursor is still after the slash and no spaces/newlines, update query
-                    if (
-                        cursorPos > slashPosition &&
-                        !textAfterSlash.includes(" ") &&
-                        !textAfterSlash.includes("\n")
-                    ) {
-                        slashQuery = textAfterSlash;
-                        selectedMenuIndex = 0; // Reset to first item
-
-                        const rect = this.getBoundingClientRect();
-                        const lines = textBeforeCursor.split("\n");
-                        const currentLine = lines.length;
-                        const lineHeight = 28.8;
-                        const styles = window.getComputedStyle(this);
-                        const paddingTop = parseFloat(styles.paddingTop);
-
-                        // Calculate cursor Y position within textarea
-                        const cursorY =
-                            rect.top +
-                            paddingTop +
-                            (currentLine - 1) * lineHeight;
-
-                        showSlashMenu(rect.left, cursorY);
+                    if (isDivider) {
+                        convertBlock(block, "divider");
+                        block.textContent = "";
+                        // Insert a new paragraph after
+                        const newBlock = insertBlockAfter(block, "paragraph", "");
+                        hideSlashMenu();
+                        focusBlock(newBlock);
+                    } else if (isCodeBlock) {
+                        block.textContent = cleanText;
+                        convertBlock(block, "code");
+                        updateBlockEmpty(block);
+                        hideSlashMenu();
+                        focusBlock(block, block.textContent.length);
                     } else {
-                        hideSlashMenu();
-                    }
-                }
-
-                updateCharCount();
-                resizeTextarea();
-            });
-
-            textarea.addEventListener("keydown", function (e) {
-                if (slashMenuActive) {
-                    const contextualItems = getContextualMenuItems();
-
-                    // If no items match the search, close menu
-                    if (contextualItems.length === 0) {
-                        if (e.key === "Escape" || e.key === "Backspace") {
-                            e.preventDefault();
-                            hideSlashMenu();
+                        let newType = null;
+                        for (const [k, v] of Object.entries(typeMap)) {
+                            if (fmt === k || fmt.startsWith(k)) { newType = v; break; }
                         }
-                        return;
-                    }
-
-                    if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex + 1) % contextualItems.length;
-                        updateMenuSelection();
-                    } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex - 1 + contextualItems.length) %
-                            contextualItems.length;
-                        updateMenuSelection();
-                    } else if (e.key === "Enter" || e.key === "Tab") {
-                        e.preventDefault();
-                        applyFormat(contextualItems[selectedMenuIndex]);
-                    } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        hideSlashMenu();
-                    } else if (e.key === "Backspace") {
-                        // If backspacing and we're at the slash, close menu
-                        const cursorPos = this.selectionStart;
-                        if (cursorPos <= slashPosition + 1) {
+                        if (!newType) {
+                            // heading by shortcut key e.g. "# "
+                            if (fmt.match(/^#{1,4}\s/)) {
+                                const hashes = fmt.match(/^(#{1,4})/)[1].length;
+                                newType = "h" + hashes;
+                            }
+                        }
+                        if (newType) {
+                            block.textContent = cleanText;
+                            convertBlock(block, newType);
+                            updateBlockEmpty(block);
                             hideSlashMenu();
+                            focusBlock(block, block.textContent.length);
+                        } else {
+                            // Fallback: insert the format text inline
+                            block.textContent = cleanText + fmt;
+                            updateBlockEmpty(block);
+                            hideSlashMenu();
+                            focusBlock(block, block.textContent.length);
                         }
                     }
                 } else {
-                    // Handle Enter key for list auto-continuation (bullets and numbers)
-                    if (e.key === "Enter" && handleListEnter(e)) {
+                    // Inline format: remove /query first, then insert markdown
+                    const text = block.textContent;
+                    const slashIdx = text.lastIndexOf("/");
+                    if (slashIdx >= 0) {
+                        block.textContent = text.slice(0, slashIdx);
+                    }
+                    hideSlashMenu();
+                    // Re-focus and set caret at end before inserting
+                    const caretPos = block.textContent.length;
+                    setCaretOffset(block, caretPos);
+                    applyInlineFormat(block, item);
+                }
+
+                renumberBlocks();
+                updateCharCount();
+            }
+
+            // ─── Block Event Listeners ────────────────────────────────────────
+
+            function attachBlockListeners(block) {
+                block.addEventListener("focus", () => {
+                    activeBlock = block;
+                });
+
+                block.addEventListener("blur", () => {
+                    if (activeBlock === block) activeBlock = null;
+                    updateBlockEmpty(block);
+                });
+
+                block.addEventListener("input", () => {
+                    updateBlockEmpty(block);
+                    updateCharCount();
+
+                    if (!slashMenuActive) {
+                        // Check if slash just typed at start of block or after whitespace
+                        const offset = getCaretOffset(block);
+                        const text = block.textContent;
+                        const lastChar = text[offset - 1];
+                        if (lastChar === "/") {
+                            const prevChar = text[offset - 2];
+                            if (offset === 1 || prevChar === "\n" || prevChar === " " || prevChar === undefined) {
+                                slashAnchorBlock = block;
+                                slashQuery = "";
+                                selectedMenuIndex = 0;
+                                showSlashMenu();
+                            }
+                        }
+                    } else {
+                        // Update slash query
+                        const text = block.textContent;
+                        const offset = getCaretOffset(block);
+                        const slashIdx = text.lastIndexOf("/", offset - 1);
+                        if (slashIdx >= 0 && offset > slashIdx) {
+                            const query = text.slice(slashIdx + 1, offset);
+                            if (!query.includes(" ") && !query.includes("\n")) {
+                                slashQuery = query;
+                                selectedMenuIndex = 0;
+                                showSlashMenu();
+                            } else {
+                                hideSlashMenu();
+                            }
+                        } else {
+                            hideSlashMenu();
+                        }
+                    }
+                });
+
+                block.addEventListener("keydown", (e) => {
+                    // ── Slash menu navigation ──
+                    if (slashMenuActive) {
+                        const contextualItems = getContextualMenuItems();
+                        if (contextualItems.length === 0) {
+                            if (e.key === "Escape" || e.key === "Backspace") {
+                                e.preventDefault();
+                                hideSlashMenu();
+                            }
+                            return;
+                        }
+                        if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            selectedMenuIndex = (selectedMenuIndex + 1) % contextualItems.length;
+                            updateMenuSelection();
+                            return;
+                        }
+                        if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            selectedMenuIndex = (selectedMenuIndex - 1 + contextualItems.length) % contextualItems.length;
+                            updateMenuSelection();
+                            return;
+                        }
+                        if (e.key === "Enter" || e.key === "Tab") {
+                            e.preventDefault();
+                            applyBlockFormat(contextualItems[selectedMenuIndex]);
+                            return;
+                        }
+                        if (e.key === "Escape") {
+                            e.preventDefault();
+                            hideSlashMenu();
+                            return;
+                        }
+                        if (e.key === "Backspace") {
+                            // Let the default run, then check if slash is gone
+                            setTimeout(() => {
+                                const text = block.textContent;
+                                if (!text.includes("/")) hideSlashMenu();
+                            }, 0);
+                        }
                         return;
                     }
 
-                    // Keyboard shortcuts
-                    const item = menuItems.find((item) => {
-                        if (!item.key) return false;
+                    const type = block.dataset.type;
 
-                        const keyMatches =
-                            e.key.toLowerCase() === item.key.toLowerCase();
-                        const ctrlMatches = e.ctrlKey || e.metaKey;
-                        const shiftMatches = item.shiftKey
-                            ? e.shiftKey
-                            : !e.shiftKey;
-                        const altMatches = item.altKey ? e.altKey : !e.altKey;
-
-                        return (
-                            keyMatches &&
-                            ctrlMatches &&
-                            shiftMatches &&
-                            altMatches
-                        );
-                    });
-
-                    if (item) {
+                    // ── Enter key ──
+                    if (e.key === "Enter" && !e.shiftKey) {
+                        // Code blocks: allow native newline insertion
+                        if (type === "code") {
+                            // Let the browser handle it (inserts <br> or newline)
+                            return;
+                        }
                         e.preventDefault();
-                        applyFormat(item);
+                        if (type === "divider") {
+                            const newBlock = insertBlockAfter(block, "paragraph", "");
+                            focusBlock(newBlock);
+                            return;
+                        }
+                        const offset = getCaretOffset(block);
+                        const text = block.textContent;
+                        const isEmpty = text.trim() === "";
+
+                        if (isEmpty && type !== "paragraph") {
+                            // Convert to paragraph, don't create new block
+                            convertBlock(block, "paragraph");
+                            block.textContent = "";
+                            updateBlockEmpty(block);
+                            focusBlock(block, 0);
+                            return;
+                        }
+
+                        // Split: text before cursor stays, text after cursor goes to new block
+                        const before = text.slice(0, offset);
+                        const after = text.slice(offset);
+                        block.textContent = before;
+                        updateBlockEmpty(block);
+
+                        // New block is always paragraph (except lists continue)
+                        let newType = "paragraph";
+                        let newIndent = parseInt(block.dataset.indent || 0);
+                        if (type === "bullet" || type === "numbered") {
+                            if (isEmpty) {
+                                convertBlock(block, "paragraph");
+                                block.textContent = "";
+                                updateBlockEmpty(block);
+                                focusBlock(block, 0);
+                                return;
+                            }
+                            newType = type;
+                        }
+                        const newBlock = insertBlockAfter(block, newType, after, newIndent);
+                        focusBlock(newBlock, 0);
+                        renumberBlocks();
+                        updateCharCount();
+                        return;
                     }
-                }
-            });
+
+                    // ── Backspace at start of block ──
+                    if (e.key === "Backspace") {
+                        const offset = getCaretOffset(block);
+                        const sel = window.getSelection();
+                        const hasSelection = sel && sel.toString().length > 0;
+                        if (offset === 0 && !hasSelection) {
+                            e.preventDefault();
+                            const blocks = getAllBlocks();
+                            const idx = blocks.indexOf(block);
+                            if (idx === 0) return; // first block, do nothing
+
+                            const prevBlock = blocks[idx - 1];
+                            const currText = block.textContent;
+
+                            if (currText === "") {
+                                // Delete this block, focus end of previous
+                                deleteBlock(block);
+                                if (prevBlock.dataset.type !== "divider") {
+                                    focusBlock(prevBlock, prevBlock.textContent.length);
+                                }
+                            } else {
+                                // Merge into previous block
+                                if (prevBlock.dataset.type === "divider") {
+                                    deleteBlock(prevBlock);
+                                    focusBlock(block, 0);
+                                } else {
+                                    const joinPos = prevBlock.textContent.length;
+                                    prevBlock.textContent = prevBlock.textContent + currText;
+                                    updateBlockEmpty(prevBlock);
+                                    deleteBlock(block);
+                                    focusBlock(prevBlock, joinPos);
+                                }
+                            }
+                            renumberBlocks();
+                            updateCharCount();
+                            return;
+                        }
+                    }
+
+                    // ── Tab (indent/dedent list blocks) ──
+                    if (e.key === "Tab") {
+                        if (type === "bullet" || type === "numbered") {
+                            e.preventDefault();
+                            const current = parseInt(block.dataset.indent || 0);
+                            if (e.shiftKey) {
+                                block.dataset.indent = Math.max(0, current - 1);
+                            } else {
+                                block.dataset.indent = Math.min(2, current + 1);
+                            }
+                            if (block.dataset.indent === "0") delete block.dataset.indent;
+                            return;
+                        }
+                        // For non-list blocks, just prevent default tab
+                        e.preventDefault();
+                        return;
+                    }
+
+                    // ── Arrow navigation between blocks ──
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                        const blocks = getAllBlocks();
+                        const idx = blocks.indexOf(block);
+                        const offset = getCaretOffset(block);
+                        const text = block.textContent;
+
+                        if (e.key === "ArrowUp" && idx > 0) {
+                            // Check if caret is on the first line
+                            const firstNewline = text.indexOf("\n");
+                            const onFirstLine = firstNewline === -1 || offset <= firstNewline;
+                            if (onFirstLine) {
+                                e.preventDefault();
+                                focusBlock(blocks[idx - 1], blocks[idx - 1].textContent.length);
+                            }
+                        } else if (e.key === "ArrowDown" && idx < blocks.length - 1) {
+                            const lastNewline = text.lastIndexOf("\n");
+                            const onLastLine = lastNewline === -1 || offset > lastNewline;
+                            if (onLastLine) {
+                                e.preventDefault();
+                                focusBlock(blocks[idx + 1], 0);
+                            }
+                        }
+                        return;
+                    }
+
+                    // ── Keyboard shortcuts for inline formatting ──
+                    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+                        const matchedItem = menuItems.find((mi) => {
+                            if (!mi.key) return false;
+                            const keyMatches = e.key.toLowerCase() === mi.key.toLowerCase();
+                            const ctrlOk = true;
+                            const shiftOk = mi.shiftKey ? e.shiftKey : !e.shiftKey;
+                            const altOk = mi.altKey ? e.altKey : !e.altKey;
+                            return keyMatches && ctrlOk && shiftOk && altOk;
+                        });
+                        if (matchedItem) {
+                            e.preventDefault();
+                            if (matchedItem.inline) {
+                                applyInlineFormat(block, matchedItem);
+                            } else if (matchedItem.blockLevel) {
+                                // headings via Ctrl+Alt+1..4
+                                applyBlockFormat(matchedItem);
+                            }
+                        }
+                        return;
+                    }
+
+                    // ── Ctrl+Alt+1..4 heading shortcuts ──
+                    if ((e.ctrlKey || e.metaKey) && e.altKey) {
+                        const matchedItem = menuItems.find((mi) => {
+                            if (!mi.key) return false;
+                            return e.key === mi.key && mi.altKey;
+                        });
+                        if (matchedItem) {
+                            e.preventDefault();
+                            // Convert block type directly
+                            const typeMap = { "# ": "h1", "## ": "h2", "### ": "h3", "#### ": "h4" };
+                            const newType = typeMap[matchedItem.format];
+                            if (newType) {
+                                convertBlock(block, newType);
+                                updateBlockEmpty(block);
+                                focusBlock(block, block.textContent.length);
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ─── Initialize Block Editor ──────────────────────────────────────
+
+            function initBlockEditor() {
+                blockEditorEl.innerHTML = "";
+                blockEditorEl.appendChild(createBlock("paragraph", ""));
+                renumberBlocks();
+                updateCharCount();
+            }
+
+            // ─── Form Submit ──────────────────────────────────────────────────
 
             // Click outside to close menus
             document.addEventListener("click", function (e) {
-                if (!slashMenu.contains(e.target) && e.target !== textarea) {
+                if (!slashMenu.contains(e.target) && !blockEditorEl.contains(e.target)) {
                     hideSlashMenu();
                 }
             });
 
             form.addEventListener("submit", function (e) {
+                const serialized = serializeBlocks();
                 const limit = {{content_max_length}};
-                if (textarea.value.length > limit) {
+                if (serialized.trim().length === 0) {
                     e.preventDefault();
-                    alert(
-                        "Content exceeds " +
-                            limit.toLocaleString() +
-                            " character limit.",
-                    );
+                    // Focus the first block so the user sees the placeholder
+                    const firstBlock = blockEditorEl.querySelector(".block");
+                    if (firstBlock && firstBlock.contentEditable === "true") firstBlock.focus();
                     return false;
                 }
+                if (serialized.length > limit) {
+                    e.preventDefault();
+                    alert("Content exceeds " + limit.toLocaleString() + " character limit.");
+                    return false;
+                }
+                contentHidden.value = serialized;
             });
 
+            initBlockEditor();
             updateCharCount();
-            resizeTextarea();
 
             document.getElementById("aliasRand").addEventListener("click", function () {
+            // ─── Alias Random Name Generator ──────────────────────────────────
                 const pools = [
                     ["aarav","arjun","asha","ayaan","devi","jaya","kali","priya","riya","rohan","rupa","sana","tara","uma","vara","veda","vikram","yara"],
                     ["bao","bo","cai","chen","cheng","dao","fang","feng","gang","hao","hu","hui","jian","jing","jun","kai","lang","lei","li","liang","lin","ling","liu","long","mei","ming","na","ning","peng","ping","qian","qing","quan","rui","shan","sheng","tao","wei","wen","xia","xin","xing","xu","yan","yang","yi","ying","yu","yuan","yun","zhen","zheng","zhi","zhong","zhou","zhu"],
@@ -1819,7 +2210,7 @@
                 document.querySelector("input[name=alias]").value = name.slice(0, 32);
             });
 
-            // Handle window resize to adjust menu if needed
+            // Handle window resize to close menu
             window.addEventListener("resize", function () {
                 if (slashMenuActive) {
                     hideSlashMenu();
