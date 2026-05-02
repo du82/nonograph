@@ -715,6 +715,44 @@
                 }
             }
 
+            #chash-debug {
+                position: fixed;
+                bottom: 16px;
+                right: 16px;
+                background: #1a1a1a;
+                color: #e0e0e0;
+                font-family: monospace;
+                font-size: 12px;
+                padding: 10px 14px;
+                border-radius: 6px;
+                max-width: 420px;
+                word-break: break-all;
+                z-index: 9999;
+                display: none;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+            }
+            #chash-debug.visible {
+                display: block;
+            }
+            #chash-debug .chash-row {
+                margin: 3px 0;
+            }
+            #chash-debug .chash-label {
+                color: #888;
+                margin-right: 6px;
+            }
+            #chash-debug .chash-match {
+                color: #4caf50;
+                font-weight: bold;
+            }
+            #chash-debug .chash-mismatch {
+                color: #f44336;
+                font-weight: bold;
+            }
+            #chash-debug .chash-pending {
+                color: #aaa;
+            }
+
             .footer {
                 width: 100vw;
                 background: #fff;
@@ -749,6 +787,21 @@
                 <h1>{{title}}</h1>
                 <div class="article-meta">{{author_display}}{{created_at}}</div>
                 <div class="article-content" id="CONTENT">{{content}}</div>
+            </div>
+        </div>
+
+        <div id="chash-debug">
+            <div class="chash-row">
+                <span class="chash-label">client:</span
+                ><span id="chash-client">—</span>
+            </div>
+            <div class="chash-row">
+                <span class="chash-label">server:</span
+                ><span id="chash-server" class="chash-pending">—</span>
+            </div>
+            <div class="chash-row">
+                <span class="chash-label">result:</span
+                ><span id="chash-result" class="chash-pending">…</span>
             </div>
         </div>
 
@@ -877,8 +930,69 @@
                 }
             }
 
+            var chashDebounce = null;
             document.addEventListener("selectionchange", function () {
-                applySelectionHash(computeSelectionHash());
+                var hash = computeSelectionHash();
+                applySelectionHash(hash);
+
+                var panel = document.getElementById("chash-debug");
+                var elClient = document.getElementById("chash-client");
+                var elServer = document.getElementById("chash-server");
+                var elResult = document.getElementById("chash-result");
+
+                if (!hash) {
+                    panel.classList.remove("visible");
+                    clearTimeout(chashDebounce);
+                    return;
+                }
+
+                elClient.textContent = hash;
+                elServer.textContent = "…";
+                elServer.className = "chash-pending";
+                elResult.textContent = "…";
+                elResult.className = "chash-pending";
+                panel.classList.add("visible");
+
+                clearTimeout(chashDebounce);
+                chashDebounce = setTimeout(function () {
+                    var params = new URLSearchParams();
+                    params.set("hash", hash);
+                    params.set("post_id", "{{post_id}}");
+                    fetch("/chash/validate", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: params.toString(),
+                    })
+                        .then(function (r) {
+                            return r.json();
+                        })
+                        .then(function (data) {
+                            if (data.error) {
+                                elServer.textContent = "error: " + data.error;
+                                elServer.className = "chash-mismatch";
+                                elResult.textContent = "error";
+                                elResult.className = "chash-mismatch";
+                                return;
+                            }
+                            elServer.textContent = data.server_hash || "—";
+                            elServer.className = "";
+                            if (data.matched) {
+                                elResult.textContent = "✓ match";
+                                elResult.className = "chash-match";
+                            } else {
+                                elResult.textContent = "✗ mismatch";
+                                elResult.className = "chash-mismatch";
+                            }
+                        })
+                        .catch(function () {
+                            elServer.textContent = "fetch failed";
+                            elServer.className = "chash-mismatch";
+                            elResult.textContent = "error";
+                            elResult.className = "chash-mismatch";
+                        });
+                }, 300);
             });
 
             // Process pre-rendered code blocks to add interactivity

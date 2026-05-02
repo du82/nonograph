@@ -2,6 +2,9 @@
 extern crate rocket;
 
 mod archiver;
+mod chash;
+use chash::{hash_for_text_range, parse_html, SelectionHash};
+use std::str::FromStr;
 mod config;
 mod nojs;
 mod parser;
@@ -182,7 +185,121 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
     }
 }
 
-#[derive(FromForm)]
+#[derive(Debug, Serialize)]
+struct CHashValidateResponse {
+    client_hash: String,
+    server_hash: Option<String>,
+    matched: bool,
+    error: Option<String>,
+}
+
+#[derive(Debug, FromForm)]
+struct CHashValidateRequest {
+    hash: String,
+    post_id: String,
+}
+
+#[post("/chash/validate", data = "<form>")]
+fn chash_validate(
+    form: rocket::form::Form<CHashValidateRequest>,
+    storage: &State<PostStorage>,
+    config: &State<Config>,
+) -> content::RawJson<String> {
+    let client_hash_str = form.hash.trim().to_string();
+
+    let client_hash = match SelectionHash::from_str(&client_hash_str) {
+        Ok(h) => h,
+        Err(_) => {
+            return content::RawJson(
+                serde_json::to_string(&CHashValidateResponse {
+                    client_hash: client_hash_str,
+                    server_hash: None,
+                    matched: false,
+                    error: Some("invalid hash format".to_string()),
+                })
+                .unwrap(),
+            );
+        }
+    };
+
+    let err = |msg: &str| {
+        content::RawJson(
+            serde_json::to_string(&CHashValidateResponse {
+                client_hash: client_hash_str.clone(),
+                server_hash: None,
+                matched: false,
+                error: Some(msg.to_string()),
+            })
+            .unwrap(),
+        )
+    };
+
+    let post_id = form.post_id.trim();
+    let raw_html = {
+        let mut posts = storage.lock().unwrap();
+        posts.get_ref(post_id).map(|p| p.content.clone())
+    };
+
+    let raw_html = match raw_html {
+        Some(h) => h,
+        None => {
+            if save::post_file_exists(post_id) {
+                match std::fs::read_to_string(format!("content/{}.md", post_id)) {
+                    Ok(file_content) => {
+                        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+                        if lines.len() >= 4 {
+                            parser::render_markdown_with_config(lines[3], &config)
+                        } else {
+                            return err("could not parse post file");
+                        }
+                    }
+                    Err(_) => return err("post not found"),
+                }
+            } else {
+                return err("post not found");
+            }
+        }
+    };
+
+    let root = parse_html(&raw_html);
+    let mut pos = 0u64;
+    let mut char_offset = 0usize;
+    let mut begin_char: Option<usize> = None;
+    let mut end_char: Option<usize> = None;
+
+    chash::walk_for_validation(&root, &mut pos, &mut |node, p| {
+        if let chash::Node::Text(t) = node {
+            let len = t.chars().count();
+            if p == client_hash.begin.pos && begin_char.is_none() {
+                begin_char = Some(char_offset + client_hash.begin.offset);
+            }
+            if p == client_hash.end.pos && end_char.is_none() {
+                end_char = Some(char_offset + client_hash.end.offset);
+            }
+            char_offset += len;
+        }
+    });
+
+    let server_hash = match (begin_char, end_char) {
+        (Some(b), Some(e)) => hash_for_text_range(&raw_html, b, e),
+        _ => return err("coordinates did not resolve to text nodes"),
+    };
+
+    let server_hash_str = server_hash.map(|h| h.to_string());
+    let matched = server_hash_str.as_deref() == Some(&client_hash_str);
+
+    content::RawJson(
+        serde_json::to_string(&CHashValidateResponse {
+            client_hash: client_hash_str,
+            server_hash: server_hash_str,
+            matched,
+            error: None,
+        })
+        .unwrap(),
+    )
+}
+
+#[derive(Debug, FromForm)]
 struct NewPost {
     title: String,
     content: String,
@@ -869,7 +986,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 robots_txt,
                 nojs_index,
                 nojs_view_post,
-                nojs_create_post
+                nojs_create_post,
+                chash_validate
             ],
         )
 }
