@@ -1778,42 +1778,66 @@
             resizeTextarea();
 
             document.getElementById("aliasRand").addEventListener("click", function () {
-                const pools = [
-                    ["aarav","arjun","asha","ayaan","devi","jaya","kali","priya","riya","rohan","rupa","sana","tara","uma","vara","veda","vikram","yara"],
-                    ["bao","bo","cai","chen","cheng","dao","fang","feng","gang","hao","hu","hui","jian","jing","jun","kai","lang","lei","li","liang","lin","ling","liu","long","mei","ming","na","ning","peng","ping","qian","qing","quan","rui","shan","sheng","tao","wei","wen","xia","xin","xing","xu","yan","yang","yi","ying","yu","yuan","yun","zhen","zheng","zhi","zhong","zhou","zhu"],
-                    ["andile","dayo","fatou","jomo","kofi","mali","nala","nia","olu","osei","zuri","amara","dara","leya","kwame","abena","esi","yaw"],
-                    ["amir","amira","bashir","cyrus","elif","emre","farrukh","idris","nour","omar","pari","rafi","rami","rana","reem","tariq","yael","zara"],
-                    ["ana","diego","finn","ines","isla","lars","lena","luca","luna","maia","maren","nils","ona","orla","paz","rhea","rio","rosa","sion","sol","thea","tomás","wren"],
-                    ["cleo","dani","dean","ezra","ivan","jade","ira","lior","mia","milo","mira","nadia","neo","noa","quinn","sasha","sera","shay","sia","zoe"],
+                const firstNames = [
+                    // South Asian
+                    "Aarav","Aditi","Ananya","Arjun","Ayaan","Deepa","Devika","Ishaan","Kavya","Meera",
+                    "Nikhil","Priya","Rahul","Riya","Rohan","Saanvi","Shreya","Tara","Vikram","Zara",
+                    // East Asian
+                    "Bao","Cheng","Fang","Hao","Hui","Jing","Jun","Kai","Lei","Liang",
+                    "Ling","Mei","Ming","Ning","Rui","Shan","Wei","Xia","Yan","Yun",
+                    // African
+                    "Abena","Amara","Andile","Chioma","Dayo","Emeka","Fatou","Kofi","Kwame","Leya",
+                    "Mali","Nala","Nia","Olu","Osei","Seun","Tolu","Yaw","Zuri","Dara",
+                    // Middle Eastern / Central Asian
+                    "Amir","Amira","Bashir","Cyrus","Elif","Emre","Farrukh","Idris","Layla","Nour",
+                    "Omar","Pari","Rafi","Rami","Rana","Reem","Tariq","Yasmin","Yusuf","Zaid",
+                    // European
+                    "Ana","Cleo","Diego","Finn","Ines","Isla","Lars","Lena","Luca","Luna",
+                    "Maia","Maren","Nils","Orla","Paz","Rhea","Rosa","Thea","Wren","Sion",
+                    // Global / mixed
+                    "Dani","Ezra","Ivan","Jade","Lior","Mia","Milo","Mira","Nadia","Noa",
+                    "Quinn","Sasha","Sera","Shay","Sia","Zoe","River","Sage","Avery","Remy",
+                ];
+                const lastNames = [
+                    // South Asian
+                    "Ahuja","Bose","Chakraborty","Chopra","Das","Ghosh","Iyer","Joshi","Kapoor","Malhotra",
+                    "Mehta","Nair","Patel","Rao","Reddy","Shah","Sharma","Singh","Verma","Yadav",
+                    // East Asian
+                    "Chang","Chen","Gao","Han","Huang","Kim","Lee","Li","Lin","Liu",
+                    "Park","Sun","Tang","Wang","Wu","Xu","Yang","Zhang","Zhao","Zhou",
+                    // African
+                    "Abubakar","Adeola","Diallo","Diop","Kamara","Mensah","Mwangi","Nkosi","Okafor","Osei",
+                    "Sow","Traore","Yeboah","Diallo","Keita","Koné","Banda","Dlamini","Moyo","Ndlovu",
+                    // Middle Eastern / Central Asian
+                    "Al-Amin","Ansari","Aydın","Demir","Karimov","Khalil","Mansour","Nassar","Qureshi","Rahimi",
+                    "Rashid","Saleh","Sultani","Tahir","Yilmaz","Zadeh","Zaman","Karimi","Haddad","Sahin",
+                    // European
+                    "Berg","Costa","Dubois","Eriksson","Ferrara","Garcia","Hansen","Jensen","Kovač","Larsen",
+                    "Müller","Novak","Olsen","Petrov","Rossi","Santos","Silva","Svensson","Tanaka","Weber",
+                    // English / global surnames
+                    "Ashford","Blake","Brooks","Cole","Cross","Ellis","Flynn","Grant","Hayes","Hunt",
+                    "Holt","Lowe","Marsh","Nash","Page","Quinn","Reid","Stone","Vance","Walsh",
                 ];
                 const pick = (a) => a[(Math.random() * a.length) | 0];
-                const pool = pick(pools);
-                const w = pool;
                 const rnd = (n) => Math.random() * n | 0;
-                const cap = (s) => s[0].toUpperCase() + s.slice(1);
-                const sep = () => pick(["","","","_",".","-"," "]);
-                const num = () => pick([
-                    () => rnd(9) + 1,
-                    () => rnd(90) + 10,
-                    () => rnd(900) + 100,
-                    () => rnd(9000) + 1000,
-                    () => pick(["x","v","ii","iii","iv"]),
-                ]);
-                const maybe = (fn) => Math.random() < 0.5 ? fn() : "";
-                const a = pick(w), b = pick(w), s = sep();
+                const sep = pick(["_", ".", "-", ""]);
+                const withNum = Math.random() < 0.35;
+                const num = withNum ? pick([
+                    rnd(99) + 1,
+                    rnd(9) + 1,
+                    new Date().getFullYear() - (rnd(30) + 15),
+                ]) : "";
+                const first = pick(firstNames);
+                const last = pick(lastNames);
                 const formats = [
-                    () => a + s + b,
-                    () => a + s + b + num()(),
-                    () => a + num()(),
-                    () => cap(a) + b,
-                    () => cap(a) + s + b + num()(),
-                    () => a + s + cap(b),
-                    () => cap(a) + cap(b),
-                    () => cap(a) + cap(b) + num()(),
-                    () => a + num()() + b,
-                    () => a + b + maybe(() => num()()),
-                    () => cap(a) + " " + cap(b),
-                    () => cap(a) + " " + cap(b) + " " + cap(pick(w)),
+                    () => first + sep + last + num,
+                    () => first.toLowerCase() + sep + last.toLowerCase() + num,
+                    () => first[0].toLowerCase() + sep + last.toLowerCase() + num,
+                    () => first.toLowerCase() + sep + last[0].toLowerCase() + num,
+                    () => first.toLowerCase() + num,
+                    () => last.toLowerCase() + sep + first.toLowerCase() + num,
+                    () => first + num,
+                    () => first.toLowerCase() + "_" + last.toLowerCase(),
                 ];
                 const name = pick(formats)();
                 document.querySelector("input[name=alias]").value = name.slice(0, 32);

@@ -73,6 +73,47 @@ You can^Wrap text with carets^ to make it ^superscript!^
 
 > Creates an indented quote block
 
+## Alerts
+```md
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+```
+
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+```md
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+```
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+```md
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+```
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+```md
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+```
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+```md
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+```
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+
 ## Footnotes
 **Reference footnotes** - mark position with `[^1]` and define at bottom:
 
@@ -286,7 +327,7 @@ Press Enter once for a line break
 Press Enter twice for a paragraph break
 
 ## Limits
-- Posts: 128,000 characters maximum
+- Posts: 256,000 characters maximum
 - Links: 4,096 characters maximum
 - Titles: 128 characters maximum
 - Alias: 32 characters maximum

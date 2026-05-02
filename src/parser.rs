@@ -462,8 +462,39 @@ fn process_single_header(text: &str, header_count: &mut usize) -> Option<String>
 }
 
 fn process_single_blockquote(text: &str) -> String {
-    let mut blockquote_content = String::new();
+    const ALERT_TYPES: &[&str] = &["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
 
+    // Collect all "> " lines in order
+    let quote_lines: Vec<&str> = text
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| l.starts_with("> "))
+        .map(|l| &l[2..])
+        .collect();
+
+    // Check whether the first line is a GitHub-style alert marker
+    if let Some(&first) = quote_lines.first() {
+        let upper = first.trim().to_uppercase();
+        if let Some(alert_type) = ALERT_TYPES.iter().find(|&&t| format!("[!{}]", t) == upper) {
+            let lowercase = alert_type.to_lowercase();
+            let title_case = {
+                let mut chars = alert_type.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(c) => c.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
+                }
+            };
+
+            let body = quote_lines[1..].join("<br>");
+
+            return format!(
+                "<div class=\"alert alert-{lowercase}\">\n  <div class=\"alert-label\">{title_case}</div>\n  <div class=\"alert-body\">{body}</div>\n</div>",
+            );
+        }
+    }
+
+    // Fall back to plain blockquote
+    let mut blockquote_content = String::new();
     for line in text.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("> ") {
@@ -3525,5 +3556,229 @@ Final paragraph with normal text."#;
         );
         assert!(multiple_result.contains("<hr class=\"divider-thin\">"));
         assert!(multiple_result.contains("<hr class=\"divider-double\">"));
+    }
+
+    #[test]
+    fn test_alert_blockquotes() {
+        // Note alert
+        let text = "> [!NOTE]\n> Useful information.";
+        let result = render_markdown(text);
+        assert!(result.contains("class=\"alert alert-note\""));
+        assert!(result.contains("class=\"alert-label\""));
+        assert!(result.contains("Note"));
+        assert!(result.contains("Useful information."));
+        assert!(!result.contains("[!NOTE]"));
+
+        // Warning alert
+        let text = "> [!WARNING]\n> Be careful!";
+        let result = render_markdown(text);
+        assert!(result.contains("class=\"alert alert-warning\""));
+        assert!(result.contains("Warning"));
+        assert!(result.contains("Be careful!"));
+
+        // Non-alert blockquote still works
+        let text = "> Just a regular quote";
+        let result = render_markdown(text);
+        assert!(result.contains("<blockquote>Just a regular quote</blockquote>"));
+
+        // Case-insensitive detection
+        let text = "> [!tip]\n> Try this.";
+        let result = render_markdown(text);
+        assert!(result.contains("class=\"alert alert-tip\""));
+        assert!(result.contains("Tip"));
+
+        // All five types render correctly
+        for (marker, class, label) in &[
+            ("NOTE", "alert-note", "Note"),
+            ("TIP", "alert-tip", "Tip"),
+            ("IMPORTANT", "alert-important", "Important"),
+            ("WARNING", "alert-warning", "Warning"),
+            ("CAUTION", "alert-caution", "Caution"),
+        ] {
+            let text = format!("> [!{}]\n> Body text.", marker);
+            let result = render_markdown(&text);
+            assert!(
+                result.contains(&format!("class=\"alert {}\"", class)),
+                "missing class for {}",
+                marker
+            );
+            assert!(
+                result.contains(&format!("class=\"alert-label\">{}", label)),
+                "missing label for {}",
+                marker
+            );
+            assert!(result.contains("Body text."), "missing body for {}", marker);
+            assert!(
+                !result.contains(&format!("[!{}]", marker)),
+                "marker leaked into output for {}",
+                marker
+            );
+        }
+
+        // Unknown alert type falls back to plain blockquote
+        let text = "> [!UNKNOWN]\n> Some text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<blockquote>"),
+            "unknown type should fall back to blockquote"
+        );
+        assert!(
+            !result.contains("class=\"alert\""),
+            "unknown type should not produce an alert"
+        );
+
+        // Marker-only alert (no body) renders without crashing
+        let text = "> [!NOTE]";
+        let result = render_markdown(text);
+        assert!(result.contains("class=\"alert alert-note\""));
+        assert!(result.contains("class=\"alert-body\""));
+    }
+
+    #[test]
+    fn test_alert_inline_formatting() {
+        // Bold inside alert body
+        let text = "> [!NOTE]\n> This is **bold** text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<strong>bold</strong>"),
+            "bold should render inside alert"
+        );
+
+        // Italic inside alert body
+        let text = "> [!TIP]\n> This is *italic* text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<em>italic</em>"),
+            "italic should render inside alert"
+        );
+
+        // Underline inside alert body
+        let text = "> [!IMPORTANT]\n> This is _underlined_ text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<u>underlined</u>"),
+            "underline should render inside alert"
+        );
+
+        // Strikethrough inside alert body
+        let text = "> [!WARNING]\n> This is ~struck~ text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<del>struck</del>"),
+            "strikethrough should render inside alert"
+        );
+
+        // Inline code inside alert body
+        let text = "> [!CAUTION]\n> Use `rm -rf` carefully.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<code>rm -rf</code>"),
+            "inline code should render inside alert"
+        );
+
+        // Link inside alert body
+        let text = "> [!NOTE]\n> See [example](https://example.com).";
+        let result = render_markdown(text);
+        assert!(result.contains("<a"), "link should render inside alert");
+        assert!(
+            result.contains("example.com"),
+            "link href should appear inside alert"
+        );
+
+        // Highlight inside alert body
+        let text = "> [!TIP]\n> This is ==highlighted==.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<mark>highlighted</mark>"),
+            "highlight should render inside alert"
+        );
+
+        // Multiple formatting on multiple lines
+        let text = "> [!IMPORTANT]\n> **First** line.\n> *Second* line.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("<strong>First</strong>"),
+            "bold on first body line"
+        );
+        assert!(
+            result.contains("<em>Second</em>"),
+            "italic on second body line"
+        );
+        assert!(
+            result.contains("<br>"),
+            "body lines should be joined with <br>"
+        );
+    }
+
+    #[test]
+    fn test_alert_security() {
+        // XSS via alert body — script tag should be stripped
+        let text = "> [!NOTE]\n> <script>alert('xss')</script>Safe text.";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("<script>"),
+            "script tag must be stripped from alert body"
+        );
+        assert!(
+            !result.contains("</script>"),
+            "closing script tag must be stripped"
+        );
+
+        // XSS via alert type marker — crafted marker should not inject HTML
+        let text = "> [!NOTE\"><script>alert(1)</script>]\n> Body.";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("<script>"),
+            "script in marker should not reach output"
+        );
+
+        // XSS via inline event handler in body
+        let text = "> [!WARNING]\n> <img src=x onerror=alert(1)>";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("onerror"),
+            "event handler must be stripped from alert body"
+        );
+
+        // XSS via javascript: link in body
+        let text = "> [!CAUTION]\n> [click me](javascript:alert(1))";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("javascript:"),
+            "javascript: URI must be blocked in alert body"
+        );
+
+        // Raw <iframe> must be stripped — not in the allowlist
+        let text = "> [!NOTE]\n> <iframe src=\"https://evil.com\"></iframe>Safe text.";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("<iframe"),
+            "iframe tag must be stripped from alert body"
+        );
+        assert!(
+            result.contains("Safe text."),
+            "text content should survive sanitisation"
+        );
+
+        // Raw <form> with action must be stripped
+        let text =
+            "> [!WARNING]\n> <form action=\"https://evil.com\"><input type=\"submit\"></form>";
+        let result = render_markdown(text);
+        assert!(
+            !result.contains("<form"),
+            "form tag must be stripped from alert body"
+        );
+
+        // Ensure the alert structure itself is intact after sanitisation
+        let text = "> [!NOTE]\n> Normal body text.";
+        let result = render_markdown(text);
+        assert!(
+            result.contains("class=\"alert alert-note\""),
+            "alert structure should survive sanitisation"
+        );
+        assert!(
+            result.contains("class=\"alert-body\""),
+            "alert body div should survive sanitisation"
+        );
     }
 }
