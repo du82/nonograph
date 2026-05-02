@@ -748,6 +748,72 @@ fn api_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("api", config)
 }
 
+#[get("/api/resolve?<post>&<hash>")]
+fn resolve_selection(
+    post: &str,
+    hash: &str,
+    storage: &State<PostStorage>,
+    config: &State<Config>,
+) -> Result<content::RawText<String>, (Status, content::RawText<String>)> {
+    use chash::resolve_hash;
+    use std::str::FromStr;
+
+    let selection = match SelectionHash::from_str(hash) {
+        Ok(h) => h,
+        Err(_) => {
+            return Err((
+                Status::BadRequest,
+                content::RawText("invalid hash format".to_string()),
+            ))
+        }
+    };
+
+    let rendered_html = {
+        let mut posts = storage.lock().unwrap();
+        posts.get_ref(post).map(|p| p.content.clone())
+    };
+
+    let rendered_html = match rendered_html {
+        Some(h) => h,
+        None => {
+            if save::post_file_exists(post) {
+                match std::fs::read_to_string(format!("content/{}.md", post)) {
+                    Ok(file_content) => {
+                        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+                        if lines.len() >= 4 {
+                            parser::render_markdown_with_config(lines[3], &config)
+                        } else {
+                            return Err((
+                                Status::InternalServerError,
+                                content::RawText("could not parse post file".to_string()),
+                            ));
+                        }
+                    }
+                    Err(_) => {
+                        return Err((
+                            Status::NotFound,
+                            content::RawText("post not found".to_string()),
+                        ))
+                    }
+                }
+            } else {
+                return Err((
+                    Status::NotFound,
+                    content::RawText("post not found".to_string()),
+                ));
+            }
+        }
+    };
+
+    match resolve_hash(&rendered_html, &selection) {
+        Some(text) => Ok(content::RawText(text)),
+        None => Err((
+            Status::UnprocessableEntity,
+            content::RawText("hash did not resolve to any text".to_string()),
+        )),
+    }
+}
+
 #[get("/robots.txt")]
 fn robots_txt() -> content::RawText<&'static str> {
     content::RawText(
@@ -987,7 +1053,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 nojs_index,
                 nojs_view_post,
                 nojs_create_post,
-                chash_validate
+                chash_validate,
+                resolve_selection
             ],
         )
 }

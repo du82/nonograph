@@ -248,6 +248,42 @@ pub fn hash_for_text_range(
     }
 }
 
+pub fn resolve_hash(html: &str, hash: &SelectionHash) -> Option<String> {
+    let root = parse_html(html);
+    let mut pos = 0u64;
+    let mut collecting = false;
+    let mut result = String::new();
+
+    walk(&root, &mut pos, &mut |node, p| {
+        if let Node::Text(t) = node {
+            if p == hash.begin.pos && p == hash.end.pos {
+                let text: String = t
+                    .chars()
+                    .skip(hash.begin.offset)
+                    .take(hash.end.offset - hash.begin.offset)
+                    .collect();
+                result.push_str(&text);
+            } else if p == hash.begin.pos {
+                let text: String = t.chars().skip(hash.begin.offset).collect();
+                result.push_str(&text);
+                collecting = true;
+            } else if p == hash.end.pos {
+                let text: String = t.chars().take(hash.end.offset).collect();
+                result.push_str(&text);
+                collecting = false;
+            } else if collecting {
+                result.push_str(t);
+            }
+        }
+    });
+
+    if result.is_empty() {
+        None
+    } else {
+        Some(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,6 +366,38 @@ mod tests {
         let html = "<p>Hello</p><p>World</p>";
         let hash = hash_for_text_range(html, 0, 10).unwrap();
         assert_ne!(hash.begin.pos, hash.end.pos);
+    }
+
+    #[test]
+    fn test_resolve_hash_single_node() {
+        let html = "<p>Hello world</p>";
+        let hash = hash_for_text_range(html, 0, 5).unwrap();
+        let text = resolve_hash(html, &hash).unwrap();
+        assert_eq!(text, "Hello");
+    }
+
+    #[test]
+    fn test_resolve_hash_mid_node() {
+        let html = "<p>Hello world</p>";
+        let hash = hash_for_text_range(html, 6, 11).unwrap();
+        let text = resolve_hash(html, &hash).unwrap();
+        assert_eq!(text, "world");
+    }
+
+    #[test]
+    fn test_resolve_hash_cross_node() {
+        let html = "<p>Hello</p><p>World</p>";
+        let hash = hash_for_text_range(html, 0, 10).unwrap();
+        let text = resolve_hash(html, &hash).unwrap();
+        assert_eq!(text, "HelloWorld");
+    }
+
+    #[test]
+    fn test_resolve_roundtrip() {
+        let html = "<p>The quick brown fox</p><p>jumps over the lazy dog</p>";
+        let hash = hash_for_text_range(html, 4, 19).unwrap();
+        let text = resolve_hash(html, &hash).unwrap();
+        assert_eq!(text, "quick brown fox");
     }
 
     #[test]

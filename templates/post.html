@@ -486,6 +486,11 @@
                 margin: 30px 0;
                 width: 100%;
             }
+            .selection-highlight {
+                background: rgba(255, 200, 0, 0.35);
+                border-radius: 2px;
+            }
+
             .secret {
                 filter: blur(5px);
                 cursor: pointer;
@@ -993,6 +998,59 @@
                             elResult.className = "chash-mismatch";
                         });
                 }, 300);
+            });
+
+            function restoreSelectionHash() {
+                var hash = location.hash.replace(/^#/, "");
+                if (!hash.match(/^selection-\d+\.\d+-\d+\.\d+$/)) return;
+
+                var parts = hash.replace("selection-", "").split("-");
+                var begin = parts[0].split(".").map(Number);
+                var end = parts[1].split(".").map(Number);
+                var beginPos = begin[0],
+                    beginOffset = begin[1];
+                var endPos = end[0],
+                    endOffset = end[1];
+
+                var beginNode = null,
+                    endNode = null;
+                walkContent(function (e, pos) {
+                    if (pos === beginPos) beginNode = e;
+                    if (pos === endPos) endNode = e;
+                });
+
+                if (!beginNode || !endNode) return;
+
+                try {
+                    var range = document.createRange();
+                    range.setStart(beginNode, beginOffset);
+                    range.setEnd(endNode, endOffset);
+
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    var mark = document.createElement("mark");
+                    mark.className = "selection-highlight";
+                    range.surroundContents(mark);
+                    mark.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                    });
+                } catch (e) {
+                    // surroundContents fails if the range crosses element boundaries;
+                    // fall back to just scrolling the start node into view
+                    if (beginNode.parentElement) {
+                        beginNode.parentElement.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                        });
+                    }
+                }
+            }
+
+            document.addEventListener("DOMContentLoaded", function () {
+                restoreSelectionHash();
             });
 
             // Process pre-rendered code blocks to add interactivity

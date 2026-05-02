@@ -65,6 +65,37 @@ Post IDs are generated from the title and date: `title-slug-mm-dd-yyyy`
 ## Raw Markdown Access
 Access the original markdown by appending `.md`: `/{post-id}.md`
 
+## Resolving a Selection
+**Endpoint:** `GET /api/resolve?post={post-id}&hash={selection-hash}`
+
+Returns the plain text of a specific selection within a post. Selection hashes are generated client-side when text is highlighted on any post page and appear in the URL fragment (e.g. `/{post-id}#selection-5.0-5.12`).
+
+Note: the `#fragment` portion of a URL is never sent to the server by browsers, so the hash must be passed explicitly as a query parameter.
+
+### Parameters
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `post` | string | Yes | Post ID |
+| `hash` | string | Yes | Selection hash in `selection-P.O-P.O` format |
+
+### Example Request
+```bash
+curl 'http://localhost:8000/api/resolve?post=markup&hash=selection-5.0-5.12'
+```
+
+### Successful Response
+**Status:** `200 OK`
+**Content-Type:** `text/plain`
+
+The plain text content of the selected passage.
+
+### Error Responses
+| Status | Description |
+|--------|-------------|
+| `400 Bad Request` | Hash is not valid `selection-P.O-P.O` format |
+| `404 Not Found` | Post ID does not exist |
+| `422 Unprocessable Entity` | Hash positions do not resolve to any text in the document |
+
 ## Supported Content
 All standard Nonograph markdown features are supported:
 
