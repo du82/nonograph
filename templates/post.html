@@ -490,6 +490,30 @@
                 background: rgba(255, 200, 0, 0.35);
                 border-radius: 2px;
             }
+            #selection-copy-btn {
+                position: absolute;
+                display: none;
+                align-items: center;
+                gap: 4px;
+                background: #333;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 10px;
+                font-size: 12px;
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                cursor: pointer;
+                white-space: nowrap;
+                z-index: 100;
+                user-select: none;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            }
+            #selection-copy-btn:hover {
+                background: #111;
+            }
+            #selection-copy-btn.copied {
+                background: #4caf50;
+            }
 
             .secret {
                 filter: blur(5px);
@@ -720,44 +744,6 @@
                 }
             }
 
-            #chash-debug {
-                position: fixed;
-                bottom: 16px;
-                right: 16px;
-                background: #1a1a1a;
-                color: #e0e0e0;
-                font-family: monospace;
-                font-size: 12px;
-                padding: 10px 14px;
-                border-radius: 6px;
-                max-width: 420px;
-                word-break: break-all;
-                z-index: 9999;
-                display: none;
-                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
-            }
-            #chash-debug.visible {
-                display: block;
-            }
-            #chash-debug .chash-row {
-                margin: 3px 0;
-            }
-            #chash-debug .chash-label {
-                color: #888;
-                margin-right: 6px;
-            }
-            #chash-debug .chash-match {
-                color: #4caf50;
-                font-weight: bold;
-            }
-            #chash-debug .chash-mismatch {
-                color: #f44336;
-                font-weight: bold;
-            }
-            #chash-debug .chash-pending {
-                color: #aaa;
-            }
-
             .footer {
                 width: 100vw;
                 background: #fff;
@@ -794,21 +780,9 @@
                 <div class="article-content" id="CONTENT">{{content}}</div>
             </div>
         </div>
+        {{scroll_script}}
 
-        <div id="chash-debug">
-            <div class="chash-row">
-                <span class="chash-label">client:</span
-                ><span id="chash-client">—</span>
-            </div>
-            <div class="chash-row">
-                <span class="chash-label">server:</span
-                ><span id="chash-server" class="chash-pending">—</span>
-            </div>
-            <div class="chash-row">
-                <span class="chash-label">result:</span
-                ><span id="chash-result" class="chash-pending">…</span>
-            </div>
-        </div>
+        <button id="selection-copy-btn">Copy link</button>
 
         <div class="footer">
             <a href="/" target="_blank">write your own</a>
@@ -866,192 +840,112 @@
                 });
             });
 
-            // Walk all element/text nodes in #CONTENT, calling visitor(node, pos)
-            // at each step. Uses the same positional encoding as the hash format.
-            // Code blatantly stolen from archive.today; hey it works great!
-            function walkContent(visitor) {
-                var pos = 0;
-                function recur(e) {
-                    if (
-                        e.nodeType == 1 &&
-                        (e.tagName == "OLD-META" || e.tagName == "OLD-SCRIPT")
-                    )
-                        return;
-                    if (e.nodeType == 1) pos = (pos & ~1) + 2;
-                    if (e.nodeType == 3) pos = pos | 1;
-                    visitor(e, pos);
-                    var lastChild = null;
-                    for (var i = 0; i < e.childNodes.length; i++)
-                        if (
-                            e.childNodes[i].nodeType == 1 ||
-                            e.childNodes[i].nodeType == 3
-                        )
-                            recur((lastChild = e.childNodes[i]));
-                    if (lastChild && lastChild.nodeType == 3)
-                        pos = (pos & ~1) + 2;
-                }
-                recur(document.getElementById("CONTENT"));
-            }
-
             function computeSelectionHash() {
                 if (!document.getSelection) return "";
                 var sel = document.getSelection();
                 if (sel.isCollapsed) return "";
+                var selected = sel.toString();
+                if (!selected) return "";
+
+                var contentEl = document.getElementById("CONTENT");
+                if (!contentEl) return "";
+
                 var range = sel.getRangeAt(0);
-                var begin = [0, 0],
-                    end = [0, 0];
-                walkContent(function (e, pos) {
-                    if (range.startContainer === e)
-                        begin = [pos, range.startOffset];
-                    if (range.endContainer === e) end = [pos, range.endOffset];
-                });
-                if (begin[0] > 0 && end[0] > 0)
-                    return (
-                        "selection-" +
-                        begin[0] +
-                        "." +
-                        begin[1] +
-                        "-" +
-                        end[0] +
-                        "." +
-                        end[1]
-                    );
-                return "";
+
+                // Get 4 chars before and after the selection from the
+                // plain text, using Range.toString() for accuracy.
+                var prefixRange = document.createRange();
+                prefixRange.setStart(contentEl, 0);
+                prefixRange.setEnd(range.startContainer, range.startOffset);
+                var beforeText = prefixRange.toString();
+                var prefix = beforeText.slice(-4);
+
+                var suffixRange = document.createRange();
+                suffixRange.setStart(range.endContainer, range.endOffset);
+                suffixRange.setEndAfter(contentEl.lastChild || contentEl);
+                var suffix = suffixRange.toString().slice(0, 4);
+
+                return (
+                    encodeURIComponent(selected) +
+                    "~" +
+                    encodeURIComponent(prefix) +
+                    "~" +
+                    encodeURIComponent(suffix)
+                );
             }
 
             function applySelectionHash(newhash) {
-                var oldhash = location.hash.replace(/^#/, "");
-                if (oldhash == newhash) return;
-                if (history.replaceState) {
-                    history.replaceState(
-                        "",
-                        document.title,
-                        document.location.origin +
-                            document.location.pathname +
-                            (newhash.length > 0 ? "#" + newhash : ""),
-                    );
-                } else if (newhash.length > 0) {
-                    location.hash = newhash;
+                var params = new URLSearchParams(location.search);
+                var oldval = params.get("selection") || "";
+                if (oldval == newhash) return;
+                if (newhash.length > 0 && newhash.indexOf("~") !== -1) {
+                    params.set("selection", newhash);
+                } else {
+                    params.delete("selection");
                 }
+                var search = params.toString();
+                history.replaceState(
+                    "",
+                    document.title,
+                    location.pathname + (search.length > 0 ? "?" + search : ""),
+                );
             }
 
-            var chashDebounce = null;
+            var copyBtn = document.getElementById("selection-copy-btn");
+            copyBtn.addEventListener("click", function () {
+                var hash = computeSelectionHash();
+                if (!hash) return;
+                var url =
+                    location.origin + location.pathname + "?selection=" + hash;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(url).then(function () {
+                        copyBtn.textContent = "Copied!";
+                        copyBtn.classList.add("copied");
+                        setTimeout(function () {
+                            copyBtn.textContent = "Copy link";
+                            copyBtn.classList.remove("copied");
+                        }, 2000);
+                    });
+                } else {
+                    var ta = document.createElement("textarea");
+                    ta.value = url;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    copyBtn.textContent = "Copied!";
+                    copyBtn.classList.add("copied");
+                    setTimeout(function () {
+                        copyBtn.textContent = "Copy link";
+                        copyBtn.classList.remove("copied");
+                    }, 2000);
+                }
+            });
+
             document.addEventListener("selectionchange", function () {
                 var hash = computeSelectionHash();
                 applySelectionHash(hash);
 
-                var panel = document.getElementById("chash-debug");
-                var elClient = document.getElementById("chash-client");
-                var elServer = document.getElementById("chash-server");
-                var elResult = document.getElementById("chash-result");
-
                 if (!hash) {
-                    panel.classList.remove("visible");
-                    clearTimeout(chashDebounce);
+                    copyBtn.style.display = "none";
                     return;
                 }
 
-                elClient.textContent = hash;
-                elServer.textContent = "…";
-                elServer.className = "chash-pending";
-                elResult.textContent = "…";
-                elResult.className = "chash-pending";
-                panel.classList.add("visible");
-
-                clearTimeout(chashDebounce);
-                chashDebounce = setTimeout(function () {
-                    var params = new URLSearchParams();
-                    params.set("hash", hash);
-                    params.set("post_id", "{{post_id}}");
-                    fetch("/chash/validate", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded",
-                        },
-                        body: params.toString(),
-                    })
-                        .then(function (r) {
-                            return r.json();
-                        })
-                        .then(function (data) {
-                            if (data.error) {
-                                elServer.textContent = "error: " + data.error;
-                                elServer.className = "chash-mismatch";
-                                elResult.textContent = "error";
-                                elResult.className = "chash-mismatch";
-                                return;
-                            }
-                            elServer.textContent = data.server_hash || "—";
-                            elServer.className = "";
-                            if (data.matched) {
-                                elResult.textContent = "✓ match";
-                                elResult.className = "chash-match";
-                            } else {
-                                elResult.textContent = "✗ mismatch";
-                                elResult.className = "chash-mismatch";
-                            }
-                        })
-                        .catch(function () {
-                            elServer.textContent = "fetch failed";
-                            elServer.className = "chash-mismatch";
-                            elResult.textContent = "error";
-                            elResult.className = "chash-mismatch";
-                        });
-                }, 300);
-            });
-
-            function restoreSelectionHash() {
-                var hash = location.hash.replace(/^#/, "");
-                if (!hash.match(/^selection-\d+\.\d+-\d+\.\d+$/)) return;
-
-                var parts = hash.replace("selection-", "").split("-");
-                var begin = parts[0].split(".").map(Number);
-                var end = parts[1].split(".").map(Number);
-                var beginPos = begin[0],
-                    beginOffset = begin[1];
-                var endPos = end[0],
-                    endOffset = end[1];
-
-                var beginNode = null,
-                    endNode = null;
-                walkContent(function (e, pos) {
-                    if (pos === beginPos) beginNode = e;
-                    if (pos === endPos) endNode = e;
-                });
-
-                if (!beginNode || !endNode) return;
-
-                try {
-                    var range = document.createRange();
-                    range.setStart(beginNode, beginOffset);
-                    range.setEnd(endNode, endOffset);
-
-                    var sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-
-                    var mark = document.createElement("mark");
-                    mark.className = "selection-highlight";
-                    range.surroundContents(mark);
-                    mark.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center",
-                    });
-                } catch (e) {
-                    // surroundContents fails if the range crosses element boundaries;
-                    // fall back to just scrolling the start node into view
-                    if (beginNode.parentElement) {
-                        beginNode.parentElement.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                        });
-                    }
+                var sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    var rect = sel.getRangeAt(0).getBoundingClientRect();
+                    var scrollY = window.scrollY || window.pageYOffset;
+                    copyBtn.style.top = rect.bottom + scrollY + 6 + "px";
+                    copyBtn.style.left =
+                        rect.left +
+                        rect.width / 2 -
+                        copyBtn.offsetWidth / 2 +
+                        "px";
+                    copyBtn.style.display = "flex";
                 }
-            }
-
-            document.addEventListener("DOMContentLoaded", function () {
-                restoreSelectionHash();
             });
+
+            /* restoreSelectionHash disabled — server handles highlight injection via ?selection= */
 
             // Process pre-rendered code blocks to add interactivity
             document.addEventListener("DOMContentLoaded", function () {

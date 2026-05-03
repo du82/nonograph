@@ -2,9 +2,8 @@
 extern crate rocket;
 
 mod archiver;
-mod chash;
-use chash::{hash_for_text_range, parse_html, SelectionHash};
-use std::str::FromStr;
+mod selection;
+use selection::{highlight_anchor, TextAnchor};
 mod config;
 mod nojs;
 mod parser;
@@ -81,6 +80,11 @@ impl PostCache {
         } else {
             None
         }
+    }
+
+    // Read without updating last_accessed — for derived views that shouldn't affect LRU order
+    fn peek(&self, post_id: &str) -> Option<&Post> {
+        self.entries.get(post_id).map(|entry| &entry.post)
     }
 
     fn contains_key(&self, post_id: &str) -> bool {
@@ -183,120 +187,6 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
         Ok(html) => content::RawHtml(html),
         Err(e) => content::RawHtml(format!("Template error: {}", e)),
     }
-}
-
-#[derive(Debug, Serialize)]
-struct CHashValidateResponse {
-    client_hash: String,
-    server_hash: Option<String>,
-    matched: bool,
-    error: Option<String>,
-}
-
-#[derive(Debug, FromForm)]
-struct CHashValidateRequest {
-    hash: String,
-    post_id: String,
-}
-
-#[post("/chash/validate", data = "<form>")]
-fn chash_validate(
-    form: rocket::form::Form<CHashValidateRequest>,
-    storage: &State<PostStorage>,
-    config: &State<Config>,
-) -> content::RawJson<String> {
-    let client_hash_str = form.hash.trim().to_string();
-
-    let client_hash = match SelectionHash::from_str(&client_hash_str) {
-        Ok(h) => h,
-        Err(_) => {
-            return content::RawJson(
-                serde_json::to_string(&CHashValidateResponse {
-                    client_hash: client_hash_str,
-                    server_hash: None,
-                    matched: false,
-                    error: Some("invalid hash format".to_string()),
-                })
-                .unwrap(),
-            );
-        }
-    };
-
-    let err = |msg: &str| {
-        content::RawJson(
-            serde_json::to_string(&CHashValidateResponse {
-                client_hash: client_hash_str.clone(),
-                server_hash: None,
-                matched: false,
-                error: Some(msg.to_string()),
-            })
-            .unwrap(),
-        )
-    };
-
-    let post_id = form.post_id.trim();
-    let raw_html = {
-        let mut posts = storage.lock().unwrap();
-        posts.get_ref(post_id).map(|p| p.content.clone())
-    };
-
-    let raw_html = match raw_html {
-        Some(h) => h,
-        None => {
-            if save::post_file_exists(post_id) {
-                match std::fs::read_to_string(format!("content/{}.md", post_id)) {
-                    Ok(file_content) => {
-                        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
-                        if lines.len() >= 4 {
-                            parser::render_markdown_with_config(lines[3], &config)
-                        } else {
-                            return err("could not parse post file");
-                        }
-                    }
-                    Err(_) => return err("post not found"),
-                }
-            } else {
-                return err("post not found");
-            }
-        }
-    };
-
-    let root = parse_html(&raw_html);
-    let mut pos = 0u64;
-    let mut char_offset = 0usize;
-    let mut begin_char: Option<usize> = None;
-    let mut end_char: Option<usize> = None;
-
-    chash::walk_for_validation(&root, &mut pos, &mut |node, p| {
-        if let chash::Node::Text(t) = node {
-            let len = t.chars().count();
-            if p == client_hash.begin.pos && begin_char.is_none() {
-                begin_char = Some(char_offset + client_hash.begin.offset);
-            }
-            if p == client_hash.end.pos && end_char.is_none() {
-                end_char = Some(char_offset + client_hash.end.offset);
-            }
-            char_offset += len;
-        }
-    });
-
-    let server_hash = match (begin_char, end_char) {
-        (Some(b), Some(e)) => hash_for_text_range(&raw_html, b, e),
-        _ => return err("coordinates did not resolve to text nodes"),
-    };
-
-    let server_hash_str = server_hash.map(|h| h.to_string());
-    let matched = server_hash_str.as_deref() == Some(&client_hash_str);
-
-    content::RawJson(
-        serde_json::to_string(&CHashValidateResponse {
-            client_hash: client_hash_str,
-            server_hash: server_hash_str,
-            matched,
-            error: None,
-        })
-        .unwrap(),
-    )
 }
 
 #[derive(Debug, FromForm)]
@@ -537,6 +427,158 @@ fn create_post(
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
 }
 
+fn load_post_html(
+    post_id: &str,
+    storage: &State<PostStorage>,
+    config: &State<Config>,
+) -> Option<Post> {
+    let post_from_memory = {
+        let posts = storage.lock().unwrap();
+        posts.peek(post_id).map(|p| p.clone())
+    };
+
+    if post_from_memory.is_some() {
+        return post_from_memory;
+    }
+
+    if !save::post_file_exists(post_id) {
+        return None;
+    }
+
+    let file_content = std::fs::read_to_string(format!("content/{}.md", post_id)).ok()?;
+    let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+    if lines.len() < 4 {
+        return None;
+    }
+
+    let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
+        (
+            lines[0][..pipe_pos].to_string(),
+            lines[0][(pipe_pos + 3)..].to_string(),
+        )
+    } else {
+        (lines[0].to_string(), "".to_string())
+    };
+
+    let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    let title = lines[2]
+        .strip_prefix("# ")
+        .unwrap_or("Untitled")
+        .to_string();
+    let raw_content = lines[3].to_string();
+
+    Some(Post {
+        id: post_id.to_string(),
+        title,
+        author,
+        content: parser::render_markdown_with_config(&raw_content, &config),
+        raw_content,
+        created_at,
+    })
+}
+
+fn render_post_html(
+    post: &Post,
+    content_override: Option<String>,
+    scroll_script: Option<String>,
+    _config: &State<Config>,
+) -> String {
+    let engine = TemplateEngine::new("templates");
+    let mut context = HashMap::new();
+
+    let actual_post_id = &post.id;
+    let rendered_content = content_override.unwrap_or_else(|| post.content.clone());
+
+    context.insert("title".to_string(), post.title.clone());
+    context.insert("content".to_string(), rendered_content);
+    context.insert("raw_content".to_string(), post.raw_content.clone());
+
+    let author = if post.author.is_empty() {
+        "Anonymous".to_string()
+    } else {
+        post.author.clone()
+    };
+    context.insert("author".to_string(), author);
+
+    let author_display = if post.author.is_empty() {
+        "by Anonymous · ".to_string()
+    } else {
+        format!("by {} · ", post.author)
+    };
+    context.insert("author_display".to_string(), author_display);
+    context.insert(
+        "created_at".to_string(),
+        post.created_at.format("%B %d, %Y").to_string(),
+    );
+    context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
+    context.insert("post_id".to_string(), actual_post_id.to_string());
+    context.insert("url".to_string(), format!("/{}", actual_post_id));
+
+    let description = if post.raw_content.chars().count() > 160 {
+        let truncated: String = post.raw_content.chars().take(160).collect();
+        format!("{}...", parser::html_attr_escape(&truncated))
+    } else {
+        post.raw_content.clone()
+    };
+    context.insert("description".to_string(), description);
+    context.insert(
+        "scroll_script".to_string(),
+        scroll_script.unwrap_or_default(),
+    );
+
+    match engine.render("post", &context) {
+        Ok(html) => html,
+        Err(e) => format!("Template error: {}", e),
+    }
+}
+
+#[get("/<post_id>?<selection>")]
+fn view_post_with_selection(
+    post_id: &str,
+    selection: &str,
+    storage: &State<PostStorage>,
+    config: &State<Config>,
+) -> Result<
+    rocket::Either<content::RawHtml<String>, content::RawText<String>>,
+    (
+        Status,
+        rocket::Either<content::RawText<String>, content::RawHtml<String>>,
+    ),
+> {
+    use std::str::FromStr;
+
+    let post = match load_post_html(post_id, storage, config) {
+        Some(p) => p,
+        None => {
+            return Err((
+                Status::NotFound,
+                rocket::Either::Right(content::RawHtml("Not found".to_string())),
+            ))
+        }
+    };
+
+    let anchor = match TextAnchor::from_str(selection) {
+        Ok(a) => a,
+        Err(_) => {
+            let html = render_post_html(&post, None, None, config);
+            return Ok(rocket::Either::Left(content::RawHtml(html)));
+        }
+    };
+
+    let (highlighted_content, scroll_script) = match highlight_anchor(&post.content, &anchor) {
+        Some((content, script)) => (content, Some(script)),
+        None => (post.content.clone(), None),
+    };
+
+    let html = render_post_html(&post, Some(highlighted_content), scroll_script, config);
+    Ok(rocket::Either::Left(content::RawHtml(html)))
+}
+
 #[get("/<post_id>")]
 fn view_post(
     post_id: &str,
@@ -637,55 +679,8 @@ fn view_post(
                 );
                 Ok(rocket::Either::Right(content::RawText(markdown_content)))
             } else {
-                let engine = TemplateEngine::new("templates");
-                let mut context = HashMap::new();
-
-                // Use pre-rendered content
-                let rendered_content = post.content.clone();
-
-                context.insert("title".to_string(), post.title.clone());
-                context.insert("content".to_string(), rendered_content);
-                context.insert("raw_content".to_string(), post.raw_content.clone());
-                let author = if post.author.is_empty() {
-                    "Anonymous".to_string()
-                } else {
-                    post.author.clone()
-                };
-                context.insert("author".to_string(), author);
-
-                let author_display = if post.author.is_empty() {
-                    "by Anonymous · ".to_string()
-                } else {
-                    format!("by {} · ", post.author)
-                };
-                context.insert("author_display".to_string(), author_display);
-
-                context.insert(
-                    "created_at".to_string(),
-                    post.created_at.format("%B %d, %Y").to_string(),
-                );
-                context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
-                context.insert("post_id".to_string(), actual_post_id.to_string());
-
-                // OpenGraph variables
-                context.insert("url".to_string(), format!("/{}", actual_post_id));
-
-                // Create description from first 160 chars of raw content
-                let description = if post.raw_content.chars().count() > 160 {
-                    let truncated: String = post.raw_content.chars().take(160).collect();
-                    format!("{}...", parser::html_attr_escape(&truncated))
-                } else {
-                    post.raw_content.clone()
-                };
-                context.insert("description".to_string(), description);
-
-                match engine.render("post", &context) {
-                    Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
-                    Err(e) => Ok(rocket::Either::Left(content::RawHtml(format!(
-                        "Template error: {}",
-                        e
-                    )))),
-                }
+                let html = render_post_html(&post, None, None, config);
+                Ok(rocket::Either::Left(content::RawHtml(html)))
             }
         }
         None => {
@@ -733,9 +728,23 @@ fn markup_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("markup", config)
 }
 
+#[get("/markup?<selection>")]
+fn markup_page_selection(selection: &str, config: &State<Config>) -> content::RawHtml<String> {
+    use std::str::FromStr;
+    let anchor = TextAnchor::from_str(selection).ok();
+    serve_static_page_with_anchor("markup", anchor.as_ref(), config)
+}
+
 #[get("/legal")]
 fn legal_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("legal", config)
+}
+
+#[get("/legal?<selection>")]
+fn legal_page_selection(selection: &str, config: &State<Config>) -> content::RawHtml<String> {
+    use std::str::FromStr;
+    let anchor = TextAnchor::from_str(selection).ok();
+    serve_static_page_with_anchor("legal", anchor.as_ref(), config)
 }
 
 #[get("/about")]
@@ -743,75 +752,55 @@ fn about_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("about", config)
 }
 
+#[get("/about?<selection>")]
+fn about_page_selection(selection: &str, config: &State<Config>) -> content::RawHtml<String> {
+    use std::str::FromStr;
+    let anchor = TextAnchor::from_str(selection).ok();
+    serve_static_page_with_anchor("about", anchor.as_ref(), config)
+}
+
 #[get("/api")]
 fn api_page(config: &State<Config>) -> content::RawHtml<String> {
     serve_static_page("api", config)
 }
 
-#[get("/api/resolve?<post>&<hash>")]
+#[get("/api?<selection>")]
+fn api_page_selection(selection: &str, config: &State<Config>) -> content::RawHtml<String> {
+    use std::str::FromStr;
+    let anchor = TextAnchor::from_str(selection).ok();
+    serve_static_page_with_anchor("api", anchor.as_ref(), config)
+}
+
+#[get("/api/resolve?<post>&<anchor>")]
 fn resolve_selection(
     post: &str,
-    hash: &str,
+    anchor: &str,
     storage: &State<PostStorage>,
-    config: &State<Config>,
+    _config: &State<Config>,
 ) -> Result<content::RawText<String>, (Status, content::RawText<String>)> {
-    use chash::resolve_hash;
     use std::str::FromStr;
 
-    let selection = match SelectionHash::from_str(hash) {
-        Ok(h) => h,
+    let anchor = match TextAnchor::from_str(anchor) {
+        Ok(a) => a,
         Err(_) => {
             return Err((
                 Status::BadRequest,
-                content::RawText("invalid hash format".to_string()),
+                content::RawText("invalid anchor format".to_string()),
             ))
         }
     };
 
-    let rendered_html = {
-        let mut posts = storage.lock().unwrap();
-        posts.get_ref(post).map(|p| p.content.clone())
-    };
-
-    let rendered_html = match rendered_html {
-        Some(h) => h,
-        None => {
-            if save::post_file_exists(post) {
-                match std::fs::read_to_string(format!("content/{}.md", post)) {
-                    Ok(file_content) => {
-                        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
-                        if lines.len() >= 4 {
-                            parser::render_markdown_with_config(lines[3], &config)
-                        } else {
-                            return Err((
-                                Status::InternalServerError,
-                                content::RawText("could not parse post file".to_string()),
-                            ));
-                        }
-                    }
-                    Err(_) => {
-                        return Err((
-                            Status::NotFound,
-                            content::RawText("post not found".to_string()),
-                        ))
-                    }
-                }
-            } else {
-                return Err((
-                    Status::NotFound,
-                    content::RawText("post not found".to_string()),
-                ));
-            }
+    if !save::post_file_exists(post) {
+        let posts = storage.lock().unwrap();
+        if !posts.contains_key(post) {
+            return Err((
+                Status::NotFound,
+                content::RawText("post not found".to_string()),
+            ));
         }
-    };
-
-    match resolve_hash(&rendered_html, &selection) {
-        Some(text) => Ok(content::RawText(text)),
-        None => Err((
-            Status::UnprocessableEntity,
-            content::RawText("hash did not resolve to any text".to_string()),
-        )),
     }
+
+    Ok(content::RawText(anchor.selected))
 }
 
 #[get("/robots.txt")]
@@ -926,21 +915,36 @@ fn nojs_create_post(
 }
 
 fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtml<String> {
+    serve_static_page_with_anchor(page_name, None, config)
+}
+
+fn serve_static_page_with_anchor(
+    page_name: &str,
+    anchor: Option<&TextAnchor>,
+    config: &State<Config>,
+) -> content::RawHtml<String> {
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
         Ok(content) => {
-            // Parse the file format: date, empty line, title, content
             let lines: Vec<&str> = content.splitn(4, '\n').collect();
             if lines.len() >= 4 {
                 let title = lines[2].strip_prefix("# ").unwrap_or("Page");
                 let raw_content = lines[3];
                 let rendered_content = parser::render_markdown_with_config(raw_content, &config);
 
+                let (final_content, scroll_script) = match anchor {
+                    Some(a) => match highlight_anchor(&rendered_content, a) {
+                        Some((h, s)) => (h, Some(s)),
+                        None => (rendered_content, None),
+                    },
+                    None => (rendered_content, None),
+                };
+
                 let engine = TemplateEngine::new("templates");
                 let mut context = HashMap::new();
                 context.insert("title".to_string(), title.to_string());
-                context.insert("content".to_string(), rendered_content);
+                context.insert("content".to_string(), final_content);
                 context.insert("created_at".to_string(), lines[0].to_string());
                 context.insert("author".to_string(), String::new());
                 context.insert("author_display".to_string(), String::new());
@@ -948,6 +952,7 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
                 context.insert("post_id".to_string(), page_name.to_string());
+                context.insert("scroll_script".to_string(), scroll_script.unwrap_or_default());
 
                 match engine.render("post", &context) {
                     Ok(html) => content::RawHtml(html),
@@ -957,12 +962,10 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 content::RawHtml(format!("<h1>Error</h1><p>Invalid file format for {}</p>", page_name))
             }
         }
-        Err(_) => {
-            content::RawHtml(format!(
-                "<h1>Page Not Found</h1><p>The {} page doesn't exist yet.</p><p><a href=\"/\">← Home</a></p>",
-                page_name
-            ))
-        }
+        Err(_) => content::RawHtml(format!(
+            "<h1>Page Not Found</h1><p>The {} page doesn't exist yet.</p><p><a href=\"/\">← Home</a></p>",
+            page_name
+        )),
     }
 }
 
@@ -1053,8 +1056,12 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 nojs_index,
                 nojs_view_post,
                 nojs_create_post,
-                chash_validate,
-                resolve_selection
+                resolve_selection,
+                view_post_with_selection,
+                markup_page_selection,
+                legal_page_selection,
+                about_page_selection,
+                api_page_selection
             ],
         )
 }
