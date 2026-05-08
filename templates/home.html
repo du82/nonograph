@@ -478,6 +478,11 @@
                 font-family: "Courier New", monospace;
                 font-size: 13px;
             }
+            .help-section .shortcut {
+                color: #888;
+                font-size: 0.85em;
+                margin-left: 4px;
+            }
 
             /* Mobile Styles */
             @media (max-width: 1040px) {
@@ -636,10 +641,10 @@
                         stroke-dashoffset="37.7"
                     ></circle>
                 </svg>
-                <span>0 / 128,000</span>
+                <span>0 / 256,000</span>
             </div>
             <div class="mobile-header-center">
-                <a href="#help-sheet" class="help-link">Help</a>
+                <a href="#help-sheet" class="help-link">About</a>
                 <button type="submit" form="publishForm">Publish</button>
             </div>
         </div>
@@ -652,109 +657,57 @@
                     <a href="#" class="bottom-sheet-close"> &times; </a>
                 </div>
                 <div class="bottom-sheet-content">
+                    <!-- About -->
                     <div class="help-section">
-                        <h3>What is Nonograph?</h3>
+                        <h3>What's this?</h3>
                         <p>
-                            Nonograph is a minimalist publishing platform.
-                            Anonymous by design: no accounts, no tracking, no
-                            compromise. Just write and publish.
+                            Nonograph is for writing things you want to exist
+                            somewhere permanent without that somewhere being
+                            attached to you. A thought, an essay, a rant, class
+                            notes, up to you. You write it, you get a link.
+                            Share the link with whoever you'd like, or keep it
+                            to yourself.
                         </p>
                         <p>
-                            Your posts are completely public once published.
-                            Anyone with the link can read them, so share the
-                            link wisely. We store only the text you write—no IP
-                            addresses, cookies, or personal information.
+                            The service and software are designed to last. Your
+                            pages are stored as plaintext markup, no proprietary
+                            formats. Being a simple, lightweight, open-source
+                            project means it should last a long time with very
+                            little funding.
                         </p>
                     </div>
 
                     <div class="help-section">
-                        <h3>Why Use Nonograph?</h3>
+                        <h3>Principles</h3>
                         <ul>
+                            <li>No ads, no monetization, no investors</li>
                             <li>
-                                <strong>No accounts:</strong> Just write and
-                                publish instantly
+                                Posts cannot be edited or deleted after
+                                publishing
                             </li>
-                            <li>
-                                <strong>Anonymous:</strong> We don't track who
-                                you are
-                            </li>
-                            <li>
-                                <strong>Open source:</strong> Free software you
-                                can trust
-                            </li>
-                            <li>
-                                <strong>Clean design:</strong> Focus on your
-                                words, not distractions
-                            </li>
-                            <li>
-                                <strong>Rich formatting:</strong> Beautiful
-                                typography and markup
-                            </li>
-                            <li>
-                                <strong>Permanent:</strong> Your posts stay
-                                online indefinitely
-                            </li>
+                            <li>No accounts, no tracking, no analytics</li>
+                            <li>Open to all, no political or social biases</li>
+                            <li>Open source, self-hostable</li>
                         </ul>
                     </div>
 
                     <div class="help-section">
-                        <h3>How to Format</h3>
+                        <h3>Source code</h3>
                         <p>
-                            Type "/" for commands, or use markdown syntax
-                            directly:
-                        </p>
-                        <ul>
-                            <li>
-                                <code>/h1</code> or <code># Heading</code> -
-                                Large heading
-                            </li>
-                            <li>
-                                <code>/h2</code> or <code>## Heading</code> -
-                                Medium heading
-                            </li>
-                            <li>
-                                <code>/bold</code> or <code>**text**</code> -
-                                Bold text
-                            </li>
-                            <li>
-                                <code>/italic</code> or <code>*text*</code> -
-                                Italic text
-                            </li>
-                            <li>
-                                <code>/link</code> or <code>[text](url)</code> -
-                                Links
-                            </li>
-                            <li>
-                                <code>/list</code> or <code>- item</code> -
-                                Bullet lists
-                            </li>
-                            <li>
-                                <code>/quote</code> or <code>> text</code> -
-                                Block quotes
-                            </li>
-                            <li>
-                                <code>/code</code> or <code>`text`</code> -
-                                Inline code
-                            </li>
-                        </ul>
-                        <p>
-                            Plus images, videos, tables, footnotes, and more.
-                            Add ".md" to any post URL to see the raw markdown.
+                            It's entirely open source. The code is at
+                            <strong>github.com/du82/nonograph</strong>. You can
+                            read it, run it yourself, and host for others
+                            easily.
                         </p>
                     </div>
 
                     <div class="help-section">
-                        <h3>Publishing</h3>
+                        <h3>Formatting</h3>
                         <p>
-                            Tap <strong>Publish</strong> when ready. Posts go
-                            live immediately and stay online as long as the
-                            servers remain up. 128,000 character limit—enough
-                            for long articles.
-                        </p>
-                        <p>
-                            <strong>Open source:</strong> View the complete
-                            source code at
-                            <strong>github.com/du82/nonograph</strong>
+                            Type <code>/</code> for a menu of formatting
+                            options, or use markdown directly. Add
+                            <code>.md</code> to any post URL to see the raw
+                            source.
                         </p>
                     </div>
                 </div>
@@ -840,7 +793,7 @@
                             stroke-dashoffset="37.7"
                         ></circle>
                     </svg>
-                    <span>0 / 128,000</span>
+                    <span>0 / 256,000</span>
                 </div>
                 <div class="links">
                     <a href="/markup" target="_blank">markup guide</a>

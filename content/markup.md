@@ -286,7 +286,7 @@ Press Enter once for a line break
 Press Enter twice for a paragraph break
 
 ## Limits
-- Posts: 128,000 characters maximum
+- Posts: 256,000 characters maximum
 - Links: 4,096 characters maximum
 - Titles: 128 characters maximum
 - Alias: 32 characters maximum
