@@ -163,6 +163,10 @@
                 word-wrap: break-word;
                 overflow-wrap: break-word;
             }
+            .code-line {
+                display: block;
+                line-height: 1.4;
+            }
             .code-header {
                 position: absolute;
                 top: 0;
@@ -246,6 +250,7 @@
             .line-numbers {
                 position: absolute;
                 left: 0;
+                top: 20px;
                 width: 40px;
                 padding: 6px 0;
                 background: #f1f3f4;
@@ -267,6 +272,10 @@
                 display: flex;
                 align-items: center;
                 justify-content: flex-end;
+                box-sizing: border-box;
+            }
+            pre.wrap .line-number {
+                align-items: flex-start;
             }
             .line-number.empty {
                 color: transparent;
@@ -919,6 +928,32 @@
 
                     // Wrap button functionality
                     if (wrapButton && pre) {
+                        const lineNumberEls = Array.from(
+                            pre.querySelectorAll(".line-number"),
+                        );
+                        const codeLineEls = codeBlock
+                            ? Array.from(
+                                  codeBlock.querySelectorAll(".code-line"),
+                              )
+                            : [];
+                        const baseLineHeight = parseFloat(
+                            getComputedStyle(codeBlock || pre).lineHeight,
+                        );
+
+                        const updateLineHeights = function () {
+                            const isWrapped = pre.classList.contains("wrap");
+                            codeLineEls.forEach(function (codeLine, i) {
+                                if (!lineNumberEls[i]) return;
+                                if (isWrapped) {
+                                    const h =
+                                        codeLine.getBoundingClientRect().height;
+                                    lineNumberEls[i].style.height = h + "px";
+                                } else {
+                                    lineNumberEls[i].style.height = "";
+                                }
+                            });
+                        };
+
                         wrapButton.addEventListener("click", function () {
                             pre.classList.toggle("wrap");
                             wrapButton.classList.toggle("active");
@@ -926,6 +961,7 @@
                                 pre.classList.contains("wrap")
                                     ? "Unwrap"
                                     : "Wrap";
+                            updateLineHeights();
                         });
                     }
 

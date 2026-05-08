@@ -1006,21 +1006,16 @@ fn render_code_block(
     let mut highlighted_code = String::new();
 
     for line in LinesWithEndings::from(code_content) {
-        match highlighter.highlight_line(line, syntax_set) {
+        let line_html = match highlighter.highlight_line(line, syntax_set) {
             Ok(ranges) => {
                 match styled_line_to_highlighted_html(&ranges[..], IncludeBackground::No) {
-                    Ok(html) => highlighted_code.push_str(&html),
-                    Err(_) => {
-                        // Fallback to HTML-escaped content if highlighting fails
-                        highlighted_code.push_str(&html_escape(line));
-                    }
+                    Ok(html) => html,
+                    Err(_) => html_escape(line),
                 }
             }
-            Err(_) => {
-                // Fallback to HTML-escaped content if highlighting fails
-                highlighted_code.push_str(&html_escape(line));
-            }
-        }
+            Err(_) => html_escape(line),
+        };
+        highlighted_code.push_str(&format!("<span class=\"code-line\">{}</span>", line_html));
     }
 
     // Generate line numbers
