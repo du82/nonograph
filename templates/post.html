@@ -139,7 +139,7 @@
             .article-content pre {
                 background: #f8f9fa;
                 border: 1px solid #e9ecef;
-                padding: 24px 0 0 50px;
+                padding: 20px 0 0 50px;
                 margin: 20px 0;
                 overflow-x: auto;
                 line-height: 1.4;
@@ -208,6 +208,30 @@
                     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                     sans-serif;
                 font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+            }
+            .btn-icon {
+                width: 11px;
+                height: 11px;
+                flex-shrink: 0;
+                vertical-align: middle;
+            }
+            .btn-icon-alt {
+                display: none;
+            }
+            .collapse-button.active .btn-icon:not(.btn-icon-alt) {
+                display: none;
+            }
+            .collapse-button.active .btn-icon-alt {
+                display: inline;
+            }
+            .copy-button.copied .btn-icon:not(.btn-icon-alt) {
+                display: none;
+            }
+            .copy-button.copied .btn-icon-alt {
+                display: inline;
             }
             .copy-button.copied {
                 background: #2ea043;
@@ -222,7 +246,6 @@
             .line-numbers {
                 position: absolute;
                 left: 0;
-                top: 24px;
                 width: 40px;
                 padding: 6px 0;
                 background: #f1f3f4;
@@ -892,7 +915,6 @@
                     const collapseButton =
                         pre.querySelector(".collapse-button");
                     const copyButton = pre.querySelector(".copy-button");
-                    const codeWrapper = pre.querySelector(".code-wrapper");
                     const codeBlock = pre.querySelector("code");
 
                     // Wrap button functionality
@@ -900,11 +922,10 @@
                         wrapButton.addEventListener("click", function () {
                             pre.classList.toggle("wrap");
                             wrapButton.classList.toggle("active");
-                            wrapButton.textContent = pre.classList.contains(
-                                "wrap",
-                            )
-                                ? "Unwrap"
-                                : "Wrap";
+                            wrapButton.querySelector(".btn-label").textContent =
+                                pre.classList.contains("wrap")
+                                    ? "Unwrap"
+                                    : "Wrap";
                         });
                     }
 
@@ -912,9 +933,10 @@
                     if (collapseButton && pre) {
                         collapseButton.addEventListener("click", function () {
                             pre.classList.toggle("collapsed");
-                            collapseButton.textContent = pre.classList.contains(
-                                "collapsed",
-                            )
+                            collapseButton.classList.toggle("active");
+                            collapseButton.querySelector(
+                                ".btn-label",
+                            ).textContent = pre.classList.contains("collapsed")
                                 ? "Expand"
                                 : "Collapse";
                         });
@@ -924,11 +946,15 @@
                     if (copyButton && codeBlock) {
                         copyButton.addEventListener("click", function () {
                             const showCopiedState = function () {
-                                copyButton.textContent = "Copied!";
                                 copyButton.classList.add("copied");
+                                copyButton.querySelector(
+                                    ".btn-label",
+                                ).textContent = "Copied!";
                                 setTimeout(function () {
-                                    copyButton.textContent = "Copy";
                                     copyButton.classList.remove("copied");
+                                    copyButton.querySelector(
+                                        ".btn-label",
+                                    ).textContent = "Copy";
                                 }, 2000);
                             };
 

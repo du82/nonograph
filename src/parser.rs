@@ -373,6 +373,11 @@ fn sanitize_html(html: String) -> String {
             "ul",
             "li",
             "button",
+            "svg",
+            "polyline",
+            "line",
+            "rect",
+            "path",
         ])
         .add_tag_attributes("video", &["controls", "style"])
         .add_tag_attributes("source", &["src", "type"])
@@ -390,7 +395,24 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("h2", &["id"])
         .add_tag_attributes("h3", &["id"])
         .add_tag_attributes("h4", &["id"])
-        .add_tag_attributes("button", &["class"])
+        .add_tag_attributes("button", &["class", "data-icon-expand", "data-icon-check"])
+        .add_tag_attributes(
+            "svg",
+            &[
+                "class",
+                "viewBox",
+                "fill",
+                "stroke",
+                "stroke-width",
+                "stroke-linecap",
+                "stroke-linejoin",
+                "aria-hidden",
+            ],
+        )
+        .add_tag_attributes("polyline", &["points"])
+        .add_tag_attributes("line", &["x1", "y1", "x2", "y2"])
+        .add_tag_attributes("rect", &["x", "y", "width", "height", "rx"])
+        .add_tag_attributes("path", &["d", "fill-rule"])
         .add_tag_attributes("pre", &["class"])
         .link_rel(Some("noopener noreferrer"));
 
@@ -1025,7 +1047,7 @@ fn render_code_block(
     };
 
     format!(
-        r#"<pre{}><div class="code-header">{}<div class="code-controls"><button class="wrap-button">Wrap</button><button class="collapse-button">Collapse</button><button class="copy-button">Copy</button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div></pre>"#,
+        r#"<pre{}><div class="code-header">{}<div class="code-controls"><button class="wrap-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="11" y2="8"/><line x1="2" y1="12" x2="9" y2="12"/></svg><span class="btn-label">Wrap</span></button><button class="collapse-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14,11 8,5 2,11"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,5 8,11 14,5"/></svg><span class="btn-label">Collapse</span></button><button class="copy-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1"/><rect x="6" y="1" width="4" height="3" rx="0.5"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,8 6,12 14,4"/></svg><span class="btn-label">Copy</span></button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div></pre>"#,
         class_attr, lang_display, line_numbers, highlighted_code
     )
 }

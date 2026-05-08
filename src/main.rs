@@ -1812,8 +1812,8 @@ mod tests {
         let now = Utc::now();
         let formatted = now.format("%B %d, %Y").to_string();
 
-        // Should be format like "January 01, 2024"
-        assert!(formatted.len() >= 13); // At least "January 1, 2024" length
+        // Should be format like "May 1, 2024" (shortest) or "January 15, 2024" (longer)
+        assert!(formatted.len() >= 11); // At least "May 1, 2024" length
         assert!(formatted.contains(", "));
         assert!(!formatted.contains("UTC"));
         assert!(!formatted.contains(":"));
