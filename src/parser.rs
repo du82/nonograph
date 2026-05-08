@@ -996,10 +996,25 @@ fn render_code_block(
     line_count: u32,
 ) -> String {
     // Find syntax for language - syntect_language is already mapped to syntect names
-    let syntax = syntax_set
-        .find_syntax_by_name(syntect_language)
-        .or_else(|| syntax_set.find_syntax_by_first_line(code_content))
-        .unwrap_or_else(|| syntax_set.find_syntax_plain_text());
+    let (syntax, auto_detected) = if let Some(s) = syntax_set.find_syntax_by_name(syntect_language)
+    {
+        (s, false)
+    } else if original_language.is_empty() {
+        // No language specified — try to auto-detect from first line
+        if let Some(s) = syntax_set.find_syntax_by_first_line(code_content) {
+            (s, true)
+        } else {
+            (syntax_set.find_syntax_plain_text(), false)
+        }
+    } else {
+        // Language specified but not recognised — still try first-line as fallback
+        (
+            syntax_set
+                .find_syntax_by_first_line(code_content)
+                .unwrap_or_else(|| syntax_set.find_syntax_plain_text()),
+            false,
+        )
+    };
 
     // Generate syntax-highlighted code
     let mut highlighter = HighlightLines::new(syntax, theme);
@@ -1026,7 +1041,12 @@ fn render_code_block(
 
     // Create the complete HTML structure
     let css_lang = map_language_for_css(original_language);
-    let lang_display = if css_lang.is_empty() {
+    let lang_display = if auto_detected && syntax.name != "Plain Text" {
+        format!(
+            "<span class=\"code-language code-language-detected\" title=\"auto-detected\">{}</span>",
+            syntax.name.to_uppercase()
+        )
+    } else if css_lang.is_empty() {
         String::new()
     } else {
         format!(
