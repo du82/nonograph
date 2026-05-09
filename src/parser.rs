@@ -140,6 +140,9 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
     // Process comments before other formatting to remove them from HTML output
     working_content = process_comments(&working_content);
 
+    let (working_content_no_media, media_blocks) = extract_media_syntax(&working_content);
+    working_content = working_content_no_media;
+
     // Process footnotes before text formatting to avoid conflicts with ^ and []
     working_content = process_footnotes(&working_content);
 
@@ -157,6 +160,7 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
         "</span>",
     );
 
+    working_content = restore_media_syntax(&working_content, &media_blocks);
     working_content = process_images(&working_content);
     working_content = process_links(&working_content);
     working_content = process_tables(&working_content);
@@ -1379,6 +1383,62 @@ pub fn html_escape(text: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&#x27;")
+}
+
+fn extract_media_syntax(text: &str) -> (String, Vec<String>) {
+    let mut result = String::new();
+    let mut media_blocks = Vec::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if i + 1 < chars.len() && chars[i] == '!' && chars[i + 1] == '[' {
+            // Find closing bracket
+            let mut bracket_end = None;
+            let mut j = i + 2;
+            while j < chars.len() && chars[j] != '\n' {
+                if chars[j] == ']' {
+                    bracket_end = Some(j);
+                    break;
+                }
+                j += 1;
+            }
+            if let Some(b_end) = bracket_end {
+                if b_end + 1 < chars.len() && chars[b_end + 1] == '(' {
+                    let mut paren_end = None;
+                    let mut k = b_end + 2;
+                    while k < chars.len() && chars[k] != '\n' {
+                        if chars[k] == ')' {
+                            paren_end = Some(k);
+                            break;
+                        }
+                        k += 1;
+                    }
+                    if let Some(p_end) = paren_end {
+                        let raw: String = chars[i..=p_end].iter().collect();
+                        let placeholder = format!("{{{{MEDIASYNTAX{}}}}}", media_blocks.len());
+                        media_blocks.push(raw);
+                        result.push_str(&placeholder);
+                        i = p_end + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    (result, media_blocks)
+}
+
+fn restore_media_syntax(text: &str, media_blocks: &[String]) -> String {
+    let mut result = text.to_string();
+    for (index, raw) in media_blocks.iter().enumerate() {
+        let placeholder = format!("{{{{MEDIASYNTAX{}}}}}", index);
+        result = result.replace(&placeholder, raw);
+    }
+    result
 }
 
 fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
