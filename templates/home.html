@@ -187,6 +187,7 @@
                 color: #999;
                 pointer-events: none;
             }
+            .wysiwyg-editor::selection,
             .wysiwyg-editor *::selection {
                 background: #dbdbdb;
             }
@@ -1056,7 +1057,7 @@
             }
 
             function escapeMarkdown(text) {
-                return text.replace(/\u200b/g, "").replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+                return text.replace(/\u200b/g, "").replace(/\u00a0/g, " ").replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
             }
 
             function blockText(node) {
@@ -1070,13 +1071,13 @@
                 const tag = node.tagName.toLowerCase();
                 const inner = Array.from(node.childNodes).map(inlineMarkdown).join("");
 
-                if (tag === "strong" || tag === "b") return `**${inner}**`;
-                if (tag === "em" || tag === "i") return `*${inner}*`;
-                if (tag === "u") return `_${inner}_`;
-                if (tag === "s" || tag === "strike" || tag === "del") return `~${inner}~`;
-                if (tag === "sup") return `^${inner}^`;
-                if (tag === "mark") return `==${inner}==`;
-                if (tag === "code" && node.parentElement?.tagName.toLowerCase() !== "pre") return `\`${inner}\``;
+                if (tag === "strong" || tag === "b") return inner ? `**${inner}**` : "";
+                if (tag === "em" || tag === "i") return inner ? `*${inner}*` : "";
+                if (tag === "u") return inner ? `_${inner}_` : "";
+                if (tag === "s" || tag === "strike" || tag === "del") return inner ? `~${inner}~` : "";
+                if (tag === "sup") return inner ? `^${inner}^` : "";
+                if (tag === "mark") return inner ? `==${inner}==` : "";
+                if (tag === "code" && node.parentElement?.tagName.toLowerCase() !== "pre") return inner ? `\`${inner}\`` : "";
                 if (tag === "a") {
                     const href = node.getAttribute("href") || "";
                     return href ? `[${inner || href}](${href})` : inner;
@@ -1165,6 +1166,7 @@
                 while ((node = walker.nextNode())) {
                     if (node.nodeValue.includes("\u200b")) node.nodeValue = node.nodeValue.replace(/\u200b/g, "");
                 }
+                editor.querySelectorAll("br[data-sentinel]").forEach(s => s.remove());
                 markdownField.value = editorToMarkdown();
                 updateCharCount();
             }
@@ -1524,6 +1526,12 @@
                     } else {
                         const br = document.createElement("br");
                         range.insertNode(br);
+                        const node = br.parentNode;
+                        if (br === node.lastChild || (br.nextSibling && br.nextSibling.nodeName === "BR" && br.nextSibling === node.lastChild)) {
+                            const sentinel = document.createElement("br");
+                            sentinel.dataset.sentinel = "1";
+                            br.after(sentinel);
+                        }
                         const newRange = document.createRange();
                         newRange.setStartAfter(br);
                         newRange.collapse(true);
