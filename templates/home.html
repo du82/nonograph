@@ -1067,19 +1067,18 @@
             }
 
             const BLOCK_TAGS = new Set(["p","h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","div","figure","details","summary"]);
+            const PARA_BREAK_TAGS = new Set(["h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","figure","details"]);
+
+            function isParaBreak(item) {
+                return !Array.isArray(item) && item.nodeType === Node.ELEMENT_NODE && PARA_BREAK_TAGS.has(item.tagName.toLowerCase());
+            }
 
             function editorToMarkdown() {
-                // Group consecutive inline/text nodes into implicit paragraphs
                 const groups = [];
                 let inlineGroup = [];
                 for (const node of editor.childNodes) {
-                    const isBlock = node.nodeType === Node.ELEMENT_NODE &&
-                                    BLOCK_TAGS.has(node.tagName.toLowerCase());
-                    if (isBlock) {
-                        if (inlineGroup.length) {
-                            groups.push(inlineGroup);
-                            inlineGroup = [];
-                        }
+                    if (node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase())) {
+                        if (inlineGroup.length) { groups.push(inlineGroup); inlineGroup = []; }
                         groups.push(node);
                     } else {
                         inlineGroup.push(node);
@@ -1087,14 +1086,16 @@
                 }
                 if (inlineGroup.length) groups.push(inlineGroup);
 
-                return cleanWhitespace(
-                    groups.map(g => {
-                        if (Array.isArray(g)) {
-                            return cleanWhitespace(g.map(inlineMarkdown).join(""));
-                        }
-                        return blockMarkdown(g);
-                    }).filter(Boolean).join("\n\n")
-                );
+                const rendered = groups.map(g => Array.isArray(g) ? cleanWhitespace(g.map(inlineMarkdown).join("")) : blockMarkdown(g));
+
+                let out = "";
+                for (let i = 0; i < rendered.length; i++) {
+                    if (i === 0) { out += rendered[i]; continue; }
+                    const sep = (isParaBreak(groups[i]) || isParaBreak(groups[i - 1]) || rendered[i - 1] === "")
+                        ? "\n\n" : "\n";
+                    out += sep + rendered[i];
+                }
+                return cleanWhitespace(out);
             }
 
             function syncMarkdown() {
@@ -1194,6 +1195,43 @@
                 syncMarkdown();
             }
 
+            function closestFormat(node, tagNames) {
+                const tags = tagNames.map(t => t.toUpperCase());
+                let n = node;
+                while (n && n !== editor) {
+                    if (n.nodeType === Node.ELEMENT_NODE && tags.includes(n.tagName)) return n;
+                    n = n.parentNode;
+                }
+                return null;
+            }
+
+            function toggleInlineFormat(tagName, className = "") {
+                const selection = currentSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                const range = selection.getRangeAt(0);
+                const tags = [tagName, tagName === "strong" ? "b" : tagName === "em" ? "i" : null].filter(Boolean);
+                const ancestor = closestFormat(range.commonAncestorContainer, tags);
+                if (ancestor) {
+                    const parent = ancestor.parentNode;
+                    parent.insertBefore(document.createTextNode(""), ancestor);
+                    while (ancestor.firstChild) parent.insertBefore(ancestor.firstChild, ancestor);
+                    parent.removeChild(ancestor);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    if (range.collapsed) { insertWrappedSelection(tagName, "", className); return; }
+                    const wrapper = document.createElement(tagName);
+                    if (className) wrapper.className = className;
+                    wrapper.appendChild(range.extractContents());
+                    range.insertNode(wrapper);
+                    selection.removeAllRanges();
+                    const after = document.createRange();
+                    after.selectNodeContents(wrapper);
+                    selection.addRange(after);
+                }
+                syncMarkdown();
+            }
+
             function selectionRect() {
                 const selection = currentSelection();
                 if (!selection || selection.rangeCount === 0) return editor.getBoundingClientRect();
@@ -1278,13 +1316,13 @@
                 }
                 const label = item.label;
                 if (label.startsWith("Heading")) document.execCommand("formatBlock", false, "h" + label.slice(-1));
-                else if (label === "Bold") insertWrappedSelection("strong", "bold text");
-                else if (label === "Italic") insertWrappedSelection("em", "italic text");
-                else if (label === "Underline") insertWrappedSelection("u", "underlined text");
-                else if (label === "Strikethrough") insertWrappedSelection("del", "struck text");
-                else if (label === "Superscript") insertWrappedSelection("sup", "superscript");
-                else if (label === "Highlight") wrapSelection("mark");
-                else if (label === "Inline Code") wrapSelection("code");
+                else if (label === "Bold") toggleInlineFormat("strong");
+                else if (label === "Italic") toggleInlineFormat("em");
+                else if (label === "Underline") toggleInlineFormat("u");
+                else if (label === "Strikethrough") toggleInlineFormat("del");
+                else if (label === "Superscript") toggleInlineFormat("sup");
+                else if (label === "Highlight") toggleInlineFormat("mark");
+                else if (label === "Inline Code") toggleInlineFormat("code");
                 else if (label === "Code Block") insertHTML("<pre><code><br></code></pre><p><br></p>");
                 else if (label === "Link") {
                     const href = prompt("URL", "https://");
