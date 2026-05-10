@@ -182,7 +182,7 @@
                 white-space: normal;
                 word-wrap: break-word;
             }
-            .wysiwyg-editor:empty::before {
+            .wysiwyg-editor.empty::before {
                 content: attr(data-placeholder);
                 color: #999;
                 pointer-events: none;
@@ -308,6 +308,52 @@
             }
             .wysiwyg-editor a:hover {
                 color: #000;
+            }
+            .selection-toolbar {
+                position: fixed;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                display: none;
+                align-items: center;
+                gap: 2px;
+                padding: 3px;
+                z-index: 1001;
+            }
+            .selection-toolbar.active {
+                display: flex;
+            }
+            .selection-toolbar button {
+                width: 28px;
+                height: 28px;
+                min-height: unset;
+                padding: 0;
+                margin: 0;
+                background: transparent;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #333;
+                transition: background 0.1s;
+            }
+            .selection-toolbar button:hover {
+                background: #f0f0f0;
+            }
+            .selection-toolbar button.active {
+                background: #e8e8e8;
+            }
+            .selection-toolbar button svg {
+                width: 14px;
+                height: 14px;
+                stroke: #333;
+                fill: none;
+                stroke-width: 2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
             }
             .wysiwyg-editor mark {
                 background: #fff3a3;
@@ -992,6 +1038,75 @@
 
         <!-- Slash Command Menu -->
         <div class="editor-menu" id="slashMenu"></div>
+        <div class="selection-toolbar" id="selectionToolbar">
+            <button data-tag="strong" title="Bold">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 4h8a4 4 0 0 1 0 8H6z" />
+                    <path d="M6 12h9a4 4 0 0 1 0 8H6z" />
+                </svg>
+            </button>
+            <button data-tag="em" title="Italic">
+                <svg viewBox="0 0 24 24">
+                    <line x1="19" y1="4" x2="10" y2="4" />
+                    <line x1="14" y1="20" x2="5" y2="20" />
+                    <line x1="15" y1="4" x2="9" y2="20" />
+                </svg>
+            </button>
+            <button data-tag="u" title="Underline">
+                <svg viewBox="0 0 24 24">
+                    <path d="M6 4v6a6 6 0 0 0 12 0V4" />
+                    <line x1="4" y1="20" x2="20" y2="20" />
+                </svg>
+            </button>
+            <button data-tag="del" title="Strikethrough">
+                <svg viewBox="0 0 24 24">
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <path
+                        d="M17.5 6C17.5 6 16 4 12 4C8 4 6.5 6.5 6.5 8.5C6.5 10.5 8 11.5 12 12.5C16 13.5 17.5 14.5 17.5 16.5C17.5 18.5 15.5 20 12 20C8.5 20 7 18 7 18"
+                    />
+                </svg>
+            </button>
+            <button data-tag="sup" title="Superscript">
+                <svg viewBox="0 0 24 24">
+                    <path d="M5 19l6-8m0 0l6 8m-6-8" />
+                    <line x1="5" y1="19" x2="11" y2="11" />
+                    <line x1="11" y1="11" x2="17" y2="19" />
+                    <path d="M19 9h-3l2-2.5A1.5 1.5 0 1 0 16 5" />
+                </svg>
+            </button>
+            <button data-tag="code" title="Inline Code">
+                <svg viewBox="0 0 24 24">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                </svg>
+            </button>
+            <button data-tag="mark" title="Highlight">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 20h9" />
+                    <path
+                        d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+                    />
+                </svg>
+            </button>
+            <button data-action="footnote" title="Inline Footnote">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 3v12" />
+                    <path d="M8 11l4 4 4-4" />
+                    <path d="M4 20h16" />
+                    <circle cx="12" cy="6" r="1" fill="#333" stroke="none" />
+                </svg>
+            </button>
+            <button data-tag="a" title="Link">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                    />
+                    <path
+                        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                    />
+                </svg>
+            </button>
+        </div>
 
         <script>
             const markdownField = document.querySelector('textarea[name="content"]');
@@ -1143,31 +1258,56 @@
             const BLOCK_TAGS = new Set(["p","h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","div","figure","details","summary"]);
             const BLOCK_TAGS_SELECTOR = [...BLOCK_TAGS].join(",");
             function editorToMarkdown() {
-                const groups = [];
-                let inlineGroup = [];
-                for (const node of editor.childNodes) {
-                    if (node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase())) {
-                        if (inlineGroup.length) { groups.push(inlineGroup); inlineGroup = []; }
-                        groups.push(node);
-                    } else {
-                        inlineGroup.push(node);
+                const clone = editor.cloneNode(true);
+
+                const tw = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+                let tn;
+                while ((tn = tw.nextNode())) tn.nodeValue = tn.nodeValue.replace(/\u200b/g, "").replace(/\u00a0/g, " ");
+
+                for (const p of clone.querySelectorAll("p")) {
+                    while (p.lastChild && p.lastChild.nodeName === "BR" && p.childNodes.length > 1)
+                        p.removeChild(p.lastChild);
+                }
+
+                let seenEmpty = false;
+                for (const p of Array.from(clone.querySelectorAll("p"))) {
+                    const empty = !p.textContent.trim();
+                    if (empty && seenEmpty) p.remove();
+                    else seenEmpty = empty;
+                }
+
+                const merged = [];
+                for (const node of clone.childNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "P") {
+                        const last = merged[merged.length - 1];
+                        if (last && last.type === "pgroup" && !last.paraBreak) {
+                            last.nodes.push(node);
+                        } else {
+                            merged.push({ type: "pgroup", nodes: [node], paraBreak: false });
+                        }
+                        if (!node.textContent.trim()) merged[merged.length - 1].paraBreak = true;
+                    } else if (node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase())) {
+                        merged.push({ type: "block", node });
+                    } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                        merged.push({ type: "inline", node });
                     }
                 }
-                if (inlineGroup.length) groups.push(inlineGroup);
 
-                const rendered = groups.map(g => Array.isArray(g) ? cleanWhitespace(g.map(inlineMarkdown).join("")) : blockMarkdown(g));
+                const parts = merged.map(item => {
+                    if (item.type === "pgroup") {
+                        const lines = item.nodes.map(p => blockText(p)).filter(Boolean);
+                        return lines.join("\n");
+                    }
+                    if (item.type === "block") return blockMarkdown(item.node);
+                    return inlineMarkdown(item.node);
+                });
 
-                return cleanWhitespace(rendered.filter(Boolean).join("\n\n"));
+                return cleanWhitespace(parts.filter(Boolean).join("\n\n"));
             }
 
             function syncMarkdown() {
-                const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-                let node;
-                while ((node = walker.nextNode())) {
-                    if (node.nodeValue.includes("\u200b")) node.nodeValue = node.nodeValue.replace(/\u200b/g, "");
-                }
-                editor.querySelectorAll("br[data-sentinel]").forEach(s => s.remove());
                 markdownField.value = editorToMarkdown();
+                editor.classList.toggle("empty", !markdownField.value.trim());
                 updateCharCount();
             }
 
@@ -1490,7 +1630,39 @@
                 syncMarkdown();
             });
 
+            function normalizeEditorRoot() {
+                const sel = window.getSelection();
+                const anchor = sel && sel.anchorNode;
+                const offset = sel && sel.anchorOffset;
+                let needsWrap = false;
+                for (const child of editor.childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE || (child.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(child.tagName.toLowerCase()))) {
+                        needsWrap = true; break;
+                    }
+                }
+                if (!needsWrap) return;
+                const p = document.createElement("p");
+                const toMove = Array.from(editor.childNodes).filter(c => c.nodeType === Node.TEXT_NODE || (c.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(c.tagName.toLowerCase())));
+                toMove.forEach(c => p.appendChild(c));
+                editor.insertBefore(p, editor.firstChild);
+                if (anchor && p.contains(anchor) && sel) {
+                    const r = document.createRange();
+                    r.setStart(anchor, offset);
+                    r.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(r);
+                }
+            }
+
+            let syncTimer = null;
+            function syncMarkdownDebounced() {
+                clearTimeout(syncTimer);
+                syncTimer = setTimeout(syncMarkdown, 300);
+            }
+
             editor.addEventListener("input", function () {
+                if (!editor.textContent.trim() && !editor.querySelector("img, video")) editor.innerHTML = "";
+                normalizeEditorRoot();
                 const query = slashMatch();
                 if (query !== null) {
                     slashQuery = query;
@@ -1498,51 +1670,10 @@
                 } else {
                     hideSlashMenu();
                 }
-                syncMarkdown();
+                syncMarkdownDebounced();
             });
 
-            let lastKeyWasEnter = false;
-
             editor.addEventListener("keydown", function (e) {
-                if (e.key === "Enter" && !e.shiftKey && !slashMenuActive) {
-                    e.preventDefault();
-                    const sel = currentSelection();
-                    if (!sel || sel.rangeCount === 0) return;
-                    const range = sel.getRangeAt(0);
-                    range.deleteContents();
-                    if (lastKeyWasEnter) {
-                        const node = range.startContainer;
-                        const block = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node).closest(BLOCK_TAGS_SELECTOR) || editor;
-                        const trailingBr = block.lastChild && block.lastChild.nodeName === "BR" ? block.lastChild : null;
-                        if (trailingBr) trailingBr.remove();
-                        const p = document.createElement("p");
-                        p.appendChild(document.createElement("br"));
-                        block.after(p);
-                        const newRange = document.createRange();
-                        newRange.setStart(p, 0);
-                        newRange.collapse(true);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    } else {
-                        const br = document.createElement("br");
-                        range.insertNode(br);
-                        const node = br.parentNode;
-                        if (br === node.lastChild || (br.nextSibling && br.nextSibling.nodeName === "BR" && br.nextSibling === node.lastChild)) {
-                            const sentinel = document.createElement("br");
-                            sentinel.dataset.sentinel = "1";
-                            br.after(sentinel);
-                        }
-                        const newRange = document.createRange();
-                        newRange.setStartAfter(br);
-                        newRange.collapse(true);
-                        sel.removeAllRanges();
-                        sel.addRange(newRange);
-                    }
-                    lastKeyWasEnter = true;
-                    syncMarkdown();
-                    return;
-                }
-                lastKeyWasEnter = false;
                 if (slashMenuActive) {
                     const items = getContextualMenuItems();
                     if (e.key === "ArrowDown") {
@@ -1609,11 +1740,72 @@
                 if (!slashMenuActive) { slashMenu.classList.remove("active"); popoverTarget = null; }
             }
 
+            function placeCaretAtStart() {
+                const range = document.createRange();
+                range.setStart(editor, 0);
+                range.collapse(true);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+
+            editor.addEventListener("focus", function () {
+                if (editor.classList.contains("empty")) placeCaretAtStart();
+            });
+
             editor.addEventListener("click", function (e) {
+                if (editor.classList.contains("empty")) { placeCaretAtStart(); return; }
                 const anchor = e.target.closest("a[href]");
                 if (anchor && editor.contains(anchor)) { e.preventDefault(); showLinkPopover(anchor); }
                 else if (!slashMenu.contains(e.target)) hideLinkPopover();
             });
+
+            const selectionToolbar = document.getElementById("selectionToolbar");
+            const tbTags = { strong: "strong", em: "em", u: "u", del: "del", sup: "sup", a: "a" };
+
+            function updateSelectionToolbar() {
+                if (slashMenuActive) { selectionToolbar.classList.remove("active"); return; }
+                const sel = currentSelection();
+                if (!sel || sel.isCollapsed || !sel.rangeCount) { selectionToolbar.classList.remove("active"); return; }
+                const rect = sel.getRangeAt(0).getBoundingClientRect();
+                selectionToolbar.querySelectorAll("button[data-tag]").forEach(btn => {
+                    btn.classList.toggle("active", !!closestFormat(sel.getRangeAt(0).commonAncestorContainer, [btn.dataset.tag]));
+                });
+                selectionToolbar.classList.add("active");
+                const tw = selectionToolbar.offsetWidth;
+                const th = selectionToolbar.offsetHeight;
+                const margin = 6;
+                let left = rect.left + rect.width / 2 - tw / 2;
+                let top = rect.top - th - margin;
+                left = Math.max(margin, Math.min(left, window.innerWidth - tw - margin));
+                top = Math.max(margin, top);
+                selectionToolbar.style.left = left + "px";
+                selectionToolbar.style.top = top + "px";
+            }
+
+            selectionToolbar.querySelectorAll("button").forEach(btn => {
+                btn.addEventListener("mousedown", e => {
+                    e.preventDefault();
+                    const tag = btn.dataset.tag;
+                    const action = btn.dataset.action;
+                    if (action === "footnote") {
+                        const sel = currentSelection();
+                        if (sel && !sel.isCollapsed) {
+                            const text = sel.toString();
+                            insertText(`^[${text}]`);
+                        }
+                    } else if (tag === "a") {
+                        const href = prompt("Enter URL:");
+                        if (href && href.trim()) document.execCommand("createLink", false, href.trim());
+                    } else {
+                        toggleInlineFormat(tag);
+                    }
+                    updateSelectionToolbar();
+                });
+            });
+
+            document.addEventListener("mouseup", () => { if (currentSelection() && editor.contains(currentSelection().anchorNode)) updateSelectionToolbar(); });
+            document.addEventListener("selectionchange", () => { if (!currentSelection() || currentSelection().isCollapsed) selectionToolbar.classList.remove("active"); });
 
             form.addEventListener("submit", function (e) {
                 syncMarkdown();
@@ -1631,7 +1823,7 @@
                 }
             });
 
-            updateCharCount();
+            syncMarkdown();
 
             document.getElementById("aliasRand").addEventListener("click", function () {
                 const pools = [
