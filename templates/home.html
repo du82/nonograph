@@ -269,6 +269,25 @@
                 color: #777;
                 letter-spacing: 0.3em;
             }
+            .wysiwyg-editor a {
+                color: #333;
+                text-decoration: underline;
+            }
+            .wysiwyg-editor a:hover {
+                color: #000;
+            }
+            .menu-item-url {
+                padding: 4px 12px 6px;
+                font-size: 12px;
+                font-family: "Courier New", monospace;
+                color: #999;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 260px;
+                border-bottom: 1px solid #eee;
+                margin-bottom: 4px;
+            }
             button {
                 background: #333;
                 color: white;
@@ -357,7 +376,7 @@
 
             /* Editor Menu Styles */
             .editor-menu {
-                position: absolute;
+                position: fixed;
                 background: white;
                 border: 1px solid #ddd;
                 border-radius: 4px;
@@ -1271,6 +1290,12 @@
                 return menuItems.filter((item) => item.label.toLowerCase().includes(slashQuery.toLowerCase()));
             }
 
+            function positionMenu(rect) {
+                const editorRect = editor.getBoundingClientRect();
+                slashMenu.style.left = Math.min(Math.max(rect.left, editorRect.left), editorRect.right - slashMenu.offsetWidth - 4) + "px";
+                slashMenu.style.top = rect.bottom + 12 + "px";
+            }
+
             function showSlashMenu() {
                 const items = getContextualMenuItems();
                 if (!items.length) return hideSlashMenu();
@@ -1286,11 +1311,7 @@
                     });
                     slashMenu.appendChild(div);
                 });
-                const rect = selectionRect();
-                const editorRect = editor.getBoundingClientRect();
-                const left = Math.min(Math.max(rect.left, editorRect.left), editorRect.right - 220);
-                slashMenu.style.left = left + "px";
-                slashMenu.style.top = rect.bottom + 12 + "px";
+                positionMenu(selectionRect());
                 slashMenu.classList.add("active");
             }
 
@@ -1422,6 +1443,40 @@
 
             document.addEventListener("click", function (e) {
                 if (!slashMenu.contains(e.target) && !editor.contains(e.target)) hideSlashMenu();
+            });
+
+            let popoverTarget = null;
+
+            function showLinkPopover(anchor) {
+                popoverTarget = anchor;
+                hideSlashMenu();
+                slashMenu.innerHTML = "";
+                const url = document.createElement("div");
+                url.className = "menu-item-url";
+                url.textContent = anchor.href;
+                slashMenu.appendChild(url);
+                [["Open link", () => window.open(anchor.href, "_blank", "noopener")],
+                 ["Edit link", () => { const h = prompt("Edit URL", anchor.getAttribute("href") || ""); if (h !== null && h.trim()) { anchor.setAttribute("href", h.trim()); syncMarkdown(); } }],
+                 ["Remove link", () => { anchor.replaceWith(...anchor.childNodes); syncMarkdown(); }]
+                ].forEach(([label, action]) => {
+                    const div = document.createElement("div");
+                    div.className = "menu-item";
+                    div.textContent = label;
+                    div.addEventListener("mousedown", (e) => { e.preventDefault(); hideLinkPopover(); action(); });
+                    slashMenu.appendChild(div);
+                });
+                positionMenu(anchor.getBoundingClientRect());
+                slashMenu.classList.add("active");
+            }
+
+            function hideLinkPopover() {
+                if (!slashMenuActive) { slashMenu.classList.remove("active"); popoverTarget = null; }
+            }
+
+            editor.addEventListener("click", function (e) {
+                const anchor = e.target.closest("a[href]");
+                if (anchor && editor.contains(anchor)) { e.preventDefault(); showLinkPopover(anchor); }
+                else if (!slashMenu.contains(e.target)) hideLinkPopover();
             });
 
             form.addEventListener("submit", function (e) {
