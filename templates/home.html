@@ -162,8 +162,9 @@
             textarea,
             .wysiwyg-editor {
                 font-size: 18px;
-                resize: none;
                 line-height: 1.6;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                resize: none;
                 -webkit-overflow-scrolling: touch;
                 overflow: hidden;
                 min-height: 200px;
@@ -176,7 +177,6 @@
                 padding: 0;
                 border: none;
                 background: transparent;
-                font-family: Georgia, "Times New Roman", Times, serif;
                 color: #333;
                 outline: none;
                 white-space: normal;
@@ -187,65 +187,126 @@
                 color: #999;
                 pointer-events: none;
             }
+            .wysiwyg-editor *::selection {
+                background: #dbdbdb;
+            }
+            .wysiwyg-editor p {
+                margin: 0;
+            }
+            .wysiwyg-editor strong {
+                font-weight: 600;
+            }
+            .wysiwyg-editor em {
+                font-style: italic;
+            }
+            .wysiwyg-editor u {
+                text-decoration: underline;
+            }
+            .wysiwyg-editor del {
+                text-decoration: line-through;
+            }
+            .wysiwyg-editor sup {
+                vertical-align: super;
+                font-size: 0.8em;
+            }
             .wysiwyg-editor h1,
             .wysiwyg-editor h2,
             .wysiwyg-editor h3,
             .wysiwyg-editor h4 {
                 font-family: Georgia, "Times New Roman", Times, serif;
-                line-height: 1.25;
-                margin: 1.15em 0 0.45em;
-            }
-            .wysiwyg-editor h1 {
-                font-size: 2em;
+                font-size: 30px;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #333;
             }
             .wysiwyg-editor h2 {
-                font-size: 1.55em;
+                font-size: 24px;
             }
             .wysiwyg-editor h3 {
-                font-size: 1.25em;
+                font-size: 20px;
             }
             .wysiwyg-editor h4 {
-                font-size: 1.1em;
+                font-size: 18px;
             }
-            .wysiwyg-editor p {
-                margin: 0 0 1em;
+            .wysiwyg-editor ol,
+            .wysiwyg-editor ul {
+                margin: 16px 0;
+                padding-left: 32px;
             }
-            .wysiwyg-editor blockquote {
-                margin: 1em 0;
-                padding-left: 1em;
-                border-left: 3px solid #ddd;
-                color: #555;
-            }
-            .wysiwyg-editor pre {
-                margin: 1em 0;
-                padding: 12px;
-                background: #f7f7f7;
-                overflow-x: auto;
-                white-space: pre-wrap;
-                font-family: "Courier New", monospace;
-                font-size: 15px;
+            .wysiwyg-editor li {
+                margin-bottom: 8px;
+                line-height: 1.6;
             }
             .wysiwyg-editor code {
-                font-family: "Courier New", monospace;
-                background: #f5f5f5;
-                padding: 1px 4px;
-                border-radius: 2px;
-                font-size: 0.92em;
+                background: #f8f8f8;
+                padding: 2px 6px;
+                font-family:
+                    "SF Mono", Monaco, "Cascadia Mono", "Roboto Mono", Consolas,
+                    monospace;
+                font-size: 0.9em;
+            }
+            .wysiwyg-editor pre {
+                background: #f8f9fa;
+                border: 1px solid #e9ecef;
+                padding: 12px 20px;
+                margin: 20px 0;
+                overflow-x: auto;
+                line-height: 1.4;
             }
             .wysiwyg-editor pre code {
-                background: none;
+                background: transparent;
                 padding: 0;
+                font-size: 14px;
+                white-space: pre;
+                word-wrap: normal;
             }
-            .wysiwyg-editor ul,
-            .wysiwyg-editor ol {
-                margin: 0 0 1em 1.4em;
-                padding-left: 1em;
+            .wysiwyg-editor blockquote {
+                margin: 20px 0;
+                padding: 0 20px;
+                border-left: 2px solid #e9ecef;
+                color: #666;
+            }
+            .wysiwyg-editor blockquote p {
+                margin: 0;
             }
             .wysiwyg-editor img,
             .wysiwyg-editor video {
                 max-width: 100%;
+                height: auto;
+                margin: 20px 0;
                 display: block;
-                margin: 1em auto;
+            }
+            .wysiwyg-editor table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 20px 0;
+                font-size: 16px;
+                max-width: 100%;
+                table-layout: fixed;
+            }
+            .wysiwyg-editor td,
+            .wysiwyg-editor th {
+                border: 1px solid #e9ecef;
+                padding: 4px 8px;
+                text-align: left;
+            }
+            .wysiwyg-editor th {
+                background-color: #f8f9fa;
+                font-weight: 600;
+                color: #333;
+            }
+            .wysiwyg-editor tr:nth-child(even) {
+                background-color: #f8f9fa;
+            }
+            .wysiwyg-editor tr:hover {
+                background-color: #e9ecef;
+            }
+            .wysiwyg-editor a {
+                color: #333;
+                text-decoration: underline;
+            }
+            .wysiwyg-editor a:hover {
+                color: #000;
             }
             .wysiwyg-editor mark {
                 background: #fff3a3;
@@ -268,13 +329,6 @@
                 content: "***";
                 color: #777;
                 letter-spacing: 0.3em;
-            }
-            .wysiwyg-editor a {
-                color: #333;
-                text-decoration: underline;
-            }
-            .wysiwyg-editor a:hover {
-                color: #000;
             }
             .menu-item-url {
                 padding: 4px 12px 6px;
@@ -1086,12 +1140,7 @@
             }
 
             const BLOCK_TAGS = new Set(["p","h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","div","figure","details","summary"]);
-            const PARA_BREAK_TAGS = new Set(["h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","figure","details"]);
-
-            function isParaBreak(item) {
-                return !Array.isArray(item) && item.nodeType === Node.ELEMENT_NODE && PARA_BREAK_TAGS.has(item.tagName.toLowerCase());
-            }
-
+            const BLOCK_TAGS_SELECTOR = [...BLOCK_TAGS].join(",");
             function editorToMarkdown() {
                 const groups = [];
                 let inlineGroup = [];
@@ -1107,14 +1156,7 @@
 
                 const rendered = groups.map(g => Array.isArray(g) ? cleanWhitespace(g.map(inlineMarkdown).join("")) : blockMarkdown(g));
 
-                let out = "";
-                for (let i = 0; i < rendered.length; i++) {
-                    if (i === 0) { out += rendered[i]; continue; }
-                    const sep = (isParaBreak(groups[i]) || isParaBreak(groups[i - 1]) || rendered[i - 1] === "")
-                        ? "\n\n" : "\n";
-                    out += sep + rendered[i];
-                }
-                return cleanWhitespace(out);
+                return cleanWhitespace(rendered.filter(Boolean).join("\n\n"));
             }
 
             function syncMarkdown() {
@@ -1367,32 +1409,78 @@
             function sanitizePaste(html) {
                 const doc = new DOMParser().parseFromString(html, "text/html");
                 const allowed = new Set(["P", "BR", "H1", "H2", "H3", "H4", "STRONG", "B", "EM", "I", "U", "S", "STRIKE", "DEL", "SUP", "MARK", "CODE", "PRE", "A", "UL", "OL", "LI", "BLOCKQUOTE", "IMG", "VIDEO", "SOURCE", "HR", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"]);
-                const walk = (node) => {
-                    for (const child of Array.from(node.childNodes)) {
-                        if (child.nodeType === Node.ELEMENT_NODE) {
-                            if (!allowed.has(child.tagName)) {
-                                child.replaceWith(...Array.from(child.childNodes));
-                                continue;
-                            }
-                            for (const attr of Array.from(child.attributes)) {
-                                const name = attr.name.toLowerCase();
-                                if (!["href", "src", "alt", "controls", "aria-label"].includes(name)) child.removeAttribute(attr.name);
-                                if ((name === "href" || name === "src") && /^javascript:/i.test(attr.value)) child.removeAttribute(attr.name);
-                            }
-                        }
-                        walk(child);
+                const attrAllowed = new Set(["href", "src", "alt", "controls", "aria-label"]);
+                const clean = (node) => {
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    if (!allowed.has(node.tagName)) {
+                        const kids = Array.from(node.childNodes);
+                        node.replaceWith(...kids);
+                        kids.forEach(clean);
+                        return;
                     }
+                    for (const attr of Array.from(node.attributes)) {
+                        const name = attr.name.toLowerCase();
+                        if (!attrAllowed.has(name) || ((name === "href" || name === "src") && /^javascript:/i.test(attr.value)))
+                            node.removeAttribute(attr.name);
+                    }
+                    Array.from(node.childNodes).forEach(clean);
                 };
-                walk(doc.body);
+                Array.from(doc.body.childNodes).forEach(clean);
+                doc.body.querySelectorAll("a").forEach(a => { if (!a.textContent.trim()) a.remove(); });
                 return doc.body.innerHTML;
             }
 
+            const PASTE_NORMALIZE_TAGS = new Set(["DIV","LI","TR"]);
+            const PASTE_BLOCK_TAGS = new Set(["P","H1","H2","H3","H4","BLOCKQUOTE","PRE","UL","OL","TABLE","HR"]);
+
+            function emptyP() { const p = document.createElement("p"); p.appendChild(document.createElement("br")); return p; }
+
+            function pasteNodesToEditorFragment(nodes) {
+                const frag = document.createDocumentFragment();
+                let lastWasBlock = false;
+                for (const node of nodes) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        if (node.textContent.trim()) { frag.appendChild(node.cloneNode()); lastWasBlock = false; }
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        const tag = node.tagName;
+                        if (PASTE_NORMALIZE_TAGS.has(tag)) {
+                            const p = document.createElement("p");
+                            for (const child of node.childNodes) p.appendChild(child.cloneNode(true));
+                            if (!p.textContent.trim()) continue;
+                            if (lastWasBlock) frag.appendChild(emptyP());
+                            frag.appendChild(p);
+                            lastWasBlock = true;
+                        } else if (PASTE_BLOCK_TAGS.has(tag)) {
+                            if (!node.textContent.trim() && tag !== "HR") continue;
+                            const isHeading = tag === "H1" || tag === "H2" || tag === "H3" || tag === "H4";
+                            if (lastWasBlock && !isHeading) frag.appendChild(emptyP());
+                            frag.appendChild(node.cloneNode(true));
+                            lastWasBlock = !isHeading;
+                        } else {
+                            frag.appendChild(node.cloneNode(true));
+                            lastWasBlock = false;
+                        }
+                    }
+                }
+                return frag;
+            }
+
             editor.addEventListener("paste", function (e) {
+                e.preventDefault();
                 const html = e.clipboardData.getData("text/html");
                 const plain = e.clipboardData.getData("text/plain");
-                e.preventDefault();
-                if (html) insertHTML(sanitizePaste(html));
-                else insertText(plain);
+                const sel = currentSelection();
+                if (!sel || sel.rangeCount === 0) return;
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                if (html) {
+                    const doc = new DOMParser().parseFromString(sanitizePaste(html), "text/html");
+                    range.insertNode(pasteNodesToEditorFragment(doc.body.childNodes));
+                } else {
+                    range.insertNode(document.createTextNode(plain));
+                }
+                sel.collapseToEnd();
+                syncMarkdown();
             });
 
             editor.addEventListener("input", function () {
@@ -1406,7 +1494,42 @@
                 syncMarkdown();
             });
 
+            let lastKeyWasEnter = false;
+
             editor.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" && !e.shiftKey && !slashMenuActive) {
+                    e.preventDefault();
+                    const sel = currentSelection();
+                    if (!sel || sel.rangeCount === 0) return;
+                    const range = sel.getRangeAt(0);
+                    range.deleteContents();
+                    if (lastKeyWasEnter) {
+                        const node = range.startContainer;
+                        const block = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node).closest(BLOCK_TAGS_SELECTOR) || editor;
+                        const trailingBr = block.lastChild && block.lastChild.nodeName === "BR" ? block.lastChild : null;
+                        if (trailingBr) trailingBr.remove();
+                        const p = document.createElement("p");
+                        p.appendChild(document.createElement("br"));
+                        block.after(p);
+                        const newRange = document.createRange();
+                        newRange.setStart(p, 0);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        const br = document.createElement("br");
+                        range.insertNode(br);
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(br);
+                        newRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    }
+                    lastKeyWasEnter = true;
+                    syncMarkdown();
+                    return;
+                }
+                lastKeyWasEnter = false;
                 if (slashMenuActive) {
                     const items = getContextualMenuItems();
                     if (e.key === "ArrowDown") {
