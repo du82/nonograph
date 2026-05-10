@@ -1160,6 +1160,11 @@
             }
 
             function syncMarkdown() {
+                const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.nodeValue.includes("\u200b")) node.nodeValue = node.nodeValue.replace(/\u200b/g, "");
+                }
                 markdownField.value = editorToMarkdown();
                 updateCharCount();
             }
