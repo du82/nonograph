@@ -1066,8 +1066,35 @@
                 ].join("\n");
             }
 
+            const BLOCK_TAGS = new Set(["p","h1","h2","h3","h4","h5","h6","blockquote","pre","ul","ol","table","hr","div","figure","details","summary"]);
+
             function editorToMarkdown() {
-                return cleanWhitespace(Array.from(editor.childNodes).map(blockMarkdown).filter(Boolean).join("\n\n"));
+                // Group consecutive inline/text nodes into implicit paragraphs
+                const groups = [];
+                let inlineGroup = [];
+                for (const node of editor.childNodes) {
+                    const isBlock = node.nodeType === Node.ELEMENT_NODE &&
+                                    BLOCK_TAGS.has(node.tagName.toLowerCase());
+                    if (isBlock) {
+                        if (inlineGroup.length) {
+                            groups.push(inlineGroup);
+                            inlineGroup = [];
+                        }
+                        groups.push(node);
+                    } else {
+                        inlineGroup.push(node);
+                    }
+                }
+                if (inlineGroup.length) groups.push(inlineGroup);
+
+                return cleanWhitespace(
+                    groups.map(g => {
+                        if (Array.isArray(g)) {
+                            return cleanWhitespace(g.map(inlineMarkdown).join(""));
+                        }
+                        return blockMarkdown(g);
+                    }).filter(Boolean).join("\n\n")
+                );
             }
 
             function syncMarkdown() {
