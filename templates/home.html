@@ -1553,8 +1553,31 @@
                 syncMarkdown();
             }
 
+            function fontSizeToHeading(px) {
+                if (px >= 28) return "h1";
+                if (px >= 22) return "h2";
+                if (px >= 18) return "h3";
+                return null;
+            }
+
             function sanitizePaste(html) {
                 const doc = new DOMParser().parseFromString(html, "text/html");
+
+                doc.body.querySelectorAll("p, div, span").forEach(el => {
+                    const style = el.getAttribute("style") || "";
+                    const sizeMatch = style.match(/font-size:\s*([\d.]+)px/);
+                    const weight = style.match(/font-weight:\s*(\d+|bold)/);
+                    const isBold = weight && (weight[1] === "bold" || parseInt(weight[1]) >= 600);
+                    if (sizeMatch && isBold) {
+                        const tag = fontSizeToHeading(parseFloat(sizeMatch[1]));
+                        if (tag) {
+                            const h = doc.createElement(tag);
+                            h.innerHTML = el.innerHTML;
+                            el.replaceWith(h);
+                        }
+                    }
+                });
+
                 const allowed = new Set(["P", "BR", "H1", "H2", "H3", "H4", "STRONG", "B", "EM", "I", "U", "S", "STRIKE", "DEL", "SUP", "MARK", "CODE", "PRE", "A", "UL", "OL", "LI", "BLOCKQUOTE", "IMG", "VIDEO", "SOURCE", "HR", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"]);
                 const attrAllowed = new Set(["href", "src", "alt", "controls", "aria-label"]);
                 const clean = (node) => {
@@ -1631,19 +1654,16 @@
             });
 
             function normalizeEditorRoot() {
+                const children = Array.from(editor.childNodes);
+                const hasBlock = children.some(c => c.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(c.tagName.toLowerCase()));
+                const hasInline = children.some(c => c.nodeType === Node.TEXT_NODE || (c.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(c.tagName.toLowerCase())));
+                if (!hasBlock || !hasInline) return;
                 const sel = window.getSelection();
                 const anchor = sel && sel.anchorNode;
                 const offset = sel && sel.anchorOffset;
-                let needsWrap = false;
-                for (const child of editor.childNodes) {
-                    if (child.nodeType === Node.TEXT_NODE || (child.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(child.tagName.toLowerCase()))) {
-                        needsWrap = true; break;
-                    }
-                }
-                if (!needsWrap) return;
                 const p = document.createElement("p");
-                const toMove = Array.from(editor.childNodes).filter(c => c.nodeType === Node.TEXT_NODE || (c.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(c.tagName.toLowerCase())));
-                toMove.forEach(c => p.appendChild(c));
+                children.filter(c => c.nodeType === Node.TEXT_NODE || (c.nodeType === Node.ELEMENT_NODE && !BLOCK_TAGS.has(c.tagName.toLowerCase())))
+                        .forEach(c => p.appendChild(c));
                 editor.insertBefore(p, editor.firstChild);
                 if (anchor && p.contains(anchor) && sel) {
                     const r = document.createRange();
@@ -1662,6 +1682,7 @@
 
             editor.addEventListener("input", function () {
                 if (!editor.textContent.trim() && !editor.querySelector("img, video")) editor.innerHTML = "";
+                editor.classList.toggle("empty", !editor.textContent.trim() && !editor.querySelector("img, video"));
                 normalizeEditorRoot();
                 const query = slashMatch();
                 if (query !== null) {
@@ -1740,21 +1761,7 @@
                 if (!slashMenuActive) { slashMenu.classList.remove("active"); popoverTarget = null; }
             }
 
-            function placeCaretAtStart() {
-                const range = document.createRange();
-                range.setStart(editor, 0);
-                range.collapse(true);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-
-            editor.addEventListener("focus", function () {
-                if (editor.classList.contains("empty")) placeCaretAtStart();
-            });
-
             editor.addEventListener("click", function (e) {
-                if (editor.classList.contains("empty")) { placeCaretAtStart(); return; }
                 const anchor = e.target.closest("a[href]");
                 if (anchor && editor.contains(anchor)) { e.preventDefault(); showLinkPopover(anchor); }
                 else if (!slashMenu.contains(e.target)) hideLinkPopover();
