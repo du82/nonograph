@@ -159,13 +159,115 @@
             .alias-anchor input[type="text"].author-input {
                 margin-bottom: 0;
             }
-            textarea {
+            textarea,
+            .wysiwyg-editor {
                 font-size: 18px;
                 resize: none;
                 line-height: 1.6;
                 -webkit-overflow-scrolling: touch;
                 overflow: hidden;
                 min-height: 200px;
+            }
+            textarea[name="content"] {
+                display: none;
+            }
+            .wysiwyg-editor {
+                width: 100%;
+                padding: 0;
+                border: none;
+                background: transparent;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                color: #333;
+                outline: none;
+                white-space: normal;
+                word-wrap: break-word;
+            }
+            .wysiwyg-editor:empty::before {
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            .wysiwyg-editor h1,
+            .wysiwyg-editor h2,
+            .wysiwyg-editor h3,
+            .wysiwyg-editor h4 {
+                font-family: Georgia, "Times New Roman", Times, serif;
+                line-height: 1.25;
+                margin: 1.15em 0 0.45em;
+            }
+            .wysiwyg-editor h1 {
+                font-size: 2em;
+            }
+            .wysiwyg-editor h2 {
+                font-size: 1.55em;
+            }
+            .wysiwyg-editor h3 {
+                font-size: 1.25em;
+            }
+            .wysiwyg-editor h4 {
+                font-size: 1.1em;
+            }
+            .wysiwyg-editor p {
+                margin: 0 0 1em;
+            }
+            .wysiwyg-editor blockquote {
+                margin: 1em 0;
+                padding-left: 1em;
+                border-left: 3px solid #ddd;
+                color: #555;
+            }
+            .wysiwyg-editor pre {
+                margin: 1em 0;
+                padding: 12px;
+                background: #f7f7f7;
+                overflow-x: auto;
+                white-space: pre-wrap;
+                font-family: "Courier New", monospace;
+                font-size: 15px;
+            }
+            .wysiwyg-editor code {
+                font-family: "Courier New", monospace;
+                background: #f5f5f5;
+                padding: 1px 4px;
+                border-radius: 2px;
+                font-size: 0.92em;
+            }
+            .wysiwyg-editor pre code {
+                background: none;
+                padding: 0;
+            }
+            .wysiwyg-editor ul,
+            .wysiwyg-editor ol {
+                margin: 0 0 1em 1.4em;
+                padding-left: 1em;
+            }
+            .wysiwyg-editor img,
+            .wysiwyg-editor video {
+                max-width: 100%;
+                display: block;
+                margin: 1em auto;
+            }
+            .wysiwyg-editor mark {
+                background: #fff3a3;
+            }
+            .wysiwyg-editor .secret-draft {
+                background: #333;
+                color: #333;
+                border-radius: 2px;
+                padding: 0 3px;
+            }
+            .wysiwyg-editor .secret-draft:hover {
+                color: white;
+            }
+            .wysiwyg-editor hr {
+                border: 0;
+                text-align: center;
+                margin: 1.5em 0;
+            }
+            .wysiwyg-editor hr::before {
+                content: "***";
+                color: #777;
+                letter-spacing: 0.3em;
             }
             button {
                 background: #333;
@@ -532,7 +634,8 @@
                     font-size: 16px;
                     height: 32px;
                 }
-                textarea {
+                textarea,
+                .wysiwyg-editor {
                     font-size: 16px;
                     line-height: 1.5;
                     min-height: 200px;
@@ -595,7 +698,8 @@
                     font-size: 16px;
                     height: 32px;
                 }
-                textarea {
+                textarea,
+                .wysiwyg-editor {
                     font-size: 16px;
                     min-height: 180px;
                 }
@@ -766,11 +870,18 @@
                     </div>
                     <textarea
                         name="content"
-                        placeholder="Write something with markdown or type / for formatting options..."
                         maxlength="{{content_max_length}}"
                         title="Mind your opsec, be careful what you share."
-                        required
                     ></textarea>
+                    <div
+                        id="contentEditor"
+                        class="wysiwyg-editor"
+                        contenteditable="true"
+                        role="textbox"
+                        aria-multiline="true"
+                        data-placeholder="Write something or paste rendered Markdown..."
+                        title="Mind your opsec, be careful what you share."
+                    ></div>
                     <input
                         type="hidden"
                         name="csrf_token"
@@ -809,928 +920,462 @@
         <div class="editor-menu" id="slashMenu"></div>
 
         <script>
-            const textarea = document.querySelector('textarea[name="content"]');
+            const markdownField = document.querySelector('textarea[name="content"]');
+            const editor = document.getElementById("contentEditor");
             const charCount = document.getElementById("charCount");
             const mobileCharCount = document.getElementById("mobileCharCount");
             const form = document.getElementById("publishForm");
             const slashMenu = document.getElementById("slashMenu");
             const progressCircle = document.getElementById("progressCircle");
-            const mobileProgressCircle = document.getElementById(
-                "mobileProgressCircle",
-            );
+            const mobileProgressCircle = document.getElementById("mobileProgressCircle");
 
             let slashMenuActive = false;
-            let slashPosition = -1;
             let selectedMenuIndex = 0;
             let slashQuery = "";
 
             const menuItems = [
-                {
-                    label: "Heading 1",
-                    format: "# ",
-                    shortcut: "Ctrl+Alt+1",
-                    key: "1",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 2",
-                    format: "## ",
-                    shortcut: "Ctrl+Alt+2",
-                    key: "2",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 3",
-                    format: "### ",
-                    shortcut: "Ctrl+Alt+3",
-                    key: "3",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Heading 4",
-                    format: "#### ",
-                    shortcut: "Ctrl+Alt+4",
-                    key: "4",
-                    altKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Bold",
-                    format: "****",
-                    cursorOffset: -2,
-                    shortcut: "Ctrl+B",
-                    key: "b",
-                    inline: true,
-                },
-                {
-                    label: "Italic",
-                    format: "**",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+I",
-                    key: "i",
-                    inline: true,
-                },
-                {
-                    label: "Underline",
-                    format: "__",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+U",
-                    key: "u",
-                    inline: true,
-                },
-                {
-                    label: "Strikethrough",
-                    format: "~~",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+X",
-                    key: "x",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Superscript",
-                    format: "^^",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+P",
-                    key: "p",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Highlight",
-                    format: "====",
-                    cursorOffset: -2,
-                    shortcut: "Ctrl+H",
-                    key: "h",
-                    inline: true,
-                },
-                {
-                    label: "Inline Code",
-                    format: "``",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+E",
-                    key: "e",
-                    inline: true,
-                },
-                {
-                    label: "Code Block",
-                    format: "\n```\n\n```",
-                    cursorOffset: -4,
-                    shortcut: "Ctrl+Shift+C",
-                    key: "c",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Link",
-                    format: "[](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+K",
-                    key: "k",
-                    inline: true,
-                },
-                {
-                    label: "Image",
-                    format: "![](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+Shift+I",
-                    key: "i",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Video",
-                    format: "![](url)",
-                    cursorOffset: -6,
-                    shortcut: "Ctrl+Shift+V",
-                    key: "v",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Blockquote",
-                    format: "> ",
-                    shortcut: "Ctrl+Shift+9",
-                    key: "9",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Bullet List",
-                    format: "- ",
-                    shortcut: "Ctrl+Shift+8",
-                    key: "8",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Numbered List",
-                    format: "1. ",
-                    shortcut: "Ctrl+Shift+7",
-                    key: "7",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Table",
-                    format: "| Column 1 | Column 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |",
-                    cursorOffset: -47,
-                    shortcut: "Ctrl+T",
-                    key: "t",
-                    blockLevel: true,
-                },
-                {
-                    label: "Footnote Reference",
-                    format: "[^1]",
-                    shortcut: "Ctrl+Shift+R",
-                    key: "r",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Inline Footnote",
-                    format: "^[]",
-                    cursorOffset: -1,
-                    shortcut: "Ctrl+Shift+F",
-                    key: "f",
-                    shiftKey: true,
-                    inline: true,
-                },
-                {
-                    label: "Hidden Text",
-                    format: "##",
-                    cursorOffset: -1,
-                    inline: true,
-                },
-                {
-                    label: "Comment",
-                    format: "// ",
-                    shortcut: "Ctrl+/",
-                    blockLevel: true,
-                },
-                {
-                    label: "Thin Line Divider",
-                    format: "\n---\n",
-                    shortcut: "Ctrl+Shift+D",
-                    key: "d",
-                    shiftKey: true,
-                    blockLevel: true,
-                },
-                {
-                    label: "Double Line Divider",
-                    format: "\n===\n",
-                    blockLevel: true,
-                },
-                {
-                    label: "Single Asterisk Divider",
-                    format: "\n-*-\n",
-                    blockLevel: true,
-                },
-                {
-                    label: "Three Stars Divider",
-                    format: "\n***\n",
-                    blockLevel: true,
-                },
+                { label: "Heading 1", shortcut: "Ctrl+Alt+1", key: "1", altKey: true },
+                { label: "Heading 2", shortcut: "Ctrl+Alt+2", key: "2", altKey: true },
+                { label: "Heading 3", shortcut: "Ctrl+Alt+3", key: "3", altKey: true },
+                { label: "Heading 4", shortcut: "Ctrl+Alt+4", key: "4", altKey: true },
+                { label: "Bold", shortcut: "Ctrl+B", key: "b" },
+                { label: "Italic", shortcut: "Ctrl+I", key: "i" },
+                { label: "Underline", shortcut: "Ctrl+U", key: "u" },
+                { label: "Strikethrough", shortcut: "Ctrl+Shift+X", key: "x", shiftKey: true },
+                { label: "Superscript", shortcut: "Ctrl+Shift+P", key: "p", shiftKey: true },
+                { label: "Highlight", shortcut: "Ctrl+H", key: "h" },
+                { label: "Inline Code", shortcut: "Ctrl+E", key: "e" },
+                { label: "Code Block", shortcut: "Ctrl+Shift+C", key: "c", shiftKey: true },
+                { label: "Link", shortcut: "Ctrl+K", key: "k" },
+                { label: "Image", shortcut: "Ctrl+Shift+I", key: "i", shiftKey: true },
+                { label: "Video", shortcut: "Ctrl+Shift+V", key: "v", shiftKey: true },
+                { label: "Blockquote", shortcut: "Ctrl+Shift+9", key: "9", shiftKey: true },
+                { label: "Bullet List", shortcut: "Ctrl+Shift+8", key: "8", shiftKey: true },
+                { label: "Numbered List", shortcut: "Ctrl+Shift+7", key: "7", shiftKey: true },
+                { label: "Table", shortcut: "Ctrl+T", key: "t" },
+                { label: "Footnote Reference", shortcut: "Ctrl+Shift+R", key: "r", shiftKey: true },
+                { label: "Inline Footnote", shortcut: "Ctrl+Shift+F", key: "f", shiftKey: true },
+                { label: "Hidden Text" },
+                { label: "Comment", shortcut: "Ctrl+/" },
+                { label: "Divider", shortcut: "Ctrl+Shift+D", key: "d", shiftKey: true },
             ];
 
-            // Check if device is mobile
-            function isMobile() {
-                return window.innerWidth <= 480;
-            }
-
-            // Prevent Enter key in title textarea
             const titleTextarea = document.querySelector('textarea[name="title"]');
             if (titleTextarea) {
-                titleTextarea.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
+                titleTextarea.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter") {
                         e.preventDefault();
-                        this.blur(); // Optionally move focus away
-                        return false;
+                        this.blur();
                     }
                 });
-
-                // Auto-resize title textarea
-                titleTextarea.addEventListener('input', function() {
-                    this.style.height = 'auto';
-                    this.style.height = this.scrollHeight + 'px';
+                titleTextarea.addEventListener("input", function () {
+                    this.style.height = "auto";
+                    this.style.height = this.scrollHeight + "px";
                 });
             }
 
-            function isAtLineStart() {
-                // When slash menu is active, use slash position for context
-                const checkPos = slashMenuActive
-                    ? slashPosition
-                    : textarea.selectionStart;
-                const textBeforeCheck = textarea.value.substring(0, checkPos);
+            function textOf(node) {
+                return (node.textContent || "").replace(/\u00a0/g, " ").replace(/\u200b/g, "");
+            }
 
-                if (checkPos === 0) return true;
+            function cleanWhitespace(text) {
+                return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+            }
 
-                const lastChar = textBeforeCheck.charAt(
-                    textBeforeCheck.length - 1,
+            function escapeMarkdown(text) {
+                return text.replace(/\u200b/g, "").replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+            }
+
+            function blockText(node) {
+                return cleanWhitespace(Array.from(node.childNodes).map(inlineMarkdown).join(""));
+            }
+
+            function inlineMarkdown(node) {
+                if (node.nodeType === Node.TEXT_NODE) return escapeMarkdown(node.nodeValue || "");
+                if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+                const tag = node.tagName.toLowerCase();
+                const inner = Array.from(node.childNodes).map(inlineMarkdown).join("");
+
+                if (tag === "strong" || tag === "b") return `**${inner}**`;
+                if (tag === "em" || tag === "i") return `*${inner}*`;
+                if (tag === "u") return `_${inner}_`;
+                if (tag === "s" || tag === "strike" || tag === "del") return `~${inner}~`;
+                if (tag === "sup") return `^${inner}^`;
+                if (tag === "mark") return `==${inner}==`;
+                if (tag === "code" && node.parentElement?.tagName.toLowerCase() !== "pre") return `\`${inner}\``;
+                if (tag === "a") {
+                    const href = node.getAttribute("href") || "";
+                    return href ? `[${inner || href}](${href})` : inner;
+                }
+                if (tag === "img") {
+                    const src = node.getAttribute("src") || "";
+                    const alt = node.getAttribute("alt") || "";
+                    return src ? `![${alt}](${src})` : "";
+                }
+                if (tag === "video") {
+                    const src = node.getAttribute("src") || node.querySelector("source")?.getAttribute("src") || "";
+                    const caption = node.getAttribute("aria-label") || "";
+                    return src ? `![${caption}](${src})` : "";
+                }
+                if (node.classList.contains("secret-draft")) return `#${inner}#`;
+                if (tag === "br") return "\n";
+                return inner;
+            }
+
+            function blockMarkdown(node) {
+                if (node.nodeType === Node.TEXT_NODE) return textOf(node).trim();
+                if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+                const tag = node.tagName.toLowerCase();
+                if (["strong", "b", "em", "i", "u", "s", "strike", "del", "sup", "mark", "code", "a", "span"].includes(tag)) {
+                    return inlineMarkdown(node);
+                }
+                const content = blockText(node);
+
+                if (!content && tag !== "hr" && tag !== "img" && tag !== "video") return "";
+                if (tag === "h1") return `# ${content}`;
+                if (tag === "h2") return `## ${content}`;
+                if (tag === "h3") return `### ${content}`;
+                if (tag === "h4") return `#### ${content}`;
+                if (tag === "blockquote") return content.split("\n").map((line) => `> ${line}`).join("\n");
+                if (tag === "pre") return "```\n" + textOf(node).trimEnd() + "\n```";
+                if (tag === "ul") {
+                    return Array.from(node.children).map((li) => `- ${blockText(li)}`).join("\n");
+                }
+                if (tag === "ol") {
+                    return Array.from(node.children).map((li, index) => `${index + 1}. ${blockText(li)}`).join("\n");
+                }
+                if (tag === "table") return tableMarkdown(node);
+                if (tag === "hr") return "***";
+                if (tag === "img" || tag === "video") return inlineMarkdown(node);
+                return content;
+            }
+
+            function tableMarkdown(table) {
+                const rows = Array.from(table.querySelectorAll("tr")).map((tr) =>
+                    Array.from(tr.children).map((cell) => blockText(cell)),
                 );
-
-                // At line start if previous char is newline or we're at document start
-                return lastChar === "\n" || textBeforeCheck.length === 0;
+                if (!rows.length) return "";
+                const head = rows[0];
+                const body = rows.slice(1);
+                return [
+                    "| " + head.join(" | ") + " |",
+                    "| " + head.map(() => "---").join(" | ") + " |",
+                    ...body.map((row) => "| " + row.join(" | ") + " |"),
+                ].join("\n");
             }
 
-            // Helper functions for bullet point handling
-            function getCurrentLineStart() {
-                const cursorPos = textarea.selectionStart;
-                const textBeforeCursor = textarea.value.substring(0, cursorPos);
-                const lastNewlineIndex = textBeforeCursor.lastIndexOf("\n");
-                return lastNewlineIndex === -1 ? 0 : lastNewlineIndex + 1;
+            function editorToMarkdown() {
+                return cleanWhitespace(Array.from(editor.childNodes).map(blockMarkdown).filter(Boolean).join("\n\n"));
             }
 
-            function getCurrentLineText() {
-                const lineStart = getCurrentLineStart();
-                const cursorPos = textarea.selectionStart;
-                const textFromLineStart = textarea.value.substring(lineStart);
-                const nextNewlineIndex = textFromLineStart.indexOf("\n");
-                return nextNewlineIndex === -1
-                    ? textFromLineStart
-                    : textFromLineStart.substring(0, nextNewlineIndex);
-            }
-
-            function isOnListLine() {
-                const lineText = getCurrentLineText();
-                return /^(\s*(?:[-*]|\d+\.)\s+)/.test(lineText);
-            }
-
-            function getListPrefix() {
-                const lineText = getCurrentLineText();
-                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)/);
-                return match ? match[1] : null;
-            }
-
-            function isListLineEmpty() {
-                const lineText = getCurrentLineText();
-                const match = lineText.match(/^(\s*(?:[-*]|\d+\.)\s+)(.*)$/);
-                return match ? match[2].trim() === "" : false;
-            }
-
-            function getNextListPrefix() {
-                const lineText = getCurrentLineText();
-                const bulletMatch = lineText.match(/^(\s*)([-*])(\s+)/);
-                if (bulletMatch) {
-                    // Return same bullet prefix
-                    return bulletMatch[1] + bulletMatch[2] + bulletMatch[3];
-                }
-
-                const numberedMatch = lineText.match(/^(\s*)(\d+)(\.\s+)/);
-                if (numberedMatch) {
-                    // Increment the number
-                    const indent = numberedMatch[1];
-                    const currentNumber = parseInt(numberedMatch[2]);
-                    const suffix = numberedMatch[3];
-                    return indent + (currentNumber + 1) + suffix;
-                }
-
-                return null;
-            }
-
-            function resizeTextarea() {
-                const scrollY = window.scrollY;
-                textarea.style.height = "0";
-                textarea.style.height = textarea.scrollHeight + "px";
-                window.scrollTo({ top: scrollY, behavior: "instant" });
-            }
-
-            function handleListEnter(e) {
-                if (!isOnListLine()) return false;
-
-                e.preventDefault();
-
-                const cursorPos = textarea.selectionStart;
-                const lineStart = getCurrentLineStart();
-
-                if (isListLineEmpty()) {
-                    // Remove the list item and go back to normal text
-                    const lineEnd = lineStart + getCurrentLineText().length;
-                    const textBefore = textarea.value.substring(0, lineStart);
-                    const textAfter = textarea.value.substring(lineEnd);
-                    textarea.value = textBefore + textAfter;
-                    textarea.setSelectionRange(lineStart, lineStart);
-                } else {
-                    // Create new list item with proper prefix
-                    const nextPrefix = getNextListPrefix();
-                    const textBefore = textarea.value.substring(0, cursorPos);
-                    const textAfter = textarea.value.substring(cursorPos);
-                    const newText = textBefore + "\n" + nextPrefix + textAfter;
-                    textarea.value = newText;
-                    const newCursorPos = cursorPos + 1 + nextPrefix.length;
-                    textarea.setSelectionRange(newCursorPos, newCursorPos);
-                }
-
+            function syncMarkdown() {
+                markdownField.value = editorToMarkdown();
                 updateCharCount();
-                resizeTextarea();
-                return true;
-            }
-
-            function getContextualMenuItems() {
-                const atLineStart = isAtLineStart();
-
-                let filteredItems = menuItems.filter((item) => {
-                    // Always show items that work both inline and at line start
-                    if (!item.blockLevel && !item.inline) return true;
-
-                    // At line start: show all items
-                    if (atLineStart) return true;
-
-                    // In middle of line: only show inline items
-                    return item.inline === true;
-                });
-
-                // Further filter by search query if there's text after slash
-                if (slashQuery.trim()) {
-                    filteredItems = filteredItems.filter((item) =>
-                        item.label
-                            .toLowerCase()
-                            .includes(slashQuery.toLowerCase()),
-                    );
-                }
-
-                return filteredItems;
             }
 
             function updateProgressCircle(percentage, circleElement) {
                 if (!circleElement) return;
-
-                const progressCircle = circleElement.querySelector(".progress");
-                const circumference = 2 * Math.PI * 6; // radius = 6
-                const offset =
-                    circumference - (percentage / 100) * circumference;
-
-                progressCircle.style.strokeDashoffset = offset;
-
-                // Update color based on percentage
-                if (percentage >= 100) {
-                    progressCircle.style.stroke = "#e74c3c"; // Red
-                } else if (percentage >= 75) {
-                    // Changed from 90 to 75
-                    progressCircle.style.stroke = "#f39c12"; // Yellow/Orange
-                } else {
-                    progressCircle.style.stroke = "#666"; // Dark grey
-                }
+                const progress = circleElement.querySelector(".progress");
+                const circumference = 2 * Math.PI * 6;
+                progress.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
+                progress.style.stroke = percentage >= 100 ? "#e74c3c" : percentage >= 75 ? "#f39c12" : "#666";
             }
 
             function updateCharCount() {
-                const count = textarea.value.length;
-                const button = document.querySelector('button[type="submit"]');
+                const count = markdownField.value.length;
                 const limit = {{content_max_length}};
-                const countText =
-                    count.toLocaleString() + " / " + limit.toLocaleString();
+                const countText = count.toLocaleString() + " / " + limit.toLocaleString();
                 const percentage = (count / limit) * 100;
-
-                // Update desktop character count
-                if (charCount) {
-                    const span = charCount.querySelector("span");
+                for (const el of [charCount, mobileCharCount]) {
+                    if (!el) continue;
+                    const span = el.querySelector("span");
                     if (span) span.textContent = countText;
-                    updateProgressCircle(percentage, progressCircle);
+                    el.classList.toggle("over-limit", count > limit);
                 }
+                updateProgressCircle(percentage, progressCircle);
+                updateProgressCircle(percentage, mobileProgressCircle);
+                document.querySelectorAll('button[type="submit"]').forEach((button) => {
+                    button.disabled = count > limit;
+                });
+            }
 
-                // Update mobile character count
-                if (mobileCharCount) {
-                    const span = mobileCharCount.querySelector("span");
-                    if (span) span.textContent = countText;
-                    updateProgressCircle(percentage, mobileProgressCircle);
-                }
+            function currentSelection() {
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) return null;
+                return selection;
+            }
 
-                // Update button state and character count styling
-                if (count > limit) {
-                    if (charCount) charCount.classList.add("over-limit");
-                    if (mobileCharCount)
-                        mobileCharCount.classList.add("over-limit");
-                    button.disabled = true;
+            function selectedText() {
+                const selection = currentSelection();
+                return selection ? selection.toString() : "";
+            }
+
+            function insertHTML(html) {
+                document.execCommand("insertHTML", false, html);
+                syncMarkdown();
+            }
+
+            function insertText(text) {
+                document.execCommand("insertText", false, text);
+                syncMarkdown();
+            }
+
+            function attrValue(value) {
+                return String(value || "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+            }
+
+            function wrapSelection(tagName, className = "") {
+                const selection = currentSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                const range = selection.getRangeAt(0);
+                const wrapper = document.createElement(tagName);
+                if (className) wrapper.className = className;
+                if (range.collapsed) wrapper.appendChild(document.createTextNode(tagName === "code" ? "code" : "text"));
+                else wrapper.appendChild(range.extractContents());
+                range.insertNode(wrapper);
+                selection.removeAllRanges();
+                const after = document.createRange();
+                after.selectNodeContents(wrapper);
+                selection.addRange(after);
+                syncMarkdown();
+            }
+
+            function insertWrappedSelection(tagName, placeholder, className = "") {
+                const selection = currentSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                const range = selection.getRangeAt(0);
+                const wrapper = document.createElement(tagName);
+                if (className) wrapper.className = className;
+                if (range.collapsed) wrapper.textContent = "\u200b";
+                else wrapper.appendChild(range.extractContents());
+                range.insertNode(wrapper);
+                selection.removeAllRanges();
+                const selected = document.createRange();
+                if (range.collapsed && wrapper.firstChild) {
+                    selected.setStart(wrapper.firstChild, 1);
+                    selected.collapse(true);
                 } else {
-                    if (charCount) charCount.classList.remove("over-limit");
-                    if (mobileCharCount)
-                        mobileCharCount.classList.remove("over-limit");
-                    button.disabled = false;
+                    selected.selectNodeContents(wrapper);
                 }
+                selection.addRange(selected);
+                syncMarkdown();
             }
 
-            function getCursorHorizontalPosition() {
-                const cursorPos = textarea.selectionStart;
-                const textUpToCursor = textarea.value.substring(0, cursorPos);
-                const lines = textUpToCursor.split("\n");
-                const currentLineText = lines[lines.length - 1];
-
-                // Get textarea positioning and styling
-                const rect = textarea.getBoundingClientRect();
-                const styles = window.getComputedStyle(textarea);
-                const paddingLeft = parseFloat(styles.paddingLeft);
-
-                // Create temporary element to measure text width
-                const measurer = document.createElement("span");
-                measurer.style.font = styles.font;
-                measurer.style.fontSize = styles.fontSize;
-                measurer.style.fontFamily = styles.fontFamily;
-                measurer.style.visibility = "hidden";
-                measurer.style.position = "absolute";
-                measurer.style.whiteSpace = "pre";
-                measurer.textContent = currentLineText;
-                document.body.appendChild(measurer);
-
-                const textWidth = measurer.getBoundingClientRect().width;
-                document.body.removeChild(measurer);
-
-                // Calculate horizontal cursor position
-                return rect.left + paddingLeft + textWidth;
+            function selectionRect() {
+                const selection = currentSelection();
+                if (!selection || selection.rangeCount === 0) return editor.getBoundingClientRect();
+                const range = selection.getRangeAt(0).cloneRange();
+                range.collapse(false);
+                return range.getBoundingClientRect() || editor.getBoundingClientRect();
             }
 
-            function showSlashMenu(x, y) {
-                slashMenuActive = true; // Set this first so isAtLineStart() works correctly
-                const contextualItems = getContextualMenuItems();
+            function textBeforeCaret() {
+                const selection = currentSelection();
+                if (!selection || selection.rangeCount === 0) return "";
+                const range = selection.getRangeAt(0).cloneRange();
+                range.selectNodeContents(editor);
+                range.setEnd(selection.anchorNode, selection.anchorOffset);
+                return range.toString();
+            }
+
+            function slashMatch() {
+                const before = textBeforeCaret();
+                const match = before.match(/(^|\s)\/([a-z0-9 ]*)$/i);
+                return match ? match[2] : null;
+            }
+
+            function deleteSlashQuery() {
+                const selection = currentSelection();
+                if (!selection || !selection.anchorNode || selection.anchorNode.nodeType !== Node.TEXT_NODE) return;
+                const node = selection.anchorNode;
+                const start = node.nodeValue.lastIndexOf("/", selection.anchorOffset - 1);
+                if (start < 0) return;
+                const range = document.createRange();
+                range.setStart(node, start);
+                range.setEnd(node, selection.anchorOffset);
+                range.deleteContents();
+            }
+
+            function getContextualMenuItems() {
+                return menuItems.filter((item) => item.label.toLowerCase().includes(slashQuery.toLowerCase()));
+            }
+
+            function showSlashMenu() {
+                const items = getContextualMenuItems();
+                if (!items.length) return hideSlashMenu();
+                slashMenuActive = true;
                 slashMenu.innerHTML = "";
-                contextualItems.forEach((item, index) => {
+                items.forEach((item, index) => {
                     const div = document.createElement("div");
-                    div.className =
-                        "menu-item" + (index === 0 ? " selected" : "");
-                    div.innerHTML = `
-                    <span class="menu-label">${item.label}</span>
-                    ${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ""}
-                `;
-                    div.addEventListener("click", () => applyFormat(item));
+                    div.className = "menu-item" + (index === selectedMenuIndex ? " selected" : "");
+                    div.innerHTML = `<span class="menu-label">${item.label}</span>${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ""}`;
+                    div.addEventListener("mousedown", (event) => {
+                        event.preventDefault();
+                        applyFormat(item);
+                    });
                     slashMenu.appendChild(div);
                 });
-
-                // Get horizontal cursor position and textarea bounds
-                const cursorX = getCursorHorizontalPosition();
-                const textareaRect = textarea.getBoundingClientRect();
-
-                // Calculate optimal position
-                const menuWidth = 300;
-                const menuHeight = Math.min(
-                    contextualItems.length * 40 + 10,
-                    300,
-                );
-                // Use fixed height for positioning to maintain consistency
-                const positioningHeight = 50; // Height of single item for positioning
-                const padding = 10;
-
-                // Use actual cursor X position, but keep within textarea bounds
-                let menuX = cursorX;
-                if (menuX + menuWidth > textareaRect.right - padding) {
-                    menuX = textareaRect.right - menuWidth - padding;
-                }
-                if (menuX < textareaRect.left + padding) {
-                    menuX = textareaRect.left + padding;
-                }
-
-                // Always position menu below the cursor line
-                let menuY = y + 35; // Fixed offset below cursor line
-
-                // Only adjust if menu would go completely outside textarea
-                // Use fixed positioning height so position is consistent
-                if (menuY + positioningHeight > textareaRect.bottom) {
-                    // If menu is too tall for textarea, position at bottom and let it scroll
-                    menuY = Math.max(
-                        y - positioningHeight - 15,
-                        textareaRect.top + padding,
-                    );
-                }
-
-                slashMenu.style.left = menuX + "px";
-                slashMenu.style.top = menuY + "px";
+                const rect = selectionRect();
+                const editorRect = editor.getBoundingClientRect();
+                const left = Math.min(Math.max(rect.left, editorRect.left), editorRect.right - 220);
+                slashMenu.style.left = left + "px";
+                slashMenu.style.top = rect.bottom + 12 + "px";
                 slashMenu.classList.add("active");
-                selectedMenuIndex = 0;
-
-                // Reset scroll position to top
-                slashMenu.scrollTop = 0;
             }
 
             function hideSlashMenu() {
                 slashMenu.classList.remove("active");
                 slashMenuActive = false;
-                slashPosition = -1;
+                selectedMenuIndex = 0;
                 slashQuery = "";
             }
 
             function updateMenuSelection() {
-                const items = slashMenu.querySelectorAll(".menu-item");
-                const contextualItems = getContextualMenuItems();
-
-                items.forEach((item, index) => {
-                    if (index === selectedMenuIndex) {
-                        item.classList.add("selected");
-                        // Scroll the selected item into view
-                        item.scrollIntoView({
-                            block: "nearest",
-                            behavior: "smooth",
-                        });
-                    } else {
-                        item.classList.remove("selected");
-                    }
+                slashMenu.querySelectorAll(".menu-item").forEach((item, index) => {
+                    item.classList.toggle("selected", index === selectedMenuIndex);
+                    if (index === selectedMenuIndex) item.scrollIntoView({ block: "nearest" });
                 });
             }
 
-            function applyFormat(item, selectedText = null) {
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const text = textarea.value;
-
+            function applyFormat(item) {
+                editor.focus();
                 if (slashMenuActive) {
-                    // Remove the slash and any search query
-                    const before = text.substring(0, slashPosition);
-                    const after = text.substring(start);
-                    const newText = before + item.format + after;
-                    textarea.value = newText;
-
-                    const cursorPos =
-                        slashPosition +
-                        item.format.length +
-                        (item.cursorOffset || 0);
-                    textarea.setSelectionRange(cursorPos, cursorPos);
+                    deleteSlashQuery();
                     hideSlashMenu();
-                } else {
-                    // Apply to selection or insert at cursor
-                    selectedText = selectedText || text.substring(start, end);
-                    const hasSelection = start !== end;
-                    let newText, cursorPos;
-
-                    if (item.label === "Bold") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                selectedText +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "****" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Italic") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "*" +
-                                selectedText +
-                                "*" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "**" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Underline") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "_" +
-                                selectedText +
-                                "_" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "__" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Strikethrough") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "~" +
-                                selectedText +
-                                "~" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "~~" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Superscript") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "^" +
-                                selectedText +
-                                "^" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "^^" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Highlight") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "==" +
-                                selectedText +
-                                "==" +
-                                text.substring(end);
-                            cursorPos = end + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "====" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else if (item.label === "Inline Code") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "`" +
-                                selectedText +
-                                "`" +
-                                text.substring(end);
-                            cursorPos = end + 2;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "``" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Code Block") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n" +
-                                selectedText +
-                                "\n```" +
-                                text.substring(end);
-                            cursorPos = end + 8;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "```\n\n```" +
-                                text.substring(end);
-                            cursorPos = start + 4;
-                        }
-                    } else if (item.label === "Link") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "[" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 3;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "[](url)" +
-                                text.substring(end);
-                            cursorPos = start + 1;
-                        }
-                    } else if (item.label === "Image") {
-                        if (hasSelection) {
-                            newText =
-                                text.substring(0, start) +
-                                "![" +
-                                selectedText +
-                                "](url)" +
-                                text.substring(end);
-                            cursorPos = start + selectedText.length + 4;
-                        } else {
-                            newText =
-                                text.substring(0, start) +
-                                "![](url)" +
-                                text.substring(end);
-                            cursorPos = start + 2;
-                        }
-                    } else {
-                        // Generic handling for other formats
-                        newText =
-                            text.substring(0, start) +
-                            item.format +
-                            text.substring(end);
-                        cursorPos =
-                            start +
-                            item.format.length +
-                            (item.cursorOffset || 0);
-                    }
-
-                    textarea.value = newText;
-                    textarea.setSelectionRange(cursorPos, cursorPos);
                 }
-
-                updateCharCount();
-                resizeTextarea();
-                textarea.focus();
+                const label = item.label;
+                if (label.startsWith("Heading")) document.execCommand("formatBlock", false, "h" + label.slice(-1));
+                else if (label === "Bold") insertWrappedSelection("strong", "bold text");
+                else if (label === "Italic") insertWrappedSelection("em", "italic text");
+                else if (label === "Underline") insertWrappedSelection("u", "underlined text");
+                else if (label === "Strikethrough") insertWrappedSelection("del", "struck text");
+                else if (label === "Superscript") insertWrappedSelection("sup", "superscript");
+                else if (label === "Highlight") wrapSelection("mark");
+                else if (label === "Inline Code") wrapSelection("code");
+                else if (label === "Code Block") insertHTML("<pre><code><br></code></pre><p><br></p>");
+                else if (label === "Link") {
+                    const href = prompt("URL", "https://");
+                    if (href) document.execCommand("createLink", false, href);
+                } else if (label === "Image" || label === "Video") {
+                    const url = prompt(label + " URL", "https://");
+                    const caption = prompt("Caption (optional)", selectedText());
+                    if (url) insertHTML(label === "Video" ? `<video controls src="${attrValue(url)}" aria-label="${attrValue(caption)}"></video>` : `<img src="${attrValue(url)}" alt="${attrValue(caption)}">`);
+                } else if (label === "Blockquote") document.execCommand("formatBlock", false, "blockquote");
+                else if (label === "Bullet List") document.execCommand("insertUnorderedList");
+                else if (label === "Numbered List") document.execCommand("insertOrderedList");
+                else if (label === "Table") insertHTML("<table><tr><th>Column 1</th><th>Column 2</th></tr><tr><td>Cell 1</td><td>Cell 2</td></tr></table><p><br></p>");
+                else if (label === "Footnote Reference") insertText("[^1]");
+                else if (label === "Inline Footnote") insertText("^[Footnote text]");
+                else if (label === "Hidden Text") wrapSelection("span", "secret-draft");
+                else if (label === "Comment") insertText("// ");
+                else if (label === "Divider") insertHTML("<hr><p><br></p>");
+                syncMarkdown();
             }
 
-            // Textarea event listeners
-            textarea.addEventListener("input", function (e) {
-                const cursorPos = this.selectionStart;
-                const textBeforeCursor = this.value.substring(0, cursorPos);
-                const lastChar = textBeforeCursor.charAt(
-                    textBeforeCursor.length - 1,
-                );
-
-                if (
-                    lastChar === "/" &&
-                    (cursorPos === 1 ||
-                        textBeforeCursor.charAt(cursorPos - 2) === "\n" ||
-                        textBeforeCursor.charAt(cursorPos - 2) === " ")
-                ) {
-                    const rect = this.getBoundingClientRect();
-                    const lines = textBeforeCursor.split("\n");
-                    const currentLine = lines.length;
-                    const lineHeight = 28.8;
-                    const styles = window.getComputedStyle(this);
-                    const paddingTop = parseFloat(styles.paddingTop);
-
-                    slashPosition = cursorPos - 1;
-                    slashQuery = "";
-
-                    // Calculate cursor Y position within textarea
-                    const cursorY =
-                        rect.top + paddingTop + (currentLine - 1) * lineHeight;
-
-                    showSlashMenu(rect.left, cursorY);
-                } else if (slashMenuActive) {
-                    // Check if we're still typing after the slash
-                    const textAfterSlash = textBeforeCursor.substring(
-                        slashPosition + 1,
-                    );
-
-                    // If cursor is still after the slash and no spaces/newlines, update query
-                    if (
-                        cursorPos > slashPosition &&
-                        !textAfterSlash.includes(" ") &&
-                        !textAfterSlash.includes("\n")
-                    ) {
-                        slashQuery = textAfterSlash;
-                        selectedMenuIndex = 0; // Reset to first item
-
-                        const rect = this.getBoundingClientRect();
-                        const lines = textBeforeCursor.split("\n");
-                        const currentLine = lines.length;
-                        const lineHeight = 28.8;
-                        const styles = window.getComputedStyle(this);
-                        const paddingTop = parseFloat(styles.paddingTop);
-
-                        // Calculate cursor Y position within textarea
-                        const cursorY =
-                            rect.top +
-                            paddingTop +
-                            (currentLine - 1) * lineHeight;
-
-                        showSlashMenu(rect.left, cursorY);
-                    } else {
-                        hideSlashMenu();
+            function sanitizePaste(html) {
+                const doc = new DOMParser().parseFromString(html, "text/html");
+                const allowed = new Set(["P", "BR", "H1", "H2", "H3", "H4", "STRONG", "B", "EM", "I", "U", "S", "STRIKE", "DEL", "SUP", "MARK", "CODE", "PRE", "A", "UL", "OL", "LI", "BLOCKQUOTE", "IMG", "VIDEO", "SOURCE", "HR", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"]);
+                const walk = (node) => {
+                    for (const child of Array.from(node.childNodes)) {
+                        if (child.nodeType === Node.ELEMENT_NODE) {
+                            if (!allowed.has(child.tagName)) {
+                                child.replaceWith(...Array.from(child.childNodes));
+                                continue;
+                            }
+                            for (const attr of Array.from(child.attributes)) {
+                                const name = attr.name.toLowerCase();
+                                if (!["href", "src", "alt", "controls", "aria-label"].includes(name)) child.removeAttribute(attr.name);
+                                if ((name === "href" || name === "src") && /^javascript:/i.test(attr.value)) child.removeAttribute(attr.name);
+                            }
+                        }
+                        walk(child);
                     }
-                }
+                };
+                walk(doc.body);
+                return doc.body.innerHTML;
+            }
 
-                updateCharCount();
-                resizeTextarea();
+            editor.addEventListener("paste", function (e) {
+                const html = e.clipboardData.getData("text/html");
+                const plain = e.clipboardData.getData("text/plain");
+                e.preventDefault();
+                if (html) insertHTML(sanitizePaste(html));
+                else insertText(plain);
             });
 
-            textarea.addEventListener("keydown", function (e) {
+            editor.addEventListener("input", function () {
+                const query = slashMatch();
+                if (query !== null) {
+                    slashQuery = query;
+                    showSlashMenu();
+                } else {
+                    hideSlashMenu();
+                }
+                syncMarkdown();
+            });
+
+            editor.addEventListener("keydown", function (e) {
                 if (slashMenuActive) {
-                    const contextualItems = getContextualMenuItems();
-
-                    // If no items match the search, close menu
-                    if (contextualItems.length === 0) {
-                        if (e.key === "Escape" || e.key === "Backspace") {
-                            e.preventDefault();
-                            hideSlashMenu();
-                        }
-                        return;
-                    }
-
+                    const items = getContextualMenuItems();
                     if (e.key === "ArrowDown") {
                         e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex + 1) % contextualItems.length;
+                        selectedMenuIndex = (selectedMenuIndex + 1) % items.length;
                         updateMenuSelection();
                     } else if (e.key === "ArrowUp") {
                         e.preventDefault();
-                        selectedMenuIndex =
-                            (selectedMenuIndex - 1 + contextualItems.length) %
-                            contextualItems.length;
+                        selectedMenuIndex = (selectedMenuIndex - 1 + items.length) % items.length;
                         updateMenuSelection();
                     } else if (e.key === "Enter" || e.key === "Tab") {
                         e.preventDefault();
-                        applyFormat(contextualItems[selectedMenuIndex]);
+                        applyFormat(items[selectedMenuIndex]);
                     } else if (e.key === "Escape") {
                         e.preventDefault();
                         hideSlashMenu();
-                    } else if (e.key === "Backspace") {
-                        // If backspacing and we're at the slash, close menu
-                        const cursorPos = this.selectionStart;
-                        if (cursorPos <= slashPosition + 1) {
-                            hideSlashMenu();
-                        }
                     }
-                } else {
-                    // Handle Enter key for list auto-continuation (bullets and numbers)
-                    if (e.key === "Enter" && handleListEnter(e)) {
-                        return;
-                    }
+                    return;
+                }
 
-                    // Keyboard shortcuts
-                    const item = menuItems.find((item) => {
-                        if (!item.key) return false;
-
-                        const keyMatches =
-                            e.key.toLowerCase() === item.key.toLowerCase();
-                        const ctrlMatches = e.ctrlKey || e.metaKey;
-                        const shiftMatches = item.shiftKey
-                            ? e.shiftKey
-                            : !e.shiftKey;
-                        const altMatches = item.altKey ? e.altKey : !e.altKey;
-
-                        return (
-                            keyMatches &&
-                            ctrlMatches &&
-                            shiftMatches &&
-                            altMatches
-                        );
-                    });
-
-                    if (item) {
-                        e.preventDefault();
-                        applyFormat(item);
-                    }
+                const item = menuItems.find((candidate) => {
+                    if (!candidate.key) return false;
+                    const ctrl = e.ctrlKey || e.metaKey;
+                    const key = e.key.toLowerCase() === candidate.key.toLowerCase();
+                    const shift = candidate.shiftKey ? e.shiftKey : !e.shiftKey;
+                    const alt = candidate.altKey ? e.altKey : !e.altKey;
+                    return ctrl && key && shift && alt;
+                });
+                if (item) {
+                    e.preventDefault();
+                    applyFormat(item);
                 }
             });
 
-            // Click outside to close menus
             document.addEventListener("click", function (e) {
-                if (!slashMenu.contains(e.target) && e.target !== textarea) {
-                    hideSlashMenu();
-                }
+                if (!slashMenu.contains(e.target) && !editor.contains(e.target)) hideSlashMenu();
             });
 
             form.addEventListener("submit", function (e) {
+                syncMarkdown();
                 const limit = {{content_max_length}};
-                if (textarea.value.length > limit) {
+                if (!markdownField.value.trim()) {
                     e.preventDefault();
-                    alert(
-                        "Content exceeds " +
-                            limit.toLocaleString() +
-                            " character limit.",
-                    );
+                    alert("Please write something before publishing.");
+                    editor.focus();
+                    return false;
+                }
+                if (markdownField.value.length > limit) {
+                    e.preventDefault();
+                    alert("Content exceeds " + limit.toLocaleString() + " character limit.");
                     return false;
                 }
             });
 
             updateCharCount();
-            resizeTextarea();
 
             document.getElementById("aliasRand").addEventListener("click", function () {
                 const pools = [
@@ -1774,11 +1419,8 @@
                 document.querySelector("input[name=alias]").value = name.slice(0, 32);
             });
 
-            // Handle window resize to adjust menu if needed
             window.addEventListener("resize", function () {
-                if (slashMenuActive) {
-                    hideSlashMenu();
-                }
+                if (slashMenuActive) hideSlashMenu();
             });
         </script>
     </body>
