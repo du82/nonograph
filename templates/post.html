@@ -915,12 +915,58 @@
                 }
             }
 
+            function restoreSelectionFromHash() {
+                var hash = location.hash.replace(/^#/, "");
+                if (!hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/)) return;
+
+                var m = hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/);
+                var beginPos = parseInt(m[1]);
+                var beginOff = parseInt(m[2]);
+                var endPos = parseInt(m[3]);
+                var endOff = parseInt(m[4]);
+
+                var beginNode = null,
+                    endNode = null;
+                walkContent(function (e, pos) {
+                    if (pos === beginPos) beginNode = e;
+                    if (pos === endPos) endNode = e;
+                });
+
+                if (!beginNode || !endNode) return;
+
+                try {
+                    var range = document.createRange();
+                    range.setStart(beginNode, beginOff);
+                    range.setEnd(endNode, endOff);
+
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    // Scroll the selection into view
+                    if (range.getBoundingClientRect) {
+                        var rect = range.getBoundingClientRect();
+                        if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                            beginNode.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center",
+                            });
+                        }
+                    }
+                } catch (e) {
+                    // Silently fail if selection restoration fails
+                }
+            }
+
             document.addEventListener("selectionchange", function () {
                 applySelectionHash(computeSelectionHash());
             });
 
             // Process pre-rendered code blocks to add interactivity
             document.addEventListener("DOMContentLoaded", function () {
+                // Restore selection from hash on page load
+                restoreSelectionFromHash();
+
                 document.querySelectorAll("pre").forEach(function (pre) {
                     // Only process pre elements that have our structure
                     const header = pre.querySelector(".code-header");

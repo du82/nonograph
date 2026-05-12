@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Selection Hash Restoration Test</title>
+</head>
+<body>
+    <div id="CONTENT">
+        <p>First paragraph with some text.</p>
+        <p>Second paragraph with more text for testing selection restoration.</p>
+        <p>Third paragraph to verify the hash-based selection works correctly.</p>
+    </div>
+
+    <script>
+        // Include the walkContent and restoreSelectionFromHash functions here
+        function walkContent(visitor) {
+            var pos = 0;
+            function recur(e) {
+                if (
+                    e.nodeType == 1 &&
+                    (e.tagName == "OLD-META" || e.tagName == "OLD-SCRIPT")
+                )
+                    return;
+                if (e.nodeType == 1) pos = (pos & ~1) + 2;
+                if (e.nodeType == 3) pos = pos | 1;
+                visitor(e, pos);
+                var lastChild = null;
+                for (var i = 0; i < e.childNodes.length; i++)
+                    if (
+                        e.childNodes[i].nodeType == 1 ||
+                        e.childNodes[i].nodeType == 3
+                    )
+                        recur((lastChild = e.childNodes[i]));
+                if (lastChild && lastChild.nodeType == 3)
+                    pos = (pos & ~1) + 2;
+            }
+            recur(document.getElementById("CONTENT"));
+        }
+
+        function restoreSelectionFromHash() {
+            var hash = location.hash.replace(/^#/, "");
+            if (!hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/)) return;
+
+            var m = hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/);
+            var beginPos = parseInt(m[1]);
+            var beginOff = parseInt(m[2]);
+            var endPos = parseInt(m[3]);
+            var endOff = parseInt(m[4]);
+
+            var beginNode = null, endNode = null;
+            walkContent(function(e, pos) {
+                if (pos === beginPos) beginNode = e;
+                if (pos === endPos) endNode = e;
+            });
+
+            if (!beginNode || !endNode) return;
+
+            try {
+                var range = document.createRange();
+                range.setStart(beginNode, beginOff);
+                range.setEnd(endNode, endOff);
+
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } catch (e) {
+                console.error("Failed to restore selection:", e);
+            }
+        }
+
+        // Test: should restore selection on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Simulate loading with a selection hash
+            if (location.hash) {
+                restoreSelectionFromHash();
+                setTimeout(function() {
+                    var sel = window.getSelection();
+                    if (!sel.isCollapsed) {
+                        console.log("✓ Selection restored successfully");
+                        console.log("Selected text:", sel.toString());
+                    } else {
+                        console.error("✗ Selection was not restored");
+                    }
+                }, 100);
+            } else {
+                console.log("Load this page with #selection-2.0-4.10 to test");
+            }
+        });
+    </script>
+</body>
+</html>
