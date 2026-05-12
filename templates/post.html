@@ -917,9 +917,9 @@
 
             function restoreSelectionFromHash() {
                 var hash = location.hash.replace(/^#/, "");
-                if (!hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/)) return;
-
                 var m = hash.match(/^selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/);
+                if (!m) return;
+
                 var beginPos = parseInt(m[1]);
                 var beginOff = parseInt(m[2]);
                 var endPos = parseInt(m[3]);
@@ -947,10 +947,16 @@
                     if (range.getBoundingClientRect) {
                         var rect = range.getBoundingClientRect();
                         if (rect.top < 0 || rect.bottom > window.innerHeight) {
-                            beginNode.scrollIntoView({
-                                behavior: "smooth",
-                                block: "center",
-                            });
+                            var scrollTarget =
+                                beginNode.nodeType === 3
+                                    ? beginNode.parentElement
+                                    : beginNode;
+                            if (scrollTarget) {
+                                scrollTarget.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center",
+                                });
+                            }
                         }
                     }
                 } catch (e) {
