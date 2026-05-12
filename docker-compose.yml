@@ -6,7 +6,7 @@ services:
       - "8009:8009"
     volumes:
       - ${HOME}/nonograph/content:/app/content
-      - tor_data:/var/lib/tor
+      - ${HOME}/nonograph/onion:/var/lib/tor/hidden_service
     environment:
       - ROCKET_ADDRESS=0.0.0.0
       - ROCKET_PORT=8009
@@ -19,9 +19,6 @@ services:
       start_period: 40s
     networks:
       - nonograph_network
-
-volumes:
-  tor_data:
 
 networks:
   nonograph_network:

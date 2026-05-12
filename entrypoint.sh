@@ -4,6 +4,10 @@
 mkdir -p /app/content
 chown -R nonograph:nonograph /app/content
 
+mkdir -p /var/lib/tor/hidden_service
+chown -R debian-tor:debian-tor /var/lib/tor/hidden_service
+chmod 700 /var/lib/tor/hidden_service
+
 # Start Tor as debian-tor user
 sudo -u debian-tor tor -f /etc/tor/torrc &
 
