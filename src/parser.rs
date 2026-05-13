@@ -391,7 +391,7 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("th", &["style"])
         .add_tag_attributes("td", &["style"])
         .add_tag_attributes("a", &["href", "target", "id", "class"])
-        .add_tag_attributes("div", &["class"])
+        .add_tag_attributes("div", &["class", "style"])
         .add_tag_attributes("hr", &["class"])
         .add_tag_attributes("li", &["id"])
         .add_tag_attributes("sup", &["id"])
@@ -516,6 +516,57 @@ fn process_single_blockquote(text: &str) -> String {
             return format!(
                 "<div class=\"alert alert-{lowercase}\">\n  <div class=\"alert-label\">{title_case}</div>\n  <div class=\"alert-body\">{body}</div>\n</div>",
             );
+        }
+    }
+
+    if let Some(&first) = quote_lines.first() {
+        let trimmed_first = first.trim();
+        if trimmed_first.starts_with('[') && trimmed_first.ends_with(']') {
+            let inner = &trimmed_first[1..trimmed_first.len() - 1];
+            if let Some(bang_pos) = inner.find('!') {
+                let hex_part = &inner[..bang_pos];
+                let label_part = &inner[bang_pos + 1..];
+
+                let hex_len = hex_part.len();
+                let is_valid_hex = (hex_len == 3 || hex_len == 6)
+                    && hex_part.chars().all(|c| c.is_ascii_hexdigit());
+
+                if is_valid_hex {
+                    let sanitized: String = label_part
+                        .chars()
+                        .filter(|c| {
+                            c.is_ascii_alphanumeric() || *c == ' ' || *c == '-' || *c == '_'
+                        })
+                        .collect();
+                    let sanitized = sanitized.trim();
+                    let sanitized: String = sanitized.chars().take(25).collect();
+
+                    if !sanitized.is_empty() {
+                        let hex6: String = if hex_len == 3 {
+                            hex_part.chars().flat_map(|c| [c, c]).collect()
+                        } else {
+                            hex_part.to_string()
+                        };
+                        let hex6_upper = hex6.to_uppercase();
+
+                        let r = u8::from_str_radix(&hex6_upper[0..2], 16).unwrap_or(0);
+                        let g = u8::from_str_radix(&hex6_upper[2..4], 16).unwrap_or(0);
+                        let b = u8::from_str_radix(&hex6_upper[4..6], 16).unwrap_or(0);
+
+                        let escaped_label = sanitized
+                            .replace('&', "&amp;")
+                            .replace('<', "&lt;")
+                            .replace('>', "&gt;")
+                            .replace('"', "&quot;");
+
+                        let body = quote_lines[1..].join("<br>");
+
+                        return format!(
+                            "<div class=\"alert\" style=\"border-color: #{hex6_upper}; background-color: rgba({r}, {g}, {b}, 0.08);\">\n  <div class=\"alert-label\" style=\"background-color: #{hex6_upper};\">{escaped_label}</div>\n  <div class=\"alert-body\">{body}</div>\n</div>",
+                        );
+                    }
+                }
+            }
         }
     }
 
