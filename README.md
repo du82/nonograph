@@ -75,3 +75,4 @@ Hate Docker? Run `./run` to build and run natively (Linux only).
 
 ## License
 Public domain ([Unlicense](https://unlicense.org)). This software belongs to everyone. Use it, modify it, share it without restriction. No attribution required, no strings attached, no warranties provided.
+
