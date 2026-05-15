@@ -119,10 +119,17 @@ impl PostCache {
         };
 
         self.entries.insert(post_id.clone(), entry);
+        let (size_val, size_unit) = match self.total_size {
+            b if b < 1_024 => (b as f64, "B"),
+            b if b < 1_024 * 1_024 => (b as f64 / 1_024.0, "KB"),
+            b if b < 1_024 * 1_024 * 1_024 => (b as f64 / (1_024.0 * 1_024.0), "MB"),
+            b => (b as f64 / (1_024.0 * 1_024.0 * 1_024.0), "GB"),
+        };
         println!(
-            "Cache now contains {} posts, total size: {} MB",
+            "Cache now contains {} posts, total size: {:.2} {}",
             self.entries.len(),
-            self.total_size / (1024 * 1024)
+            size_val,
+            size_unit
         );
     }
 
@@ -144,6 +151,22 @@ impl PostCache {
             .iter()
             .min_by_key(|(_, entry)| entry.last_accessed)
             .map(|(id, _)| id.clone())
+    }
+
+    fn purge_deleted(&mut self) {
+        let stale: Vec<String> = self
+            .entries
+            .keys()
+            .filter(|id| !std::path::Path::new(&format!("content/{}.md", id)).exists())
+            .cloned()
+            .collect();
+
+        for id in stale {
+            if let Some(entry) = self.entries.remove(&id) {
+                self.total_size -= entry.post.memory_size();
+                println!("Cache REMOVE for post: {}.md", id);
+            }
+        }
     }
 }
 
@@ -783,6 +806,14 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
     }
 }
 
+fn start_cache_purge_worker(storage: PostStorage, interval_mins: u64) {
+    thread::spawn(move || loop {
+        thread::sleep(std::time::Duration::from_secs(interval_mins * 60));
+        let mut cache = storage.lock().unwrap();
+        cache.purge_deleted();
+    });
+}
+
 fn start_file_save_worker() -> mpsc::Sender<Post> {
     let (tx, rx) = mpsc::channel::<Post>();
 
@@ -840,6 +871,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .limit("string", config.form_data_limit_bytes().bytes());
 
     let storage = Arc::new(Mutex::new(PostCache::new(config.cache.max_cache_size_mb)));
+    start_cache_purge_worker(Arc::clone(&storage), config.cache.cache_purge_interval_mins);
     let file_save_sender = start_file_save_worker();
 
     rocket::build()
