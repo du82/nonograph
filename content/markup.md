@@ -73,6 +73,69 @@ You can^Wrap text with carets^ to make it ^superscript!^
 
 > Creates an indented quote block
 
+## Alerts
+```md
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+```
+
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+```md
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+```
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+```md
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+```
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+```md
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+```
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+```md
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+```
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+
+### Custom Color Alerts
+
+Use a 3- or 6-digit hex color and a custom label (up to 25 characters) separated by `!`:
+
+```md
+> [F80!Heads Up]
+> A custom orange alert with a short hex color.
+```
+
+> [F80!Heads Up]
+> A custom orange alert with a short hex color.
+
+```md
+> [e600e6!Pro Tip]
+> A custom purple alert with a full hex color.
+```
+
+> [e600e6!Pro Tip]
+> A custom purple alert with a full hex color.
+
+The label text is sanitized to alphanumeric characters, spaces, hyphens, and underscores.
+
 ## Footnotes
 **Reference footnotes** - mark position with `[^1]` and define at bottom:
 
