@@ -39,21 +39,31 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 ## Deploy
 
 ```bash
+mkdir -p ~/nonograph/content ~/nonograph/onion
+docker run -d \
+  --name nonograph \
+  -p 8009:8009 \
+  -v ~/nonograph/content:/app/content \
+  -v ~/nonograph/onion:/var/lib/tor/hidden_service \
+  --restart unless-stopped \
+  ghcr.io/du82/nonograph:latest
+```
+
+or grab the source code and make your own container:
+
+```bash
 git clone https://github.com/du82/nonograph
 cd nonograph
 make up
 ```
 
-`make up` installs Docker if needed, builds the container with Tor included, and prints your `.onion` address.
+Then check logs for your `.onion` address:
 
 ```bash
-make up        # Start the service on Tor
-make tor       # Print .onion address
-make status    # Check status
-make down      # Stop containers
-make clean     # Remove container entirely
+docker logs nonograph
 ```
-Hate Docker? Run `./run` to build and run natively (Linux only).
+
+Hate Docker? Run `./run` to build and run natively (Debian only).
 
 ## Features
 - Markdown with tables, code blocks, footnotes, and `#spoiler#` syntax
