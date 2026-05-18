@@ -80,8 +80,8 @@ Hate Docker? Run `./run` to build and run natively (Debian only).
 `anonymous` + `monograph` + `telegraph` = `nonograph`
 
 ## Audits
-* [@h_2_o0](t.me/h_2_o0) found a URL validation bypass on 4/20 (nice), fixed in [this commit](https://github.com/du82/nonograph/commit/639f64f010e2b287bf3429af1814dd4fb8697a16).
-* [Security Assessment Report Redacted.pdf](https://github.com/user-attachments/files/27242849/Security.Assessment.Report.Redacted.pdf) - 10/15/2025 audit of the initial release (v0.0.1), paid for in Monero. Only the auditors name and email were redacted.
+* 4/20/2026 - [@h_2_o0](https://t.me/h_2_o0) found a URL validation bypass on 4/20 (nice), fixed in [this commit](https://github.com/du82/nonograph/commit/639f64f010e2b287bf3429af1814dd4fb8697a16).
+* 10/15/2025 - [Security Assessment Report Redacted.pdf](https://github.com/user-attachments/files/27242849/Security.Assessment.Report.Redacted.pdf) - audit of the initial release (v0.0.1), paid for in Monero. Only the auditors name and email were redacted. Fixed in [this](https://github.com/du82/nonograph/commit/2641fcaed1aaf458e69217e5489a75c93446b0d2) and [this](https://github.com/du82/nonograph/commit/98178a380324270da704aa80e035aea012e6e748) commit.
 
 
 ## License
