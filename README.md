@@ -27,14 +27,17 @@ Self-hosted anonymous publishing. No accounts, no tracking. Write, publish, shar
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
+
+http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/
 ## Known Instances
 
-| Uptime | Location | Clearnet | Onion |
-|--------|----------|----------|-------|
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonogra.ph) | 🏴‍☠️ Unknown | https://nonogra.ph | http://ortmy3ey5usdzf4ivht6axtb72owjniaeqrexknosyons544aooltzyd.onion/ |
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.daun.world) | 🏴‍☠️ Unknown | https://write.daun.world/ | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world) | 🇫🇮 Finland | https://proxy.write.daun.world/ | see above |
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull) | 🇰🇿 Kazakhstan | | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
+| Uptime                                                                              | Location      | Clearnet                        | Onion                                                                  |
+|-------------------------------------------------------------------------------------|---------------|---------------------------------|------------------------------------------------------------------------|
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonogra.ph)             | 🏴‍☠️ Unknown    | https://nonogra.ph              | http://ortmy3ey5usdzf4ivht6axtb72owjniaeqrexknosyons544aooltzyd.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.daun.world)       | 🏴‍☠️ Unknown    | https://write.daun.world/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world) | 🇫🇮 Finland    | https://proxy.write.daun.world/ | see above                                                              |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull)                   | 🏴‍☠️ Unknown    |                                 | http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull)                   | 🇰🇿 Kazakhstan |                                 | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
 
 ## Deploy
 
