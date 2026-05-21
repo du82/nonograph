@@ -27,8 +27,6 @@ Self-hosted anonymous publishing. No accounts, no tracking. Write, publish, shar
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
-
-http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/
 ## Known Instances
 
 | Uptime                                                                              | Location      | Clearnet                        | Onion                                                                  |
@@ -39,11 +37,13 @@ http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull)                   | 🏴‍☠️ Unknown    |                                 | http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/ |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnull)                   | 🇰🇿 Kazakhstan |                                 | http://5mq3db45agipsceghnpx3iumlctya3absmp4sgnitqcmrmhaqhbbjcid.onion/ |
 
+These instances are provided by third-parties, each with their own policies. Choose one that reflects your values, or self-host.
+
 ## Deploy
 
 ```bash
 mkdir -p ~/nonograph/content ~/nonograph/onion
-docker run -d \
+sudo docker run -d \
   --name nonograph \
   -p 8009:8009 \
   -v ~/nonograph/content:/app/content \
