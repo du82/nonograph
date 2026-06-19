@@ -143,6 +143,9 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
     let (working_content_no_media, media_blocks) = extract_media_syntax(&working_content);
     working_content = working_content_no_media;
 
+    let (working_content_no_links, link_blocks) = extract_link_syntax(&working_content);
+    working_content = working_content_no_links;
+
     // Process footnotes before text formatting to avoid conflicts with ^ and []
     working_content = process_footnotes(&working_content);
 
@@ -161,6 +164,7 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
     );
 
     working_content = restore_media_syntax(&working_content, &media_blocks);
+    working_content = restore_link_syntax(&working_content, &link_blocks);
     working_content = process_images(&working_content);
     working_content = process_links(&working_content);
     working_content = process_tables(&working_content);
@@ -1441,6 +1445,73 @@ fn restore_media_syntax(text: &str, media_blocks: &[String]) -> String {
     result
 }
 
+fn extract_link_syntax(text: &str) -> (String, Vec<String>) {
+    let mut result = String::new();
+    let mut link_blocks = Vec::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if chars[i] == '[' && !(i > 0 && chars[i - 1] == '!') {
+            let mut bracket_end = None;
+            let mut j = i + 1;
+            while j < chars.len() && chars[j] != '\n' {
+                if chars[j] == ']' {
+                    bracket_end = Some(j);
+                    break;
+                }
+                j += 1;
+            }
+
+            if let Some(b_end) = bracket_end {
+                if b_end + 1 < chars.len() && chars[b_end + 1] == '(' {
+                    let mut paren_end = None;
+                    let mut k = b_end + 2;
+                    while k < chars.len() && chars[k] != '\n' {
+                        if chars[k] == ')' {
+                            paren_end = Some(k);
+                            break;
+                        }
+                        k += 1;
+                    }
+                    if let Some(p_end) = paren_end {
+                        let raw: String = chars[i..=p_end].iter().collect();
+                        let placeholder = format!("{{{{LINKSYNTAX{}}}}}", link_blocks.len());
+                        link_blocks.push(raw);
+                        result.push_str(&placeholder);
+                        i = p_end + 1;
+                        continue;
+                    }
+                }
+
+                let inner: String = chars[(i + 1)..b_end].iter().collect();
+                if inner.starts_with("http") {
+                    let raw: String = chars[i..=b_end].iter().collect();
+                    let placeholder = format!("{{{{LINKSYNTAX{}}}}}", link_blocks.len());
+                    link_blocks.push(raw);
+                    result.push_str(&placeholder);
+                    i = b_end + 1;
+                    continue;
+                }
+            }
+        }
+
+        result.push(chars[i]);
+        i += 1;
+    }
+
+    (result, link_blocks)
+}
+
+fn restore_link_syntax(text: &str, link_blocks: &[String]) -> String {
+    let mut result = text.to_string();
+    for (index, raw) in link_blocks.iter().enumerate() {
+        let placeholder = format!("{{{{LINKSYNTAX{}}}}}", index);
+        result = result.replace(&placeholder, raw);
+    }
+    result
+}
+
 fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
     let mut result = String::new();
     let mut code_blocks = Vec::new();
@@ -1819,6 +1890,28 @@ mod tests {
         assert!(result.contains("target=\"_blank\""));
         assert!(result.contains("rel=\"noopener noreferrer\""));
         assert!(result.contains(">https://example.com</a>"));
+    }
+
+    #[test]
+    fn test_urls_with_underscores() {
+        let text =
+            "[Article](https://unsigned.io/articles/2022_02_02_surveillance-and-your-soul.html)";
+        let result = render_markdown(text);
+        assert!(result.contains(
+            "href=\"https://unsigned.io/articles/2022_02_02_surveillance-and-your-soul.html\""
+        ));
+        assert!(!result.contains("<u>"));
+        assert!(!result.contains("</u>"));
+
+        let text2 = "[https://example.com/some_path_with_underscores]";
+        let result2 = render_markdown(text2);
+        assert!(result2.contains("href=\"https://example.com/some_path_with_underscores\""));
+        assert!(!result2.contains("<u>"));
+
+        let text3 = "[my_link_text](https://example.com)";
+        let result3 = render_markdown(text3);
+        assert!(result3.contains(">my_link_text</a>"));
+        assert!(!result3.contains("<u>"));
     }
 
     #[test]
