@@ -925,9 +925,12 @@
             var _initHash = location.hash;
             var _hl = false;
             document.addEventListener("selectionchange", function () {
-                if (!_hl) applySelectionHash(computeSelectionHash());
+                if (!_hl) {
+                    var h = computeSelectionHash();
+                    if (h.length > 0) applySelectionHash(h);
+                }
             });
-            document.addEventListener("DOMContentLoaded", function () {
+            function _doHighlight() {
                 var m = _initHash.match(
                     /^#selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/,
                 );
@@ -939,8 +942,10 @@
                     sN,
                     eN;
                 walkContent(function (e, p) {
-                    if (p === sP) sN = e;
-                    if (p === eP) eN = e;
+                    if (p === sP && !sN && (e.nodeType !== 3 || sO <= e.length))
+                        sN = e;
+                    if (p === eP && !eN && (e.nodeType !== 3 || eO <= e.length))
+                        eN = e;
                 });
                 if (!sN || !eN) return;
                 if (sN.nodeType === 3) sO = Math.min(sO, sN.length);
@@ -949,41 +954,25 @@
                     var r = document.createRange();
                     r.setStart(sN, sO);
                     r.setEnd(eN, eO);
-                } catch (x) {
-                    return;
-                }
-                _hl = true;
-                var nodes = [],
-                    sc = r.startContainer,
-                    so = r.startOffset,
-                    ec = r.endContainer,
-                    eo = r.endOffset;
-                walkContent(function (e) {
-                    if (e.nodeType === 3 && r.intersectsNode(e)) nodes.push(e);
-                });
-                for (var i = 0; i < nodes.length; i++) {
-                    var tn = nodes[i],
-                        s = tn === sc ? so : 0,
-                        e = tn === ec ? eo : tn.length;
-                    if (s >= e) continue;
-                    var hl = s > 0 ? tn.splitText(s) : tn;
-                    if (e - s < hl.length) hl.splitText(e - s);
+                    _hl = true;
                     var mk = document.createElement("mark");
                     mk.className = "selection-highlight";
-                    hl.parentNode.insertBefore(mk, hl);
-                    mk.appendChild(hl);
-                }
-                _hl = false;
-                var f = document.querySelector(".selection-highlight");
-                if (f)
+                    r.surroundContents(mk);
+                    _hl = false;
                     window.scrollTo({
                         top:
-                            f.getBoundingClientRect().top +
+                            mk.getBoundingClientRect().top +
                             window.scrollY -
                             window.innerHeight * 0.2,
                         behavior: "smooth",
                     });
-            });
+                } catch (x) {
+                    _hl = false;
+                }
+            }
+            if (document.readyState === "loading")
+                document.addEventListener("DOMContentLoaded", _doHighlight);
+            else _doHighlight();
 
             // Process pre-rendered code blocks to add interactivity
             document.addEventListener("DOMContentLoaded", function () {
