@@ -922,13 +922,13 @@
                 }
             }
 
-            // On load: highlight text from hash. Guard prevents selectionchange
+            var _initHash = location.hash;
             var _hl = false;
             document.addEventListener("selectionchange", function () {
                 if (!_hl) applySelectionHash(computeSelectionHash());
             });
             document.addEventListener("DOMContentLoaded", function () {
-                var m = location.hash.match(
+                var m = _initHash.match(
                     /^#selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/,
                 );
                 if (!m) return;
