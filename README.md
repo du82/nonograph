@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 | Uptime                                                                              | Location      | Clearnet                        | Onion                                                                  |
 |-------------------------------------------------------------------------------------|---------------|---------------------------------|------------------------------------------------------------------------|
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonogra.ph)             | 🏴‍☠️ Unknown    | https://nonogra.ph              | http://ortmy3ey5usdzf4ivht6axtb72owjniaeqrexknosyons544aooltzyd.onion/ |
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.daun.world)       | 🏴‍☠️ Unknown    | https://write.daun.world/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.eversiege.network)  | 🏴‍☠️ Unknown    | https://write.eversiege.network/       | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world) | 🇫🇮 Finland    | https://proxy.write.daun.world/ | see above                                                              |
 | Onion                                                                               | 🇭🇺 Hungary    |                                 | http://t7fgh7qvjysh3wer747m6dkjvkjsqvajyv5bh2grzjgpd2derxsxbdad.onion/ |
 | Onion                                                                               | 🏴‍☠️ Unknown    |                                 | http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/ |
@@ -84,6 +84,7 @@ Hate Docker? Run `./run` to build and run natively (Debian only).
 `anonymous` + `monograph` + `telegraph` = `nonograph`
 
 ## Audits
+* 6/22/2026 - [@SmokeCamel](t.me/cigssss) was reimbursed and provided isolated VMs for running top AI models against Nonograph's parser. No vulnerabilities were found.
 * 4/20/2026 - [@h_2_o0](https://t.me/h_2_o0) found a URL validation bypass on 4/20 (nice), fixed in [this commit](https://github.com/du82/nonograph/commit/639f64f010e2b287bf3429af1814dd4fb8697a16).
 * 10/15/2025 - [Security Assessment Report Redacted.pdf](https://github.com/user-attachments/files/27242849/Security.Assessment.Report.Redacted.pdf) - audit of the initial release (v0.0.1), paid for in Monero. Only the auditors name and email were redacted. Fixed in [this](https://github.com/du82/nonograph/commit/2641fcaed1aaf458e69217e5489a75c93446b0d2) and [this](https://github.com/du82/nonograph/commit/98178a380324270da704aa80e035aea012e6e748) commit.
 
