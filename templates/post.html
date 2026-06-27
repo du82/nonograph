@@ -100,6 +100,13 @@
             .article-content *::selection {
                 background: #dbdbdb;
             }
+            .selection-highlight {
+                background: #fff3a8;
+                padding: 0.3em 0;
+                margin: -0.3em 0;
+                box-decoration-break: clone;
+                -webkit-box-decoration-break: clone;
+            }
             .article-content p {
                 margin-bottom: 20px;
             }
@@ -915,8 +922,67 @@
                 }
             }
 
+            // On load: highlight text from hash. Guard prevents selectionchange
+            var _hl = false;
             document.addEventListener("selectionchange", function () {
-                applySelectionHash(computeSelectionHash());
+                if (!_hl) applySelectionHash(computeSelectionHash());
+            });
+            document.addEventListener("DOMContentLoaded", function () {
+                var m = location.hash.match(
+                    /^#selection-(\d+)\.(\d+)-(\d+)\.(\d+)$/,
+                );
+                if (!m) return;
+                var sP = +m[1],
+                    sO = +m[2],
+                    eP = +m[3],
+                    eO = +m[4],
+                    sN,
+                    eN;
+                walkContent(function (e, p) {
+                    if (p === sP) sN = e;
+                    if (p === eP) eN = e;
+                });
+                if (!sN || !eN) return;
+                if (sN.nodeType === 3) sO = Math.min(sO, sN.length);
+                if (eN.nodeType === 3) eO = Math.min(eO, eN.length);
+                try {
+                    var r = document.createRange();
+                    r.setStart(sN, sO);
+                    r.setEnd(eN, eO);
+                } catch (x) {
+                    return;
+                }
+                _hl = true;
+                var nodes = [],
+                    sc = r.startContainer,
+                    so = r.startOffset,
+                    ec = r.endContainer,
+                    eo = r.endOffset;
+                walkContent(function (e) {
+                    if (e.nodeType === 3 && r.intersectsNode(e)) nodes.push(e);
+                });
+                for (var i = 0; i < nodes.length; i++) {
+                    var tn = nodes[i],
+                        s = tn === sc ? so : 0,
+                        e = tn === ec ? eo : tn.length;
+                    if (s >= e) continue;
+                    var hl = s > 0 ? tn.splitText(s) : tn;
+                    if (e - s < hl.length) hl.splitText(e - s);
+                    var mk = document.createElement("mark");
+                    mk.className = "selection-highlight";
+                    hl.parentNode.insertBefore(mk, hl);
+                    mk.appendChild(hl);
+                }
+                _hl = false;
+                var f = document.querySelector(".selection-highlight");
+                if (f)
+                    window.scrollTo({
+                        top:
+                            f.getBoundingClientRect().top +
+                            window.scrollY -
+                            window.innerHeight * 0.2,
+                        behavior: "smooth",
+                    });
             });
 
             // Process pre-rendered code blocks to add interactivity
