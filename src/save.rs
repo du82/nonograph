@@ -17,14 +17,15 @@ pub fn save_post_to_file_in_dir(post: &Post, base_dir: &str) -> Result<(), Strin
     let filename = format!("{}.md", post.id);
     let file_path = content_dir.join(filename);
 
-    // Create file content with date at top, optionally author with pipe, empty line, title as h1, then user content
-    let header = if post.author.is_empty() {
-        post.created_at.format("%B %d, %Y").to_string()
-    } else {
-        format!("{} | {}", post.created_at.format("%B %d, %Y"), post.author)
-    };
+    let mut frontmatter = String::from("---\n");
+    frontmatter.push_str(&format!("title: {}\n", post.title));
+    frontmatter.push_str(&format!("date: {}\n", post.created_at.format("%Y-%m-%d")));
+    if !post.author.is_empty() {
+        frontmatter.push_str(&format!("author: {}\n", post.author));
+    }
+    frontmatter.push_str("---\n\n");
 
-    let file_content = format!("{}\n\n# {}\n{}", header, post.title, post.raw_content);
+    let file_content = format!("{}{}", frontmatter, post.raw_content);
 
     fs::write(&file_path, file_content)
         .map_err(|e| format!("Failed to write post to file {:?}: {}", file_path, e))?;
@@ -157,17 +158,17 @@ mod tests {
         let raw_file = fs::read_to_string(file_path).unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
-        // First line should be date with author - check for a reasonable year range and author
+        // YAML frontmatter format
+        assert_eq!(lines[0], "---");
+        assert_eq!(lines[1], "title: Format Test");
         let current_year = post.created_at.year();
-        assert!(lines[0].contains(&current_year.to_string()));
-        assert!(lines[0].contains(" | Test Author"));
-        // Second line should be empty
-        assert_eq!(lines[1], "");
-        // Third line should be title with h1
-        assert_eq!(lines[2], "# Format Test");
-        // Fourth line should start user content
-        assert!(lines[3] == "This is the user content");
-        assert!(lines[4] == "With multiple lines");
+        assert!(lines[2].starts_with("date: "));
+        assert!(lines[2].contains(&current_year.to_string()));
+        assert_eq!(lines[3], "author: Test Author");
+        assert_eq!(lines[4], "---");
+        assert_eq!(lines[5], "");
+        assert_eq!(lines[6], "This is the user content");
+        assert_eq!(lines[7], "With multiple lines");
     }
 
     #[test]
@@ -196,15 +197,13 @@ mod tests {
         let raw_file = fs::read_to_string(file_path).unwrap();
         let lines: Vec<&str> = raw_file.lines().collect();
 
-        // First line should be date only (no pipe or author)
+        assert_eq!(lines[0], "---");
+        assert_eq!(lines[1], "title: No Author Test");
         let current_year = post.created_at.year();
-        assert!(lines[0].contains(&current_year.to_string()));
-        assert!(!lines[0].contains(" | "));
-        // Second line should be empty
-        assert_eq!(lines[1], "");
-        // Third line should be title with h1
-        assert_eq!(lines[2], "# No Author Test");
-        // Fourth line should start user content
-        assert!(lines[3] == "Content without author");
+        assert!(lines[2].starts_with("date: "));
+        assert!(lines[2].contains(&current_year.to_string()));
+        assert_eq!(lines[3], "---");
+        assert_eq!(lines[4], "");
+        assert_eq!(lines[5], "Content without author");
     }
 }

@@ -429,7 +429,8 @@ fn sanitize_html(html: String) -> String {
 
 pub fn sanitize_text(text: &str) -> String {
     let builder = ammonia::Builder::empty();
-    builder.clean(text).to_string()
+    let sanitized = builder.clean(text).to_string();
+    sanitized.replace('\n', " ").replace('\r', "")
 }
 
 // Thanks for the code. You know who you are.
@@ -2049,6 +2050,11 @@ mod tests {
             sanitized,
             "This is a very long text that should be truncated"
         );
+
+        assert_eq!(sanitize_text("Line1\nLine2"), "Line1 Line2");
+        assert_eq!(sanitize_text("Line1\r\nLine2"), "Line1 Line2");
+        assert_eq!(sanitize_text("A\n\nB"), "A  B");
+        assert_eq!(sanitize_text("No newlines"), "No newlines");
     }
 
     #[test]

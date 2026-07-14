@@ -443,6 +443,71 @@ fn create_post(
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
 }
 
+fn parse_yaml_frontmatter(file_content: &str) -> Option<(String, String, DateTime<Utc>, String)> {
+    let after_open = file_content.strip_prefix("---\n")?;
+
+    let closing_pos = after_open.find("\n---\n")?;
+    let frontmatter_block = &after_open[..closing_pos];
+    let after_closing = &after_open[(closing_pos + 5)..]; // skip "\n---\n"
+    let raw_content = after_closing.strip_prefix('\n').unwrap_or(after_closing);
+
+    let mut title = String::from("Untitled");
+    let mut author = String::new();
+    let mut date_str = String::new();
+
+    for line in frontmatter_block.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(value) = line.strip_prefix("title:") {
+            title = parser::sanitize_text(value.trim());
+        } else if let Some(value) = line.strip_prefix("date:") {
+            date_str = value.trim().to_string();
+        } else if let Some(value) = line.strip_prefix("author:") {
+            author = parser::sanitize_text(value.trim());
+        }
+    }
+
+    let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    Some((title, author, created_at, raw_content.to_string()))
+}
+
+fn parse_legacy_frontmatter(file_content: &str) -> Option<(String, String, DateTime<Utc>, String)> {
+    let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+    if lines.len() < 4 {
+        return None;
+    }
+
+    let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
+        (
+            lines[0][..pipe_pos].to_string(),
+            lines[0][(pipe_pos + 3)..].to_string(),
+        )
+    } else {
+        (lines[0].to_string(), "".to_string())
+    };
+
+    let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
+        .unwrap_or_else(|| Utc::now());
+
+    let title = lines[2]
+        .strip_prefix("# ")
+        .unwrap_or("Untitled")
+        .to_string();
+    let raw_content = lines[3].to_string();
+
+    Some((title, author, created_at, raw_content))
+}
+
 #[get("/<post_id>")]
 fn view_post(
     post_id: &str,
@@ -462,6 +527,17 @@ fn view_post(
         &post_id
     };
 
+    if is_raw_request {
+        let file_path = format!("content/{}.md", actual_post_id);
+        return match std::fs::read_to_string(&file_path) {
+            Ok(raw_bytes) => Ok(rocket::Either::Right(content::RawText(raw_bytes))),
+            Err(_) => Err((
+                Status::NotFound,
+                rocket::Either::Left(content::RawText("404 Page not found".to_string())),
+            )),
+        };
+    }
+
     // Try to load from memory first with minimal lock time
     let post_from_memory = {
         let mut posts = storage.lock().unwrap();
@@ -480,32 +556,13 @@ fn view_post(
                 if let Ok(file_content) =
                     std::fs::read_to_string(format!("content/{}.md", actual_post_id))
                 {
-                    let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
-                    if lines.len() >= 4 {
-                        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
-                            (
-                                lines[0][..pipe_pos].to_string(),
-                                lines[0][(pipe_pos + 3)..].to_string(),
-                            )
-                        } else {
-                            (lines[0].to_string(), "".to_string())
-                        };
+                    let parsed = if file_content.starts_with("---\n") {
+                        parse_yaml_frontmatter(&file_content)
+                    } else {
+                        parse_legacy_frontmatter(&file_content)
+                    };
 
-                        // Parse the stored date, fallback to current time if parsing fails
-                        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
-                            .ok()
-                            .and_then(|date| date.and_hms_opt(0, 0, 0))
-                            .map(|datetime| {
-                                DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc)
-                            })
-                            .unwrap_or_else(|| Utc::now());
-
-                        let title = lines[2]
-                            .strip_prefix("# ")
-                            .unwrap_or("Untitled")
-                            .to_string();
-                        let raw_content = lines[3].to_string();
-
+                    if let Some((title, author, created_at, raw_content)) = parsed {
                         let new_post = Post {
                             id: actual_post_id.to_string(),
                             title,
@@ -535,63 +592,52 @@ fn view_post(
 
     match post {
         Some(post) => {
-            if is_raw_request {
-                let formatted_date = post.created_at.format("%B %d, %Y").to_string();
-                let markdown_content = format!(
-                    "{}\n\n# {}\n{}",
-                    formatted_date, post.title, post.raw_content
-                );
-                Ok(rocket::Either::Right(content::RawText(markdown_content)))
+            let engine = TemplateEngine::new("templates");
+            let mut context = HashMap::new();
+
+            let rendered_content = post.content.clone();
+
+            context.insert("title".to_string(), post.title.clone());
+            context.insert("content".to_string(), rendered_content);
+            context.insert("raw_content".to_string(), post.raw_content.clone());
+            let author = if post.author.is_empty() {
+                "Anonymous".to_string()
             } else {
-                let engine = TemplateEngine::new("templates");
-                let mut context = HashMap::new();
+                post.author.clone()
+            };
+            context.insert("author".to_string(), author);
 
-                // Use pre-rendered content
-                let rendered_content = post.content.clone();
+            let author_display = if post.author.is_empty() {
+                "by Anonymous · ".to_string()
+            } else {
+                format!("by {} · ", post.author)
+            };
+            context.insert("author_display".to_string(), author_display);
 
-                context.insert("title".to_string(), post.title.clone());
-                context.insert("content".to_string(), rendered_content);
-                context.insert("raw_content".to_string(), post.raw_content.clone());
-                let author = if post.author.is_empty() {
-                    "Anonymous".to_string()
-                } else {
-                    post.author.clone()
-                };
-                context.insert("author".to_string(), author);
+            context.insert(
+                "created_at".to_string(),
+                post.created_at.format("%B %d, %Y").to_string(),
+            );
+            context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
+            context.insert("post_id".to_string(), actual_post_id.to_string());
 
-                let author_display = if post.author.is_empty() {
-                    "by Anonymous · ".to_string()
-                } else {
-                    format!("by {} · ", post.author)
-                };
-                context.insert("author_display".to_string(), author_display);
+            // OpenGraph variables
+            context.insert("url".to_string(), format!("/{}", actual_post_id));
 
-                context.insert(
-                    "created_at".to_string(),
-                    post.created_at.format("%B %d, %Y").to_string(),
-                );
-                context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
-                context.insert("post_id".to_string(), actual_post_id.to_string());
+            let description = if post.raw_content.chars().count() > 160 {
+                let truncated: String = post.raw_content.chars().take(160).collect();
+                format!("{}...", parser::html_attr_escape(&truncated))
+            } else {
+                post.raw_content.clone()
+            };
+            context.insert("description".to_string(), description);
 
-                // OpenGraph variables
-                context.insert("url".to_string(), format!("/{}", actual_post_id));
-
-                // Create description from first 160 chars of raw content
-                let description = if post.raw_content.chars().count() > 160 {
-                    let truncated: String = post.raw_content.chars().take(160).collect();
-                    format!("{}...", parser::html_attr_escape(&truncated))
-                } else {
-                    post.raw_content.clone()
-                };
-                context.insert("description".to_string(), description);
-
-                match engine.render("post", &context) {
-                    Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
-                    Err(e) => Ok(rocket::Either::Left(content::RawHtml(format!(
-                        "Template error: {}",
-                        e
-                    )))),
-                }
+            match engine.render("post", &context) {
+                Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
+                Err(e) => Ok(rocket::Either::Left(content::RawHtml(format!(
+                    "Template error: {}",
+                    e
+                )))),
             }
         }
         None => {
@@ -619,17 +665,10 @@ fn view_post(
 </body>
 </html>"#;
 
-            if is_raw_request {
-                Err((
-                    Status::NotFound,
-                    rocket::Either::Left(content::RawText("Page not found".to_string())),
-                ))
-            } else {
-                Err((
-                    Status::NotFound,
-                    rocket::Either::Right(content::RawHtml(html_404.to_string())),
-                ))
-            }
+            Err((
+                Status::NotFound,
+                rocket::Either::Right(content::RawHtml(html_404.to_string())),
+            ))
         }
     }
 }
@@ -1714,53 +1753,101 @@ mod tests {
 
     #[test]
     fn test_date_parsing_from_file() {
-        // Test the date parsing logic directly
+        // Test legacy format parsing
         let file_content = "January 15, 2024 | Test Author\n\n# Test Post\nThis is test content";
-        let lines: Vec<&str> = file_content.splitn(4, '\n').collect();
+        let result = parse_legacy_frontmatter(file_content).unwrap();
+        let (title, author, created_at, raw_content) = result;
 
-        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
-            (
-                lines[0][..pipe_pos].to_string(),
-                lines[0][(pipe_pos + 3)..].to_string(),
-            )
-        } else {
-            (lines[0].to_string(), "".to_string())
-        };
-
-        // Parse the stored date, fallback to current time if parsing fails
-        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
-            .ok()
-            .and_then(|date| date.and_hms_opt(0, 0, 0))
-            .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
-            .unwrap_or_else(|| Utc::now());
-
-        // Verify the date was parsed correctly
-        let formatted_date = created_at.format("%B %d, %Y").to_string();
-        assert_eq!(formatted_date, "January 15, 2024");
+        assert_eq!(title, "Test Post");
         assert_eq!(author, "Test Author");
+        assert_eq!(
+            created_at.format("%B %d, %Y").to_string(),
+            "January 15, 2024"
+        );
+        assert_eq!(raw_content, "This is test content");
 
-        // Test date without author
         let file_content_no_author = "March 22, 2023\n\n# Test Post\nContent";
-        let lines: Vec<&str> = file_content_no_author.splitn(4, '\n').collect();
+        let result = parse_legacy_frontmatter(file_content_no_author).unwrap();
+        let (title, author, created_at, raw_content) = result;
 
-        let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
-            (
-                lines[0][..pipe_pos].to_string(),
-                lines[0][(pipe_pos + 3)..].to_string(),
-            )
-        } else {
-            (lines[0].to_string(), "".to_string())
-        };
-
-        let created_at = chrono::NaiveDate::parse_from_str(&date_str, "%B %d, %Y")
-            .ok()
-            .and_then(|date| date.and_hms_opt(0, 0, 0))
-            .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
-            .unwrap_or_else(|| Utc::now());
-
-        let formatted_date = created_at.format("%B %d, %Y").to_string();
-        assert_eq!(formatted_date, "March 22, 2023");
+        assert_eq!(title, "Test Post");
         assert_eq!(author, "");
+        assert_eq!(created_at.format("%B %d, %Y").to_string(), "March 22, 2023");
+        assert_eq!(raw_content, "Content");
+
+        // Test YAML frontmatter parsing
+        let yaml_content = "---\ntitle: My YAML Post\ndate: 2024-01-15\nauthor: John Doe\n---\n\nThis is YAML content";
+        let result = parse_yaml_frontmatter(yaml_content).unwrap();
+        let (title, author, created_at, raw_content) = result;
+
+        assert_eq!(title, "My YAML Post");
+        assert_eq!(author, "John Doe");
+        assert_eq!(created_at.format("%Y-%m-%d").to_string(), "2024-01-15");
+        assert_eq!(raw_content, "This is YAML content");
+
+        let yaml_no_author = "---\ntitle: No Author Post\ndate: 2023-03-22\n---\n\nContent here";
+        let result = parse_yaml_frontmatter(yaml_no_author).unwrap();
+        let (title, author, created_at, raw_content) = result;
+
+        assert_eq!(title, "No Author Post");
+        assert_eq!(author, "");
+        assert_eq!(created_at.format("%Y-%m-%d").to_string(), "2023-03-22");
+        assert_eq!(raw_content, "Content here");
+
+        let yaml_file =
+            "---\ntitle: Auto Detected\ndate: 2024-06-01\nauthor: Auto\n---\n\nAuto content";
+        assert!(yaml_file.starts_with("---\n"));
+        let result = parse_yaml_frontmatter(yaml_file).unwrap();
+        assert_eq!(result.0, "Auto Detected");
+
+        let legacy_file = "June 01, 2024 | Legacy Author\n\n# Legacy Title\nLegacy content";
+        assert!(!legacy_file.starts_with("---\n"));
+        let result = parse_legacy_frontmatter(legacy_file).unwrap();
+        assert_eq!(result.0, "Legacy Title");
+    }
+
+    #[test]
+    fn test_yaml_frontmatter_sanitization() {
+        // XSS in title
+        let yaml = "---\ntitle: <script>alert('xss')</script>Clean Title\ndate: 2024-01-15\nauthor: <img src=x onerror=alert(1)>Safe Author\n---\n\nContent";
+        let result = parse_yaml_frontmatter(yaml).unwrap();
+        assert_eq!(result.0, "Clean Title");
+        assert!(!result.0.contains("<script>"));
+        assert_eq!(result.1, "Safe Author");
+        assert!(!result.1.contains("<img"));
+    }
+
+    #[test]
+    fn test_yaml_frontmatter_edge_cases() {
+        let no_close = "---\ntitle: Test\ndate: 2024-01-15\nContent without closing";
+        assert!(parse_yaml_frontmatter(no_close).is_none());
+
+        let empty_fm = "---\n\n---\n\nContent";
+        let result = parse_yaml_frontmatter(empty_fm).unwrap();
+        assert_eq!(result.0, "Untitled");
+        assert_eq!(result.1, "");
+        assert_eq!(result.3, "Content");
+
+        let extra_fields = "---\ntitle: Test\ndate: 2024-01-15\nauthor: Author\nbackground: red\nflagged: true\n---\n\nContent";
+        let result = parse_yaml_frontmatter(extra_fields).unwrap();
+        assert_eq!(result.0, "Test");
+        assert_eq!(result.1, "Author");
+        assert_eq!(result.3, "Content");
+
+        let content_with_dashes = "---\ntitle: Dashes Test\ndate: 2024-01-15\n---\n\nSome content\n---\nMore content after dashes";
+        let result = parse_yaml_frontmatter(content_with_dashes).unwrap();
+        assert_eq!(result.0, "Dashes Test");
+        assert_eq!(result.3, "Some content\n---\nMore content after dashes");
+
+        let spaced = "---\ntitle:   Spaced Title  \ndate:  2024-01-15  \nauthor:   Spaced Author  \n---\n\nContent";
+        let result = parse_yaml_frontmatter(spaced).unwrap();
+        assert_eq!(result.0, "Spaced Title");
+        assert_eq!(result.1, "Spaced Author");
+
+        let no_blank = "---\ntitle: No Blank\ndate: 2024-01-15\n---\nContent directly";
+        let result = parse_yaml_frontmatter(no_blank).unwrap();
+        assert_eq!(result.0, "No Blank");
+        assert_eq!(result.3, "Content directly");
     }
 
     #[test]
