@@ -1132,17 +1132,60 @@ mod tests {
 
         for (i, xss_payload) in xss_test_cases.iter().enumerate() {
             let sanitized = parser::sanitize_text(xss_payload);
+            let lower = sanitized.to_lowercase();
             assert!(
-                !sanitized.contains("<"),
-                "Test case {}: {} contains HTML tags",
+                !lower.contains("<script"),
+                "Test case {}: contains <script: {}",
                 i + 1,
-                xss_payload
+                sanitized
             );
             assert!(
-                !sanitized.contains(">"),
-                "Test case {}: {} contains HTML tags",
+                !lower.contains("onerror"),
+                "Test case {}: contains onerror: {}",
                 i + 1,
-                xss_payload
+                sanitized
+            );
+            assert!(
+                !lower.contains("onload"),
+                "Test case {}: contains onload: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("onclick"),
+                "Test case {}: contains onclick: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("onfocus"),
+                "Test case {}: contains onfocus: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("onmouseover"),
+                "Test case {}: contains onmouseover: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("<iframe"),
+                "Test case {}: contains <iframe: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("<img"),
+                "Test case {}: contains <img: {}",
+                i + 1,
+                sanitized
+            );
+            assert!(
+                !lower.contains("<svg"),
+                "Test case {}: contains <svg: {}",
+                i + 1,
+                sanitized
             );
         }
 
@@ -1847,6 +1890,90 @@ mod tests {
         let result = parse_yaml_frontmatter(no_blank).unwrap();
         assert_eq!(result.0, "No Blank");
         assert_eq!(result.3, "Content directly");
+    }
+
+    #[test]
+    fn test_yaml_round_trip_unicode_symbols() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
+        std::fs::create_dir_all(temp_dir.path().join("content")).unwrap();
+
+        let cases: Vec<(&str, &str, &str)> = vec![
+            ("section", "\u{00a7}1.2 Legal Notice", "\u{00a9} Corp"),
+            ("math", "\u{0394}x = \u{03c0}r\u{00b2}", "\u{2211}Author"),
+            (
+                "currency",
+                "\u{00a3}100 + \u{20ac}200 + \u{00a5}300",
+                "\u{20b9}User",
+            ),
+            (
+                "arrows",
+                "\u{2192} Forward \u{2190} Back",
+                "\u{21d2} Author",
+            ),
+            (
+                "misc",
+                "\u{2713} Done \u{2717} Fail \u{2605} Star",
+                "\u{266a} Music",
+            ),
+            (
+                "fractions",
+                "\u{00bc} + \u{00bd} = \u{00be}",
+                "\u{00b1}Author",
+            ),
+            (
+                "greek",
+                "\u{03b1}\u{03b2}\u{03b3} Research",
+                "Dr. \u{03b8}\u{03c6}",
+            ),
+            (
+                "mixed",
+                "\u{00a7}1: \u{0394}x > 0 & \u{03c0} \u{2248} 3.14",
+                "O'\u{00d8}Brien \u{00a9}",
+            ),
+        ];
+
+        for (id, title, author) in &cases {
+            let post = Post {
+                id: id.to_string(),
+                title: parser::sanitize_text(title),
+                author: parser::sanitize_text(author),
+                content: String::new(),
+                raw_content: "Content".to_string(),
+                created_at: Utc::now(),
+            };
+
+            save::save_post_to_file_in_dir(&post, temp_path).unwrap();
+            let file_content =
+                std::fs::read_to_string(temp_dir.path().join(format!("content/{}.md", id)))
+                    .unwrap();
+
+            let title_line = file_content
+                .lines()
+                .find(|l| l.starts_with("title:"))
+                .unwrap();
+            assert!(
+                !title_line.contains("&amp;") && !title_line.contains("&lt;"),
+                "title has HTML entities for {}: {}",
+                id,
+                title_line
+            );
+
+            let (parsed_title, parsed_author, _, _) =
+                parse_yaml_frontmatter(&file_content).unwrap();
+            assert_eq!(
+                parsed_title,
+                parser::sanitize_text(title),
+                "title round-trip failed for {}",
+                id
+            );
+            assert_eq!(
+                parsed_author,
+                parser::sanitize_text(author),
+                "author round-trip failed for {}",
+                id
+            );
+        }
     }
 
     #[test]

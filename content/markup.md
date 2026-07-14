@@ -5,7 +5,7 @@ author: this is cool
 generator: nonograph v0.2.8
 ---
 
-Nonograph supports a lot of concise markup options to make pages fun and expressive.
+Nonograph supports a lot of concise markup options to make pages fun and expressive. It's a dialect of markdown focused on speed and literal input.
 
 You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!
 

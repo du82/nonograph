@@ -432,6 +432,10 @@ pub fn sanitize_text(text: &str) -> String {
     let sanitized = builder.clean(text).to_string();
     sanitized
         .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#x27;", "'")
         .replace('\n', " ")
         .replace('\r', "")
 }
@@ -2058,6 +2062,28 @@ mod tests {
         assert_eq!(sanitize_text("Line1\r\nLine2"), "Line1 Line2");
         assert_eq!(sanitize_text("A\n\nB"), "A  B");
         assert_eq!(sanitize_text("No newlines"), "No newlines");
+
+        assert_eq!(sanitize_text("Tom & Jerry"), "Tom & Jerry");
+        assert_eq!(sanitize_text("5 > 3 and 2 < 4"), "5 > 3 and 2 < 4");
+        assert_eq!(sanitize_text("She said \"hello\""), "She said \"hello\"");
+        assert_eq!(sanitize_text("O'Brien"), "O'Brien");
+        assert_eq!(sanitize_text("100%"), "100%");
+
+        assert_eq!(sanitize_text("§1.2 Legal"), "§1.2 Legal");
+        assert_eq!(sanitize_text("Δx = 5"), "Δx = 5");
+        assert_eq!(sanitize_text("∑∏∫√∞≈≠≤≥"), "∑∏∫√∞≈≠≤≥");
+        assert_eq!(sanitize_text("£100 €200 ¥300 ₹400"), "£100 €200 ¥300 ₹400");
+        assert_eq!(sanitize_text("© 2024 ® ™"), "© 2024 ® ™");
+        assert_eq!(sanitize_text("α β γ δ ε ζ η θ"), "α β γ δ ε ζ η θ");
+        assert_eq!(sanitize_text("° ± × ÷ µ ¶ · ¿ ¡"), "° ± × ÷ µ ¶ · ¿ ¡");
+        assert_eq!(sanitize_text("† ‡ • … — – ‹ › « »"), "† ‡ • … — – ‹ › « »");
+        assert_eq!(sanitize_text("π ≈ 3.14159"), "π ≈ 3.14159");
+        assert_eq!(sanitize_text("f(x) = x² + 2x + 1"), "f(x) = x² + 2x + 1");
+        assert_eq!(sanitize_text("∀x ∈ ℝ: x² ≥ 0"), "∀x ∈ ℝ: x² ≥ 0");
+        assert_eq!(sanitize_text("¼ ½ ¾ ⅓ ⅔"), "¼ ½ ¾ ⅓ ⅔");
+        assert_eq!(sanitize_text("→ ← ↑ ↓ ↔ ⇒ ⇐"), "→ ← ↑ ↓ ↔ ⇒ ⇐");
+        assert_eq!(sanitize_text("♠ ♣ ♥ ♦ ♩ ♪ ♫"), "♠ ♣ ♥ ♦ ♩ ♪ ♫");
+        assert_eq!(sanitize_text("☀ ☁ ☂ ★ ☆ ✓ ✗"), "☀ ☁ ☂ ★ ☆ ✓ ✗");
     }
 
     #[test]
