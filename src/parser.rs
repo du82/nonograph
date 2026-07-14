@@ -430,7 +430,10 @@ fn sanitize_html(html: String) -> String {
 pub fn sanitize_text(text: &str) -> String {
     let builder = ammonia::Builder::empty();
     let sanitized = builder.clean(text).to_string();
-    sanitized.replace('\n', " ").replace('\r', "")
+    sanitized
+        .replace("&amp;", "&")
+        .replace('\n', " ")
+        .replace('\r', "")
 }
 
 // Thanks for the code. You know who you are.

@@ -1,6 +1,10 @@
-October 5, 2025
+---
+title: Markup Help
+date: 2026-02-11
+author: this is cool
+generator: nonograph v0.2.8
+---
 
-# Markup Help
 Nonograph supports a lot of concise markup options to make pages fun and expressive.
 
 You can append `.md` to any page to get the raw markdown. Great for copying styles that you like from others pages!

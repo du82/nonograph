@@ -805,22 +805,24 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
-        Ok(content) => {
-            // Parse the file format: date, empty line, title, content
-            let lines: Vec<&str> = content.splitn(4, '\n').collect();
-            if lines.len() >= 4 {
-                let title = lines[2].strip_prefix("# ").unwrap_or("Page");
-                let raw_content = lines[3];
-                let rendered_content = parser::render_markdown_with_config(raw_content, &config);
+        Ok(file_content) => {
+            let parsed = if file_content.starts_with("---\n") {
+                parse_yaml_frontmatter(&file_content)
+            } else {
+                parse_legacy_frontmatter(&file_content)
+            };
+
+            if let Some((title, author, created_at, raw_content)) = parsed {
+                let rendered_content = parser::render_markdown_with_config(&raw_content, &config);
 
                 let engine = TemplateEngine::new("templates");
                 let mut context = HashMap::new();
-                context.insert("title".to_string(), title.to_string());
+                context.insert("title".to_string(), title);
                 context.insert("content".to_string(), rendered_content);
-                context.insert("created_at".to_string(), lines[0].to_string());
-                context.insert("author".to_string(), String::new());
+                context.insert("created_at".to_string(), created_at.format("%B %d, %Y").to_string());
+                context.insert("author".to_string(), author);
                 context.insert("author_display".to_string(), String::new());
-                context.insert("created_at_iso".to_string(), String::new());
+                context.insert("created_at_iso".to_string(), created_at.to_rfc3339());
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
                 context.insert("post_id".to_string(), page_name.to_string());

@@ -1,6 +1,10 @@
-January 15, 2025
+---
+title: Legal Information & Privacy Policy
+date: 2026-02-11
+author: this is cool
+generator: nonograph v0.2.8
+---
 
-# Legal Information & Privacy Policy
 ## What This Service Does
 
 This service allows you to publish text content formatted with markdown. We store only the text you write - we do not host any images, videos, or other files. When you include images or videos in your posts, you're linking to files hosted elsewhere on the internet. We simply format your text and make it readable on a webpage.

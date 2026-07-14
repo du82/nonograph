@@ -1,6 +1,10 @@
-October 05, 2025
+---
+title: API Documentation
+date: 2026-02-11
+author: this is cool
+generator: nonograph v0.2.8
+---
 
-# API Documentation
 Nonograph provides a simple HTTP API for programmatically publishing articles.
 
 ## Publishing a Post

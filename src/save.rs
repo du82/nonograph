@@ -23,6 +23,11 @@ pub fn save_post_to_file_in_dir(post: &Post, base_dir: &str) -> Result<(), Strin
     if !post.author.is_empty() {
         frontmatter.push_str(&format!("author: {}\n", post.author));
     }
+    frontmatter.push_str(&format!(
+        "generator: {} v{}\n",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    ));
     frontmatter.push_str("---\n\n");
 
     let file_content = format!("{}{}", frontmatter, post.raw_content);
@@ -165,10 +170,18 @@ mod tests {
         assert!(lines[2].starts_with("date: "));
         assert!(lines[2].contains(&current_year.to_string()));
         assert_eq!(lines[3], "author: Test Author");
-        assert_eq!(lines[4], "---");
-        assert_eq!(lines[5], "");
-        assert_eq!(lines[6], "This is the user content");
-        assert_eq!(lines[7], "With multiple lines");
+        assert_eq!(
+            lines[4],
+            format!(
+                "generator: {} v{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            )
+        );
+        assert_eq!(lines[5], "---");
+        assert_eq!(lines[6], "");
+        assert_eq!(lines[7], "This is the user content");
+        assert_eq!(lines[8], "With multiple lines");
     }
 
     #[test]
@@ -202,8 +215,16 @@ mod tests {
         let current_year = post.created_at.year();
         assert!(lines[2].starts_with("date: "));
         assert!(lines[2].contains(&current_year.to_string()));
-        assert_eq!(lines[3], "---");
-        assert_eq!(lines[4], "");
-        assert_eq!(lines[5], "Content without author");
+        assert_eq!(
+            lines[3],
+            format!(
+                "generator: {} v{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            )
+        );
+        assert_eq!(lines[4], "---");
+        assert_eq!(lines[5], "");
+        assert_eq!(lines[6], "Content without author");
     }
 }

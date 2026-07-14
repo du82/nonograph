@@ -1,6 +1,10 @@
-September 23, 2025
+---
+title: About Nonograph
+date: 2026-02-11
+author: this is cool
+generator: nonograph v0.2.8
+---
 
-# About Nonograph
 **A Minimalist Publishing Platform**
 
 Nonograph is a clean, simple publishing tool built in Rust with a focus on simplicity, speed, and elegance.
