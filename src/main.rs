@@ -487,7 +487,7 @@ fn parse_legacy_frontmatter(file_content: &str) -> Option<(String, String, DateT
     let (date_str, author) = if let Some(pipe_pos) = lines[0].find(" | ") {
         (
             lines[0][..pipe_pos].to_string(),
-            lines[0][(pipe_pos + 3)..].to_string(),
+            parser::sanitize_text(&lines[0][(pipe_pos + 3)..]),
         )
     } else {
         (lines[0].to_string(), "".to_string())
@@ -499,10 +499,7 @@ fn parse_legacy_frontmatter(file_content: &str) -> Option<(String, String, DateT
         .map(|datetime| DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc))
         .unwrap_or_else(|| Utc::now());
 
-    let title = lines[2]
-        .strip_prefix("# ")
-        .unwrap_or("Untitled")
-        .to_string();
+    let title = parser::sanitize_text(lines[2].strip_prefix("# ").unwrap_or("Untitled"));
     let raw_content = lines[3].to_string();
 
     Some((title, author, created_at, raw_content))
@@ -533,7 +530,7 @@ fn view_post(
             Ok(raw_bytes) => Ok(rocket::Either::Right(content::RawText(raw_bytes))),
             Err(_) => Err((
                 Status::NotFound,
-                rocket::Either::Left(content::RawText("404 Page not found".to_string())),
+                rocket::Either::Left(content::RawText("Page not found".to_string())),
             )),
         };
     }
