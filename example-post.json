@@ -1,0 +1,519 @@
+{
+  "date": "July 10, 2026",
+  "alias": "formatting showcase",
+  "body": [
+    {
+      "type": "heading",
+      "level": 1,
+      "content": [{ "type": "text", "text": "The Complete Nonograph Formatting Showcase" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This post exercises " },
+        { "type": "bold", "content": [{ "type": "text", "text": "every" }] },
+        { "type": "text", "text": " formatting option supported by Nonograph markup, serving as a reference for the experimental JSON parser." }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Text Formatting" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Here is " },
+        { "type": "bold", "content": [{ "type": "text", "text": "bold text" }] },
+        { "type": "text", "text": ", " },
+        { "type": "italic", "content": [{ "type": "text", "text": "italic text" }] },
+        { "type": "text", "text": ", " },
+        { "type": "underline", "content": [{ "type": "text", "text": "underlined text" }] },
+        { "type": "text", "text": ", " },
+        { "type": "strikethrough", "content": [{ "type": "text", "text": "strikethrough text" }] },
+        { "type": "text", "text": ", " },
+        { "type": "superscript", "content": [{ "type": "text", "text": "superscript text" }] },
+        { "type": "text", "text": ", " },
+        { "type": "highlight", "content": [{ "type": "text", "text": "highlighted text" }] },
+        { "type": "text", "text": ", and " },
+        { "type": "code_inline", "text": "inline code" },
+        { "type": "text", "text": ". All in one paragraph." }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "You can combine them across sentences. " },
+        { "type": "bold", "content": [{ "type": "text", "text": "This sentence is bold." }] },
+        { "type": "text", "text": " " },
+        { "type": "italic", "content": [{ "type": "text", "text": "This one is italic." }] },
+        { "type": "text", "text": " " },
+        { "type": "underline", "content": [{ "type": "text", "text": "This one is underlined." }] },
+        { "type": "text", "text": " And this one has a " },
+        { "type": "spoiler", "content": [{ "type": "text", "text": "hidden spoiler message" }] },
+        { "type": "text", "text": " in it." }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Headings" }]
+    },
+
+    {
+      "type": "heading",
+      "level": 1,
+      "content": [{ "type": "text", "text": "Heading Level 1" }]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Heading Level 2" }]
+    },
+
+    {
+      "type": "heading",
+      "level": 3,
+      "content": [{ "type": "text", "text": "Heading Level 3" }]
+    },
+
+    {
+      "type": "heading",
+      "level": 4,
+      "content": [{ "type": "text", "text": "Heading Level 4" }]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Blockquotes" }]
+    },
+
+    {
+      "type": "blockquote",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "This is a simple blockquote. It creates an indented quote block." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "blockquote",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "A second blockquote to test multiple in sequence." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Footnotes" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This paragraph has a reference footnote" },
+        { "type": "footnote_ref", "id": 1 },
+        { "type": "text", "text": " and another one" },
+        { "type": "footnote_ref", "id": 2 },
+        { "type": "text", "text": "." }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This paragraph has an inline footnote" },
+        { "type": "footnote_inline", "content": [{ "type": "text", "text": "This is defined right here in the text" }] },
+        { "type": "text", "text": "." }
+      ]
+    },
+
+    {
+      "type": "footnote_def",
+      "id": 1,
+      "content": [{ "type": "text", "text": "First footnote — defined at the bottom." }]
+    },
+
+    {
+      "type": "footnote_def",
+      "id": 2,
+      "content": [{ "type": "text", "text": "Second footnote — also defined at the bottom." }]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Links" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Here is a " },
+        { "type": "link", "href": "https://example.com", "content": [{ "type": "text", "text": "labeled link" }] },
+        { "type": "text", "text": " in a sentence." }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Here is a bare link: " },
+        { "type": "link", "href": "https://nonograph.net", "content": [{ "type": "text", "text": "https://nonograph.net" }] }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Images" }]
+    },
+
+    {
+      "type": "image",
+      "src": "https://example.com/photo.jpg",
+      "alt": "A photo with a caption"
+    },
+
+    {
+      "type": "image",
+      "src": "https://example.com/no-caption.png",
+      "alt": ""
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Videos" }]
+    },
+
+    {
+      "type": "video",
+      "src": "https://example.com/clip.mp4",
+      "alt": "Video with caption"
+    },
+
+    {
+      "type": "video",
+      "src": "https://example.com/silent.webm",
+      "alt": ""
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Bulleted Lists" }]
+    },
+
+    {
+      "type": "bullet_list",
+      "items": [
+        {
+          "content": [{ "type": "text", "text": "First bullet item" }]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Second bullet item with " },
+            { "type": "bold", "content": [{ "type": "text", "text": "bold" }] }
+          ]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Third bullet item with " },
+            { "type": "italic", "content": [{ "type": "text", "text": "italic" }] }
+          ]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Fourth item with " },
+            { "type": "code_inline", "text": "code" },
+            { "type": "text", "text": " and " },
+            { "type": "link", "href": "https://example.com", "content": [{ "type": "text", "text": "a link" }] }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Using alternate markers:" }
+      ]
+    },
+
+    {
+      "type": "bullet_list",
+      "items": [
+        {
+          "content": [{ "type": "text", "text": "Asterisk bullet" }]
+        },
+        {
+          "content": [{ "type": "text", "text": "Plus bullet" }]
+        },
+        {
+          "content": [{ "type": "text", "text": "Dash bullet" }]
+        }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Numbered Lists" }]
+    },
+
+    {
+      "type": "ordered_list",
+      "items": [
+        {
+          "content": [{ "type": "text", "text": "First step" }]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Second step with " },
+            { "type": "underline", "content": [{ "type": "text", "text": "underline" }] }
+          ]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Third step with " },
+            { "type": "highlight", "content": [{ "type": "text", "text": "highlighting" }] }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Tables" }]
+    },
+
+    {
+      "type": "table",
+      "columns": [
+        { "header": "Language", "align": "left" },
+        { "header": "Year", "align": "center" },
+        { "header": "Paradigm", "align": "right" }
+      ],
+      "rows": [
+        ["Rust", "2015", "Systems"],
+        ["Python", "1991", "Scripting"],
+        ["Haskell", "1990", "Functional"]
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Code Blocks" }]
+    },
+
+    {
+      "type": "code_block",
+      "language": "rust",
+      "text": "fn main() {\n    println!(\"Hello from a Rust code block!\");\n}"
+    },
+
+    {
+      "type": "code_block",
+      "language": "json",
+      "text": "{\n  \"name\": \"nonograph\",\n  \"version\": \"1.0.0\"\n}"
+    },
+
+    {
+      "type": "code_block",
+      "language": "py",
+      "text": "def greet(name: str) -> str:\n    return f\"Hello, {name}!\""
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Comments" }]
+    },
+
+    {
+      "type": "comment",
+      "text": "This is a comment — visible only in the .md source."
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This paragraph is visible, but the line above is not rendered in HTML." }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Secret Text" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Click to reveal: " },
+        { "type": "spoiler", "content": [{ "type": "text", "text": "this is a spoiler" }] },
+        { "type": "text", "text": " — was it worth it?" }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "spoiler", "content": [{ "type": "text", "text": "An entire line can be a spoiler too." }] }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Dividers" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Three-star divider:" }]
+    },
+
+    { "type": "divider", "style": "three_star" },
+
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Single-asterisk divider:" }]
+    },
+
+    { "type": "divider", "style": "single_star" },
+
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Thin horizontal line:" }]
+    },
+
+    { "type": "divider", "style": "line" },
+
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Double-line divider:" }]
+    },
+
+    { "type": "divider", "style": "double_line" },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Line Breaks and Paragraphs" }]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This is line one." },
+        { "type": "line_break" },
+        { "type": "text", "text": "This is line two (single line break)." }
+      ]
+    },
+
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "This is a new paragraph (double line break)." }
+      ]
+    },
+
+    {
+      "type": "heading",
+      "level": 2,
+      "content": [{ "type": "text", "text": "Putting It All Together" }]
+    },
+
+    {
+      "type": "blockquote",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "bold", "content": [{ "type": "text", "text": "Note:" }] },
+            { "type": "text", "text": " This final section mixes features. Here is a " },
+            { "type": "link", "href": "https://example.com", "content": [{ "type": "text", "text": "link" }] },
+            { "type": "text", "text": ", some " },
+            { "type": "code_inline", "text": "code" },
+            { "type": "text", "text": ", and a footnote" },
+            { "type": "footnote_ref", "id": 1 },
+            { "type": "text", "text": "." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "ordered_list",
+      "items": [
+        {
+          "content": [
+            { "type": "text", "text": "Read the " },
+            { "type": "bold", "content": [{ "type": "text", "text": "markup guide" }] }
+          ]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Write your " },
+            { "type": "italic", "content": [{ "type": "text", "text": "post" }] }
+          ]
+        },
+        {
+          "content": [
+            { "type": "text", "text": "Preview with " },
+            { "type": "code_inline", "text": "nonograph" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "type": "table",
+      "columns": [
+        { "header": "Feature", "align": "left" },
+        { "header": "Supported", "align": "left" }
+      ],
+      "rows": [
+        [
+          "Bold",
+          { "content": [{ "type": "bold", "content": [{ "type": "text", "text": "yes" }] }] }
+        ],
+        [
+          "Italic",
+          { "content": [{ "type": "italic", "content": [{ "type": "text", "text": "yes" }] }] }
+        ],
+        ["Tables", "yes"]
+      ]
+    },
+
+    {
+      "type": "code_block",
+      "language": "bash",
+      "text": "echo \"That's all, folks!\""
+    },
+
+    { "type": "divider", "style": "three_star" }
+  ]
+}

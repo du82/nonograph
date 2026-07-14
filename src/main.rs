@@ -3,6 +3,7 @@ extern crate rocket;
 
 mod archiver;
 mod config;
+mod json_post;
 mod nojs;
 mod parser;
 mod save;
