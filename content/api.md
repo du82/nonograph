@@ -1,7 +1,7 @@
 ---
 title: API Documentation
 date: 2026-02-11
-author: this is cool
+author: nonograph
 generator: nonograph v0.2.8
 ---
 
