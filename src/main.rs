@@ -16,10 +16,11 @@ use chrono::{DateTime, Utc};
 use deunicode::deunicode;
 use rand::{thread_rng, Rng};
 use rocket::{
-    http::Status,
+    fairing::{Fairing, Info, Kind},
+    http::{Header, Status},
     request::{FromRequest, Outcome},
     response::content,
-    Request, State,
+    Request, Response, State,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -211,6 +212,48 @@ struct NewPost {
     content: String,
     alias: String,
     csrf_token: String,
+}
+
+struct OnionLocationFairing {
+    onion_url: String,
+}
+
+#[rocket::async_trait]
+impl Fairing for OnionLocationFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Onion-Location header",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
+        if !response.status().class().is_success() {
+            return;
+        }
+        let is_html = response
+            .content_type()
+            .map(|ct| ct.is_html())
+            .unwrap_or(false);
+        if !is_html {
+            return;
+        }
+
+        let host_is_onion = request
+            .host()
+            .map(|h| h.domain().as_str().ends_with(".onion"))
+            .unwrap_or(false);
+        let forwarded_https = request
+            .headers()
+            .get_one("X-Forwarded-Proto")
+            .map(|p| p.eq_ignore_ascii_case("https"))
+            .unwrap_or(false);
+        if !host_is_onion && !forwarded_https {
+            return;
+        }
+
+        response.set_header(Header::new("Onion-Location", self.onion_url.clone()));
+    }
 }
 
 struct CsrfProtected;
@@ -912,7 +955,13 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     start_cache_purge_worker(Arc::clone(&storage), config.cache.cache_purge_interval_mins);
     let file_save_sender = start_file_save_worker();
 
-    rocket::build()
+    let onion_url = config.resolve_onion_url();
+    match &onion_url {
+        Some(url) => println!("Onion-Location advertising enabled: {}", url),
+        None => println!("Onion-Location disabled (no onion URL configured or detected)"),
+    }
+
+    let mut rocket = rocket::build()
         .configure(rocket::Config {
             limits,
             port: config.server.port,
@@ -941,7 +990,13 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 nojs_view_post,
                 nojs_create_post
             ],
-        )
+        );
+
+    if let Some(url) = onion_url {
+        rocket = rocket.attach(OnionLocationFairing { onion_url: url });
+    }
+
+    rocket
 }
 
 #[cfg(test)]

@@ -24,6 +24,12 @@ pub struct Limits {
 pub struct Server {
     pub port: u16,
     pub address: String,
+    pub onion_url: String,
+    pub onion_hostname_file: String,
+}
+
+fn default_onion_hostname_file() -> String {
+    "/var/lib/tor/hidden_service/hostname".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +69,8 @@ impl Default for Config {
             server: Server {
                 port: 8000,
                 address: "127.0.0.1".to_string(),
+                onion_url: String::new(),
+                onion_hostname_file: default_onion_hostname_file(),
             },
             cache: Cache {
                 max_cache_size_mb: 128,
@@ -83,6 +91,46 @@ impl Default for Config {
             },
         }
     }
+}
+
+fn normalize_onion_url(input: &str) -> Option<String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if trimmed.chars().any(|c| c.is_control()) {
+        return None;
+    }
+
+    let (scheme, rest) = match trimmed.split_once("://") {
+        Some((s, r)) => (s.to_ascii_lowercase(), r),
+        None => ("http".to_string(), trimmed),
+    };
+
+    if scheme != "http" && scheme != "https" {
+        return None;
+    }
+
+    let host_end = rest
+        .find(|c| c == '/' || c == '?' || c == '#')
+        .unwrap_or(rest.len());
+    let host = &rest[..host_end];
+    let path = &rest[host_end..];
+
+    let host_lower = host.to_ascii_lowercase();
+    if !host_lower.ends_with(".onion") {
+        return None;
+    }
+
+    if !host_lower
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
+        return None;
+    }
+
+    Some(format!("{}://{}{}", scheme, host_lower, path))
 }
 
 impl Config {
@@ -122,6 +170,22 @@ impl Config {
 
     pub fn form_data_limit_bytes(&self) -> u32 {
         self.limits.form_data_limit_kb * 1024
+    }
+
+    pub fn resolve_onion_url(&self) -> Option<String> {
+        let candidate = if !self.server.onion_url.trim().is_empty() {
+            self.server.onion_url.trim().to_string()
+        } else if let Ok(env_url) = std::env::var("ONION_URL") {
+            if env_url.trim().is_empty() {
+                return None;
+            }
+            env_url.trim().to_string()
+        } else {
+            let host = fs::read_to_string(&self.server.onion_hostname_file).ok()?;
+            host.trim().to_string()
+        };
+
+        normalize_onion_url(&candidate)
     }
 
     pub fn validate_post(
@@ -222,6 +286,32 @@ mod tests {
                 .unwrap_err(),
             "alias_too_long"
         );
+    }
+
+    #[test]
+    fn test_normalize_onion_url() {
+        assert_eq!(
+            normalize_onion_url("abcd1234.onion"),
+            Some("http://abcd1234.onion".to_string())
+        );
+        assert_eq!(
+            normalize_onion_url("http://abcd1234.onion/index.html"),
+            Some("http://abcd1234.onion/index.html".to_string())
+        );
+        assert_eq!(
+            normalize_onion_url("https://abcd1234.onion"),
+            Some("https://abcd1234.onion".to_string())
+        );
+        assert_eq!(
+            normalize_onion_url("  abcd1234.onion\n"),
+            Some("http://abcd1234.onion".to_string())
+        );
+        assert_eq!(normalize_onion_url("example.com"), None);
+        assert_eq!(normalize_onion_url("http://example.com"), None);
+        assert_eq!(normalize_onion_url(""), None);
+        assert_eq!(normalize_onion_url("   "), None);
+        assert_eq!(normalize_onion_url("abcd.onion\r\nSet-Cookie: x=1"), None);
+        assert_eq!(normalize_onion_url("ftp://abcd.onion"), None);
     }
 
     #[test]

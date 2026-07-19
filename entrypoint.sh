@@ -32,7 +32,11 @@ if [ -f "$ONION_FILE" ]; then
     echo "  http://$ONION"
     echo "========================================="
     echo ""
+
+    if [ -z "$ONION_URL" ] && [ -n "$ONION" ]; then
+        export ONION_URL="http://$ONION"
+    fi
 fi
 
 # Drop to nonograph user and launch the app
-exec su -s /bin/sh -c 'exec /app/nonograph' nonograph
+exec su -s /bin/sh -c 'ONION_URL="'"$ONION_URL"'" exec /app/nonograph' nonograph

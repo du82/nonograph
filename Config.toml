@@ -20,6 +20,12 @@ port = 8009
 # Server address
 address = "127.0.0.1"
 
+# Onion-Location header: advertise a Tor onion counterpart of this site.
+# Leave empty to auto-detect from the ONION_URL env var or the Tor hostname
+# file below. Set a full URL (e.g. "http://abcd...xyz.onion") to override.
+onion_url = ""
+onion_hostname_file = "/var/lib/tor/hidden_service/hostname"
+
 [cache]
 # Maximum cache size in MB
 max_cache_size_mb = 128
