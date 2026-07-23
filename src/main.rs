@@ -139,7 +139,7 @@ impl PostCache {
             if let Some(old_entry) = self.entries.remove(&oldest_id) {
                 self.total_size -= old_entry.post.memory_size();
                 println!(
-                    "Cache EVICTED for post: {} (freed: {} KB)",
+                    "Cache EVICT for post: {} (freed: {} KB)",
                     oldest_id,
                     old_entry.post.memory_size() / 1024
                 );
@@ -165,7 +165,7 @@ impl PostCache {
         for id in stale {
             if let Some(entry) = self.entries.remove(&id) {
                 self.total_size -= entry.post.memory_size();
-                println!("Cache REMOVE for post: {}.md", id);
+                println!("Cache EVICT for post: {}.md", id);
             }
         }
     }
