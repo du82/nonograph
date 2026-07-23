@@ -648,9 +648,9 @@ fn view_post(
             context.insert("author".to_string(), author);
 
             let author_display = if post.author.is_empty() {
-                "by Anonymous · ".to_string()
+                "Anonymous · ".to_string()
             } else {
-                format!("by {} · ", post.author)
+                format!("{} · ", post.author)
             };
             context.insert("author_display".to_string(), author_display);
 
@@ -2197,7 +2197,7 @@ mod tests {
         let alias_display = if post_with_alias.author.is_empty() {
             String::new()
         } else {
-            format!("by {} · ", post_with_alias.author)
+            format!("{} · ", post_with_alias.author)
         };
         assert_eq!(alias_display, "by Jane Smith · ");
 
@@ -2214,7 +2214,7 @@ mod tests {
         let alias_display_empty = if post_without_alias.author.is_empty() {
             String::new()
         } else {
-            format!("by {} · ", post_without_alias.author)
+            format!("{} · ", post_without_alias.author)
         };
         assert_eq!(alias_display_empty, "");
     }
