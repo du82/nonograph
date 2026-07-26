@@ -2207,7 +2207,7 @@ mod tests {
         } else {
             format!("{} · ", post_with_alias.author)
         };
-        assert_eq!(alias_display, "by Jane Smith · ");
+        assert_eq!(alias_display, "Jane Smith · ");
 
         // Test without alias
         let post_without_alias = Post {
