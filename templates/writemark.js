@@ -707,7 +707,10 @@ function parseBlockquote(line) {
     fullContentStart,
   };
 }
-function isHorizontalRule(line) { const t = line.trim(); return /^([-*_])(?:\s*\1){2,}\s*$/.test(t); }
+// Nonograph dividers are exactly ***, -*-, ---, or === on their own line
+// (mirrors process_dividers in src/parser.rs). Note: **** (four stars, e.g. from
+// bolding an empty line) is intentionally NOT a divider.
+function isHorizontalRule(line) { const t = line.trim(); return t === "***" || t === "-*-" || t === "---" || t === "==="; }
 function getFenceInfo(line) {
   const m = /^(\s{0,3})(`{3,}|~{3,})[ \t]*(.*)$/.exec(line);
   if (!m) return null;
@@ -998,7 +1001,9 @@ function decorateInline(raw, opts = {}) {
       || parseReferenceLinkAt(text, opts.references, i);
     if (link) {
       const safe = safeHref(link.url);
-      const labelHtml = decorateInline(link.label, opts);
+      // Empty labels must render as "" (not the <br> that decorateInline uses for
+      // empty lines), otherwise `![]()`/`[]()` visually breaks across two lines.
+      const labelHtml = link.label ? decorateInline(link.label, opts) : "";
       const prefix = token(`${link.bang}[`);
       const inline = text[link.labelEnd + 1] === "(";
       const suffix = inline
@@ -1319,7 +1324,19 @@ class WritemarkEditorElement extends HTMLElement {
     this._actions = new Map();
     this._providers = new Map();
     this._completion = { open: false, providerId: null, match: null, items: [], activeIndex: 0, requestId: 0, abort: null };
-    this._ids = { label: uid("mfe-label"), source: uid("mfe-source"), live: uid("mfe-live"), completion: uid("mfe-completion"), status: uid("mfe-status"), validation: uid("mfe-validation") };
+    this._ids = { label: uid("mfe-label"), source: uid("mfe-source"), live: uid("mfe-live"), completion: uid("mfe-completion"), status: uid("mfe-status"), validation: uid("mfe-validation"), toolbar: uid("mfe-toolbar") };
+    // Buttons shown in the floating selection toolbar (bubble menu), in order.
+    // Icons are inline SVGs styled white via currentColor.
+    const svg = inner => `<svg viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`;
+    this._selectionToolbarActions = [
+      { actionId: "inline.bold", label: "Bold", html: svg('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"/>') },
+      { actionId: "inline.italic", label: "Italic", html: svg('<line x1="10" y1="5" x2="18" y2="5"/><line x1="6" y1="19" x2="14" y2="19"/><line x1="14" y1="5" x2="10" y2="19"/>') },
+      { actionId: "inline.underline", label: "Underline", html: svg('<path d="M7 4v6a5 5 0 0 0 10 0V4"/><line x1="5" y1="20" x2="19" y2="20"/>') },
+      { actionId: "inline.strikethrough", label: "Strikethrough", html: svg('<line x1="4" y1="12" x2="20" y2="12"/><path d="M16 6a4 3.5 0 0 0-4-2c-2.5 0-4 1.4-4 3.2 0 1.6 1.2 2.4 3 2.8"/><path d="M8 18a4 3.5 0 0 0 4 2c2.5 0 4-1.4 4-3.2 0-1.6-1.2-2.4-3-2.8"/>') },
+      { actionId: "inline.highlight", label: "Highlight", html: svg('<path d="M4 20h16"/><path d="M9 15l7-7 3 3-7 7H6z"/><path d="M13 6l3 3"/>') },
+      { actionId: "inline.code", label: "Inline code", html: svg('<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>') },
+      { actionId: "inline.link", label: "Link", html: svg('<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 1 0-5.66-5.66l-1.5 1.5"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 1 0 5.66 5.66l1.5-1.5"/>') },
+    ];
     this._installBuiltInActions();
     this._installBuiltInProviders();
   }
@@ -1414,7 +1431,7 @@ class WritemarkEditorElement extends HTMLElement {
   get willValidate() { return this._internals?.willValidate ?? !this.disabled; }
 
   focus(options) { this._focusEditable(options); }
-  blur() { this._focusWithin = false; this._shadow?.activeElement?.blur?.(); this._sourceTextarea?.blur(); this._liveEditor?.blur(); this._preview?.blur(); }
+  blur() { this._focusWithin = false; this._shadow?.activeElement?.blur?.(); this._sourceTextarea?.blur(); this._liveEditor?.blur(); this._preview?.blur(); this._hideSelectionToolbar?.(); }
   select() { this.setSelectionRange(0, this._value.length); }
   setSelectionRange(start, end, direction = "none") {
     const s = clamp(Number(start) || 0, 0, this._value.length);
@@ -1530,8 +1547,8 @@ class WritemarkEditorElement extends HTMLElement {
         .preview { display: none; background: var(--md-editor-preview-bg); color: var(--md-editor-preview-fg); }
         :host([mode="preview"]) .preview, :host([mode="split"]) .preview, :host([preview="below"]) .preview, :host([preview="side"]) .preview, :host([preview="inline-split"]) .preview { display: block; }
         :host([preview="none"]):not([mode="split"]):not([mode="preview"]) .preview { display: none; }
-        .live-placeholder { color: var(--md-editor-muted); pointer-events: none; }
-        .md-empty-placeholder::before { content: attr(data-placeholder); position: absolute; color: var(--md-editor-muted); pointer-events: none; }
+        .live-placeholder { color: var(--md-editor-placeholder, var(--md-editor-muted)); pointer-events: none; }
+        .md-empty-placeholder::before { content: attr(data-placeholder); position: absolute; color: var(--md-editor-placeholder, var(--md-editor-muted)); pointer-events: none; }
         .md-virtual-spacer { display: block; pointer-events: none; user-select: none; inline-size: 1px; min-block-size: 0; }
         .md-line { position: relative; min-block-size: calc(var(--md-editor-line-height, 1.55) * 1em); line-height: var(--md-editor-line-height, 1.55); white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 6px; padding: 0; outline: none; transition: background-color var(--md-editor-transition-duration) var(--md-editor-transition-ease), box-shadow var(--md-editor-transition-duration) var(--md-editor-transition-ease); }
         .md-line:focus, .md-task-source:focus, .md-code-line:focus { box-shadow: var(--md-editor-active-line-ring); background: var(--md-editor-active-line-bg); }
@@ -1581,9 +1598,10 @@ class WritemarkEditorElement extends HTMLElement {
         .md-quote-depth-15 { --md-quote-depth: 15; }
         .md-quote-depth-16 { --md-quote-depth: 16; }
         .md-quote + .md-quote { margin-block-start: 0; }
-        .md-hr-line { display: block; min-block-size: 1.35em; padding-block: 0.55em; color: var(--md-editor-token); cursor: text; }
-        .md-hr-line::after { content: ""; display: block; border-block-start: 1px solid var(--md-editor-border); }
-        .md-hr-line .md-token { display: none; }
+        .md-hr-line { display: block; min-block-size: 1.35em; color: var(--md-editor-token); cursor: text; }
+        .md-hr-line::after { content: ""; display: block; border-block-start: 1px solid var(--md-editor-border); margin-block-start: 0.3em; }
+        /* Show the raw divider markers (e.g. ***) so the line stays editable. */
+        .md-hr-line .md-token { display: inline; }
         /* Code blocks mirror the published post output (post.html): flat panel
            with a header strip showing the language, monospace body at 14px/1.4.
            No syntax highlighting and no copy/collapse controls in the editor. */
@@ -1609,6 +1627,18 @@ class WritemarkEditorElement extends HTMLElement {
         .preview .md-table-wrap { overflow: auto; } .preview table { border-collapse: collapse; inline-size: 100%; } .preview th, .preview td { border: 1px solid var(--md-editor-border); padding: 6px 8px; }
         .completion-popup { position: absolute; z-index: 20; min-inline-size: 240px; max-inline-size: min(420px, 90vw); max-block-size: min(320px, 50vh); overflow: auto; border: 1px solid var(--md-editor-popup-border); border-radius: var(--md-editor-radius); background: var(--md-editor-popup-bg); color: var(--md-editor-popup-fg); box-shadow: var(--md-editor-popup-shadow); padding: 4px; }
         .completion-popup[hidden] { display: none; }
+        /* Floating selection toolbar (bubble menu) shown above a text selection.
+           Dark by default to match the site's Publish button, with white icons. */
+        .selection-toolbar { position: absolute; z-index: 25; display: flex; gap: 1px; padding: 3px; border-radius: var(--md-editor-toolbar-radius, 6px); background: var(--md-editor-toolbar-bg, #333); color: var(--md-editor-toolbar-fg, #fff); white-space: nowrap; transition: left var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)), top var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)); }
+        .selection-toolbar[hidden] { display: none; }
+        /* Don't animate the very first placement (avoids sliding in from a stale spot). */
+        .selection-toolbar[data-instant] { transition: none; }
+        @media (prefers-reduced-motion: reduce) { .selection-toolbar { transition: none; } }
+        .selection-toolbar button { display: inline-flex; align-items: center; justify-content: center; inline-size: 30px; block-size: 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
+        .selection-toolbar button:hover { background: var(--md-editor-toolbar-hover, rgba(255,255,255,0.16)); }
+        .selection-toolbar button:active { background: var(--md-editor-toolbar-active, rgba(255,255,255,0.28)); }
+        .selection-toolbar button svg { inline-size: 16px; block-size: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .selection-toolbar button svg [fill] { fill: currentColor; }
         @keyframes md-editor-pop { from { opacity: 0; transform: translateY(-3px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .completion-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
         .completion-item[aria-selected="true"] { background: color-mix(in srgb, Highlight 18%, transparent); }
@@ -1618,6 +1648,32 @@ class WritemarkEditorElement extends HTMLElement {
         .sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         @media (max-width: 720px) { :host([mode="split"]) .workspace, :host([preview="side"]) .workspace { grid-template-columns: 1fr; } }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; } }
+
+        /* Nonograph theme: make the live document and slash menu resemble the
+           published post output. Values track the editor's CSS custom properties
+           so the host can still retheme via --md-editor-*. */
+        .live-editor { caret-color: var(--md-editor-fg); }
+        .md-line strong, .md-task-source strong { font-weight: 600; }
+        .md-line em, .md-task-source em { font-style: italic; }
+        .md-line del, .md-task-source del { text-decoration: line-through; }
+        .md-line a, .md-task-source a { color: var(--md-editor-fg); text-decoration: underline; }
+        .md-line a:hover, .md-task-source a:hover { color: color-mix(in srgb, var(--md-editor-fg) 70%, #000 30%); }
+        .md-line code, .md-task-source code { background: var(--md-editor-code-bg); padding: 2px 6px; font-family: var(--md-editor-mono-font); font-size: 0.9em; }
+        .md-heading { font-weight: 600; color: var(--md-editor-fg); }
+        .md-h1 { font-size: 1.8em; }
+        .md-h2 { font-size: 1.5em; }
+        .md-h3 { font-size: 1.3em; }
+        .md-h4 { font-size: 1.15em; }
+        .md-quote { color: var(--md-editor-muted); background-image: none; border-inline-start: 2px solid var(--md-editor-border); padding-inline-start: 20px; }
+        .md-table th, .md-table td { border: 1px solid var(--md-editor-border); }
+        .md-table th { background: var(--md-editor-code-bg); font-weight: 600; }
+        /* Slash-command menu matches the site's earlier .editor-menu look. */
+        .completion-popup { border-radius: 4px; padding: 4px; min-inline-size: 200px; }
+        .completion-item { padding: 4px 12px; border-radius: 2px; font-family: var(--md-editor-ui-font, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif); color: var(--md-editor-popup-fg); }
+        .completion-item[aria-selected="true"] { background: color-mix(in srgb, var(--md-editor-popup-fg) 12%, transparent); }
+        .completion-item:hover { background: color-mix(in srgb, var(--md-editor-popup-fg) 7%, transparent); }
+        .completion-label { font-weight: 500; font-size: 14px; }
+        .completion-detail, .completion-description { color: var(--md-editor-muted); font-size: 12px; }
       </style>
       <div class="container" part="container">
         <label class="label" part="label" id="${this._ids.label}" for="${this._ids.source}"></label>
@@ -1626,6 +1682,7 @@ class WritemarkEditorElement extends HTMLElement {
             <div class="live-editor" part="live-editor" id="${this._ids.live}" role="textbox" aria-multiline="true" tabindex="0" aria-controls="${this._ids.completion}" aria-expanded="false" aria-autocomplete="list" aria-describedby="${this._ids.validation}"></div>
             <textarea part="textarea" id="${this._ids.source}" aria-controls="${this._ids.completion}" aria-expanded="false" aria-autocomplete="list" aria-describedby="${this._ids.validation}" rows="12"></textarea>
             <div class="completion-popup" part="completion-popup" id="${this._ids.completion}" role="listbox" hidden></div>
+            <div class="selection-toolbar" part="selection-toolbar" id="${this._ids.toolbar}" role="toolbar" aria-label="Formatting" hidden></div>
           </div>
           <div class="preview" part="preview" aria-label="Rendered markdown preview" tabindex="-1"></div>
         </div>
@@ -1637,8 +1694,26 @@ class WritemarkEditorElement extends HTMLElement {
     this._sourceTextarea = this._shadow.querySelector("textarea");
     this._preview = this._shadow.querySelector(".preview");
     this._completionPopup = this._shadow.querySelector(".completion-popup");
+    this._selectionToolbar = this._shadow.querySelector(".selection-toolbar");
     this._validation = this._shadow.querySelector(".validation");
     this._status = this._shadow.querySelector(".sr-only");
+    this._buildSelectionToolbar();
+  }
+
+  _buildSelectionToolbar() {
+    if (!this._selectionToolbar) return;
+    this._selectionToolbar.innerHTML = this._selectionToolbarActions
+      .map(item => `<button type="button" part="selection-toolbar-button" data-action="${escapeAttribute(item.actionId)}" title="${escapeAttribute(item.label)}" aria-label="${escapeAttribute(item.label)}" tabindex="-1">${item.html}</button>`)
+      .join("");
+    // Keep focus/selection in the editor when interacting with the toolbar.
+    this._selectionToolbar.addEventListener("mousedown", event => event.preventDefault());
+    this._selectionToolbar.addEventListener("click", event => {
+      const button = event.target.closest?.("button[data-action]");
+      if (!button) return;
+      event.preventDefault();
+      this._runAction(button.dataset.action, undefined, { source: "toolbar", apply: true });
+      this._updateSelectionToolbar();
+    });
   }
 
   _bindEvents() {
@@ -1675,7 +1750,7 @@ class WritemarkEditorElement extends HTMLElement {
     this._completionPopup.addEventListener("click", e => { const item = e.target.closest("[data-index]"); if (!item) return; const index = Number(item.dataset.index); if (this._completion.items[index]?.disabled) return; this._completion.activeIndex = index; this._acceptCompletion("pointer"); });
     this._label.addEventListener("click", event => { event.preventDefault(); this._focusEditable(); });
     this._shadow.addEventListener("focusin", () => { this._focusWithin = true; });
-    this._shadow.addEventListener("focusout", () => { queueMicrotask(() => { this._focusWithin = Boolean(this._shadow.activeElement); }); });
+    this._shadow.addEventListener("focusout", () => { queueMicrotask(() => { this._focusWithin = Boolean(this._shadow.activeElement); if (!this._focusWithin) this._hideSelectionToolbar?.(); }); });
     this._shadow.addEventListener("selectionchange", () => this._onSelectionChanged?.());
   }
 
@@ -2144,6 +2219,7 @@ class WritemarkEditorElement extends HTMLElement {
     return startIndex >= this._virtualState.start && endIndex < this._virtualState.end;
   }
   _onLiveScroll() {
+    if (this._selectionToolbar && !this._selectionToolbar.hidden) this._positionSelectionToolbar();
     if (!this._virtualState.active || this._virtualScrollFrame) return;
     this._virtualScrollFrame = requestAnimationFrame(() => {
       this._virtualScrollFrame = 0;
@@ -2179,10 +2255,9 @@ class WritemarkEditorElement extends HTMLElement {
       return `<div ${lineAttrs(block.line, "blockquote", `md-quote md-quote-depth-${visualDepth}`, `data-quote-depth="${depth}"`)}>${marker}${content}</div>`;
     }
     if (block.type === "horizontal-rule") {
-      const afterAnchor = block.line.newlineEnd === block.line.end
-        ? `<div class="md-line md-hr-after" part="line" data-editable="virtual-hr-after" data-kind="blank" data-from="${block.line.end}" data-to="${block.line.end}" contenteditable="${this._lineEditable()}" spellcheck="${this._sourceTextarea?.spellcheck ? "true" : "false"}" aria-label="After horizontal rule"><br></div>`
-        : "";
-      return `<div class="md-line md-hr-line" part="line" data-kind="horizontal-rule" data-from="${block.line.start}" data-to="${block.line.end}" contenteditable="false" aria-label="Horizontal rule"></div>${afterAnchor}`;
+      // Keep the divider line editable and its source text visible so it can be
+      // typed/backspaced through (e.g. editing ****/*** while toggling bold).
+      return `<div ${lineAttrs(block.line, "horizontal-rule", "md-hr-line")} aria-label="Divider"><span class="md-token">${escapeHtml(block.line.text)}</span></div>`;
     }
     if (block.type === "task-list-item") {
       const list = block.list; const checkOffset = block.line.start + list.indent.length + `${list.marker} [`.length;
@@ -2633,12 +2708,14 @@ class WritemarkEditorElement extends HTMLElement {
       state.focus = focus;
       state.moved = state.moved || Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 2;
       this._setFallbackPointerSelection(state.anchor, focus);
+      this._updateSelectionToolbar();
       return;
     }
     event.preventDefault();
     state.focus = focus;
     state.moved = state.moved || Math.hypot(event.clientX - state.startX, event.clientY - state.startY) > 2;
     this._setLivePointerSelection(state.anchor, focus);
+    this._updateSelectionToolbar();
   }
 
   _onLiveMouseEnd(event) {
@@ -2824,7 +2901,7 @@ class WritemarkEditorElement extends HTMLElement {
       .filter(el => Number.isFinite(Number(el.dataset.from)) && Number.isFinite(Number(el.dataset.to)))
       .sort((a, b) => Number(a.dataset.from) - Number(b.dataset.from));
     this._liveEditablesCache = editables;
-    this._liveNavigationCache = editables.filter(el => el.dataset.editable !== "cell" && el.dataset.kind !== "horizontal-rule");
+    this._liveNavigationCache = editables.filter(el => el.dataset.editable !== "cell");
     this._liveIndexDirty = false;
   }
   _liveEditables() {
@@ -2967,12 +3044,64 @@ class WritemarkEditorElement extends HTMLElement {
       this._ignoreSelectionChangeCount -= 1;
       this._emitSelectionChange();
       if (!this._isComposing) this._scheduleCompletionUpdate();
+      this._updateSelectionToolbar();
       return;
     }
     this._structuredSelection = null;
     this._selection = this._getCurrentSelection();
     this._emitSelectionChange();
     if (!this._isComposing) this._scheduleCompletionUpdate();
+    this._updateSelectionToolbar();
+  }
+
+  _hideSelectionToolbar() {
+    if (this._selectionToolbar && !this._selectionToolbar.hidden) this._selectionToolbar.hidden = true;
+  }
+
+  // Show the floating formatting toolbar above a non-empty selection in the live
+  // editor. Hidden in source/preview mode, while composing, when the slash
+  // completion popup is open, when the editor isn't focused, or with no selection.
+  _updateSelectionToolbar() {
+    if (!this._selectionToolbar) return;
+    const sel = this._selection;
+    const hasRange = sel && sel.start !== sel.end;
+    const canShow = hasRange && !this.disabled && !this._isComposing
+      && this.mode !== "source" && this.mode !== "split" && this.mode !== "preview"
+      && !this._completion.open && this._focusWithin;
+    if (!canShow) { this._hideSelectionToolbar(); return; }
+    const wasHidden = this._selectionToolbar.hidden;
+    this._selectionToolbar.hidden = false;
+    // First appearance jumps to place; later moves glide via CSS transition.
+    if (wasHidden) {
+      this._selectionToolbar.setAttribute("data-instant", "");
+      this._positionSelectionToolbar();
+      requestAnimationFrame(() => this._selectionToolbar?.removeAttribute("data-instant"));
+      return;
+    }
+    this._positionSelectionToolbar();
+  }
+
+  _positionSelectionToolbar() {
+    const shell = this._shadow.querySelector(".editor-shell");
+    if (!shell || !this._selectionToolbar || this._selectionToolbar.hidden) return;
+    const shellRect = shell.getBoundingClientRect();
+    let rect = null;
+    try { const sel = this._shadow.getSelection?.() || globalThis.getSelection?.(); if (sel?.rangeCount) rect = sel.getRangeAt(0).getBoundingClientRect(); } catch {}
+    if (!rect || (!rect.width && !rect.height)) {
+      const startRect = this._caretRectForSourceOffset(Math.min(this._selection.start, this._selection.end));
+      const endRect = this._caretRectForSourceOffset(Math.max(this._selection.start, this._selection.end));
+      if (startRect && endRect) rect = { left: Math.min(startRect.left, endRect.left), right: Math.max(startRect.right, endRect.right), top: Math.min(startRect.top, endRect.top), bottom: Math.max(startRect.bottom, endRect.bottom), width: 1, height: startRect.height };
+    }
+    if (!rect) { this._hideSelectionToolbar(); return; }
+    const toolbarRect = this._selectionToolbar.getBoundingClientRect();
+    const centerX = (rect.left + rect.right) / 2 - shellRect.left;
+    let left = clamp(centerX - toolbarRect.width / 2, 4, Math.max(4, shellRect.width - toolbarRect.width - 4));
+    // Prefer above the selection; drop below if there isn't room.
+    let top = rect.top - shellRect.top - toolbarRect.height - 8;
+    if (top < 4) top = rect.bottom - shellRect.top + 8;
+    top = clamp(top, 4, Math.max(4, shellRect.height - toolbarRect.height - 4));
+    this._selectionToolbar.style.left = `${left}px`;
+    this._selectionToolbar.style.top = `${top}px`;
   }
 
   _isSourceActive() { return this._shadow.activeElement === this._sourceTextarea || this.mode === "source" || this.mode === "split"; }
@@ -4006,7 +4135,7 @@ class WritemarkEditorElement extends HTMLElement {
   _matchSlash(ctx) { if (ctx.block.kind === "fenced-code" || ctx.inline.insideInlineCode) return null; const before = ctx.currentLine.text.slice(0, ctx.selectionStart - ctx.currentLine.start); const m = /^(\s*)\/([\w-]*)$/.exec(before); if (!m) return null; return { from: ctx.currentLine.start + m[1].length, to: ctx.selectionStart, trigger: "/", query: m[2], providerId: "slash" }; }
   _getSlashItems(match) { const q = match.query.toLowerCase(); const items = []; for (const action of this._actions.values()) { if (!action.visibleInSlash) continue; const hay = [action.label, action.description, ...(action.aliases || []), ...(action.keywords || [])].filter(Boolean).join(" ").toLowerCase(); if (q && !hay.includes(q)) continue; items.push({ id: action.id, label: action.label, detail: displayShortcut(action.defaultShortcut), description: "", kind: "slash-command", actionId: action.id }); } return items.slice(0, 24); }
   _applySlashItem(item, match, ctx) { const repl = this._slashReplacementForAction(item.actionId); if (repl) { const insert = typeof repl.insert === "function" ? repl.insert(ctx) : repl.insert; const off = typeof repl.selectionOffset === "number" ? repl.selectionOffset : insert.length; return ok(tx(ctx, "completion.accept", [{ from: match.from, to: match.to, insert }], { start: match.from + off, end: match.from + off + (repl.selectionLength || 0), direction: "none" }, "slash"), item.label); } return ok(tx(ctx, "completion.accept", [{ from: match.from, to: match.to, insert: "" }], { start: match.from, end: match.from, direction: "none" }, "slash"), item.label); }
-  _slashReplacementForAction(actionId) { return { "block.paragraph": { insert: "", selectionOffset: 0 }, "block.heading.1": { insert: "# ", selectionOffset: 2 }, "block.heading.2": { insert: "## ", selectionOffset: 3 }, "block.heading.3": { insert: "### ", selectionOffset: 4 }, "block.heading.4": { insert: "#### ", selectionOffset: 5 }, "block.bulletList": { insert: "- ", selectionOffset: 2 }, "block.orderedList": { insert: "1. ", selectionOffset: 3 }, "block.taskList": { insert: "- [ ] ", selectionOffset: 6 }, "block.blockquote": { insert: "> ", selectionOffset: 2 }, "block.codeFence": { insert: "```\n\n```", selectionOffset: 4 }, "block.horizontalRule": { insert: "---\n", selectionOffset: 4 }, "block.table": { insert: "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell 1 | Cell 2 | Cell 3 |", selectionOffset: 2, selectionLength: "Column 1".length }, "inline.link": { insert: "[]()", selectionOffset: 1 }, "inline.image": { insert: "![]()", selectionOffset: 2 }, "inline.bold": { insert: "****", selectionOffset: 2 }, "inline.italic": { insert: "**", selectionOffset: 1 }, "inline.code": { insert: "``", selectionOffset: 1 }, "inline.underline": { insert: "__", selectionOffset: 1 }, "inline.strikethrough": { insert: "~~", selectionOffset: 1 }, "inline.superscript": { insert: "^^", selectionOffset: 1 }, "inline.highlight": { insert: "====", selectionOffset: 2 }, "inline.secret": { insert: "##", selectionOffset: 1 } }[actionId] || null; }
+  _slashReplacementForAction(actionId) { return { "block.paragraph": { insert: "", selectionOffset: 0 }, "block.heading.1": { insert: "# ", selectionOffset: 2 }, "block.heading.2": { insert: "## ", selectionOffset: 3 }, "block.heading.3": { insert: "### ", selectionOffset: 4 }, "block.heading.4": { insert: "#### ", selectionOffset: 5 }, "block.bulletList": { insert: "- ", selectionOffset: 2 }, "block.orderedList": { insert: "1. ", selectionOffset: 3 }, "block.taskList": { insert: "- [ ] ", selectionOffset: 6 }, "block.blockquote": { insert: "> ", selectionOffset: 2 }, "block.codeFence": { insert: "```\n\n```", selectionOffset: 4 }, "block.horizontalRule": { insert: "---\n", selectionOffset: 4 }, "block.table": { insert: "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell 1 | Cell 2 | Cell 3 |", selectionOffset: 2, selectionLength: "Column 1".length }, "inline.link": { insert: "[]()", selectionOffset: 3 }, "inline.image": { insert: "![]()", selectionOffset: 4 }, "inline.bold": { insert: "****", selectionOffset: 2 }, "inline.italic": { insert: "**", selectionOffset: 1 }, "inline.code": { insert: "``", selectionOffset: 1 }, "inline.underline": { insert: "__", selectionOffset: 1 }, "inline.strikethrough": { insert: "~~", selectionOffset: 1 }, "inline.superscript": { insert: "^^", selectionOffset: 1 }, "inline.highlight": { insert: "====", selectionOffset: 2 }, "inline.secret": { insert: "##", selectionOffset: 1 } }[actionId] || null; }
   _matchCodeLanguage(ctx) { if (ctx.block.kind === "fenced-code") return null; const before = ctx.currentLine.text.slice(0, ctx.selectionStart - ctx.currentLine.start); const m = /^(\s*)(`{3,}|~{3,})([\w+-]*)$/.exec(before); if (!m || LANGUAGES.includes(m[3].toLowerCase())) return null; return { from: ctx.currentLine.start + m[1].length, to: ctx.selectionStart, trigger: m[2], sequence: m[2], query: m[3], providerId: "code-language" }; }
 
   _scheduleCompletionUpdate({ immediate = false } = {}) {
@@ -4031,7 +4160,7 @@ class WritemarkEditorElement extends HTMLElement {
     try { Promise.resolve(selectedProvider.getItems(selectedMatch, ctx, abort.signal)).then(items => { if (abort.signal.aborted || this._completion.requestId !== requestId) return; const normalized = this._normalizeCompletionItems(items); if (!normalized.length) { this._closeCompletion(); return; } this._openCompletion(selectedProvider.id, selectedMatch, normalized); }).catch(error => { if (!abort.signal.aborted) { this._emitError("completion", error, true, { providerId: selectedProvider.id }); this._closeCompletion(); } }); } catch (error) { this._emitError("completion", error, true, { providerId: selectedProvider.id }); this._closeCompletion(); }
   }
   _normalizeCompletionItems(items) { const seen = new Set(); const out = []; for (const item of items || []) { if (!item?.id || !item?.label) continue; const key = `${item.kind}:${item.id}`; if (seen.has(key)) continue; seen.add(key); out.push(item); } return out; }
-  _openCompletion(providerId, match, items) { const was = this._completion.open; this._completion.open = true; this._completion.providerId = providerId; this._completion.match = match; this._completion.items = items; const preferred = clamp(this._completion.activeIndex, 0, items.length - 1); this._completion.activeIndex = this._enabledCompletionIndex(preferred, 1); this._renderCompletion(); if (!was) this._dispatch("md-completion-open", { providerId, match, items }); }
+  _openCompletion(providerId, match, items) { const was = this._completion.open; this._completion.open = true; this._completion.providerId = providerId; this._completion.match = match; this._completion.items = items; const preferred = clamp(this._completion.activeIndex, 0, items.length - 1); this._completion.activeIndex = this._enabledCompletionIndex(preferred, 1); this._hideSelectionToolbar?.(); this._renderCompletion(); if (!was) this._dispatch("md-completion-open", { providerId, match, items }); }
   _closeCompletion() {
     const wasOpen = this._completion.open;
     const detail = { providerId: this._completion.providerId, match: this._completion.match };
