@@ -658,7 +658,12 @@ fn view_post(
                 "created_at".to_string(),
                 post.created_at.format("%B %d, %Y").to_string(),
             );
-            context.insert("created_at_iso".to_string(), post.created_at.to_rfc3339());
+            context.insert(
+                "created_at_iso".to_string(),
+                post.created_at
+                    .format("%Y-%m-%dT00:00:00+00:00")
+                    .to_string(),
+            );
             context.insert("post_id".to_string(), actual_post_id.to_string());
 
             // OpenGraph variables
@@ -865,7 +870,10 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 context.insert("created_at".to_string(), created_at.format("%B %d, %Y").to_string());
                 context.insert("author".to_string(), author);
                 context.insert("author_display".to_string(), String::new());
-                context.insert("created_at_iso".to_string(), created_at.to_rfc3339());
+                context.insert(
+                    "created_at_iso".to_string(),
+                    created_at.format("%Y-%m-%dT00:00:00+00:00").to_string(),
+                );
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
                 context.insert("post_id".to_string(), page_name.to_string());
