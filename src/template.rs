@@ -26,6 +26,25 @@ impl TemplateEngine {
 
         let mut result = template_content;
 
+        // Inject the writemark.js editor source when requested, so templates can
+        // embed the editor inline via `{{writemark_js}}`. The file ships as an ES
+        // module (it ends with an `export { ... }` statement), but we inline it
+        // into a classic `<script>` tag where `export` is a syntax error that
+        // would abort the whole script. Strip any top-level `export` statements
+        // before injecting; the element self-registers via `customElements.define`,
+        // so the exports are unnecessary for inline browser use.
+        if result.contains("{{writemark_js}}") {
+            let script_path = Path::new(&self.templates_dir).join("writemark.js");
+            let script = fs::read_to_string(&script_path).map_err(|e| {
+                format!(
+                    "Failed to read writemark.js for template {}: {}",
+                    template_name, e
+                )
+            })?;
+            let script = strip_module_exports(&script);
+            result = result.replace("{{writemark_js}}", &script);
+        }
+
         // Replace all {{variable}} patterns with values from context
         for (key, value) in context {
             let pattern = format!("{{{{{}}}}}", key);
@@ -68,6 +87,18 @@ impl TemplateEngine {
 
         self.render(template_name, &full_context)
     }
+}
+
+/// Remove top-level ES module `export ...;` statements so the source can run in
+/// a classic (non-module) `<script>` tag. Only lines whose first non-whitespace
+/// token is `export` are dropped, which is sufficient for writemark.js's single
+/// trailing named-export statement.
+fn strip_module_exports(source: &str) -> String {
+    source
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("export "))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
