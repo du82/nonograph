@@ -1332,9 +1332,9 @@ class WritemarkEditorElement extends HTMLElement {
       { actionId: "inline.bold", label: "Bold", html: svg('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"/><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"/>') },
       { actionId: "inline.italic", label: "Italic", html: svg('<line x1="10" y1="5" x2="18" y2="5"/><line x1="6" y1="19" x2="14" y2="19"/><line x1="14" y1="5" x2="10" y2="19"/>') },
       { actionId: "inline.underline", label: "Underline", html: svg('<path d="M7 4v6a5 5 0 0 0 10 0V4"/><line x1="5" y1="20" x2="19" y2="20"/>') },
-      { actionId: "inline.strikethrough", label: "Strikethrough", html: svg('<line x1="4" y1="12" x2="20" y2="12"/><path d="M16 6a4 3.5 0 0 0-4-2c-2.5 0-4 1.4-4 3.2 0 1.6 1.2 2.4 3 2.8"/><path d="M8 18a4 3.5 0 0 0 4 2c2.5 0 4-1.4 4-3.2 0-1.6-1.2-2.4-3-2.8"/>') },
-      { actionId: "inline.highlight", label: "Highlight", html: svg('<path d="M4 20h16"/><path d="M9 15l7-7 3 3-7 7H6z"/><path d="M13 6l3 3"/>') },
-      { actionId: "inline.code", label: "Inline code", html: svg('<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>') },
+      { actionId: "inline.strikethrough", label: "Strikethrough", html: svg('<path d="M18 6.5c-1.2-2.2-3.4-3-5.8-3C9 3.5 6.5 5.2 6.5 7.8c0 5.4 11 2.7 11 8.2 0 2.5-2.4 4.2-5.5 4.2-2.5 0-4.9-1-6.2-3.2"/><line x1="3" y1="12" x2="21" y2="12"/>') },
+      { actionId: "inline.highlight", label: "Highlight", html: svg('<path d="M15 4l5 5-9 9-5 1 1-5z"/><line x1="4" y1="21" x2="20" y2="21"/>') },
+      { actionId: "inline.code", label: "Inline code", html: svg('<polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/>') },
       { actionId: "inline.link", label: "Link", html: svg('<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 1 0-5.66-5.66l-1.5 1.5"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 1 0 5.66 5.66l1.5-1.5"/>') },
     ];
     this._installBuiltInActions();
@@ -1634,10 +1634,10 @@ class WritemarkEditorElement extends HTMLElement {
         /* Don't animate the very first placement (avoids sliding in from a stale spot). */
         .selection-toolbar[data-instant] { transition: none; }
         @media (prefers-reduced-motion: reduce) { .selection-toolbar { transition: none; } }
-        .selection-toolbar button { display: inline-flex; align-items: center; justify-content: center; inline-size: 30px; block-size: 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
+        .selection-toolbar button { display: inline-flex; align-items: center; justify-content: center; inline-size: 34px; block-size: 34px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
         .selection-toolbar button:hover { background: var(--md-editor-toolbar-hover, rgba(255,255,255,0.16)); }
         .selection-toolbar button:active { background: var(--md-editor-toolbar-active, rgba(255,255,255,0.28)); }
-        .selection-toolbar button svg { inline-size: 16px; block-size: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .selection-toolbar button svg { inline-size: 20px; block-size: 20px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .selection-toolbar button svg [fill] { fill: currentColor; }
         @keyframes md-editor-pop { from { opacity: 0; transform: translateY(-3px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .completion-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
