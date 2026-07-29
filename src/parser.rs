@@ -1361,10 +1361,22 @@ fn process_tables(text: &str) -> String {
             if i + 1 < lines.len() {
                 let separator = lines[i + 1].trim();
                 if is_table_separator(separator) {
-                    // Found a table - parse it
+                    if !result.is_empty() && !result.ends_with("\n\n") {
+                        while !result.ends_with('\n') {
+                            result.push('\n');
+                        }
+                        result.push('\n');
+                    }
+
                     let (table_html, lines_consumed) = parse_table(&lines[i..]);
                     result.push_str(&table_html);
                     i += lines_consumed;
+
+                    // Guarantee a blank line after the table as well.
+                    if !result.ends_with('\n') {
+                        result.push('\n');
+                    }
+                    result.push('\n');
                     continue;
                 }
             }
@@ -3478,7 +3490,6 @@ Third paragraph with *italic* formatting."#;
         let simple_table = "| Name | Age |\n|------|-----|\n| John | 30  |";
         let result = render_markdown(simple_table);
 
-        // Should have clean table without extra paragraphs or breaks
         assert!(result.contains("<table>"));
         assert!(!result.contains("<p></p>"));
         assert!(!result.contains("<br><table>"));
@@ -3490,6 +3501,26 @@ Third paragraph with *italic* formatting."#;
         assert!(context_result.contains("<p>Here's a table:</p>"));
         assert!(context_result.contains("<p>After table.</p>"));
         assert!(context_result.contains("<table>"));
+    }
+
+    fn test_table_abovebelow_blanklines() {
+        let text = "testing\n| hi | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell 1 | Cell 2 | Cell 3 |\nafter text";
+        let result = render_markdown(text);
+
+        // Before and after the table
+        assert!(result.contains("<p>testing</p>"));
+        assert!(result.contains("<p>after text</p>"));
+
+        assert!(result.contains("<table>"));
+        assert!(result.contains("<td>Cell 1</td>"));
+        assert!(result.contains("</table>"));
+
+        // Cheers to anonymity, love from a human <3
+        assert!(!result.contains("<br>"));
+        assert!(!result.contains("<p></p>"));
+        assert!(!result.contains("<br><table>"));
+        assert!(!result.contains("<p><table>"));
+        assert!(!result.contains("</table></p>"));
     }
 
     #[test]
