@@ -8,7 +8,6 @@ const LEGACY_TAG_NAME = "md-live-editor";
 
 const DEFAULTS = Object.freeze({
   mode: "live",
-  preview: "none",
   markdownFlavor: "gfm",
   tabBehavior: "accessibility-first",
   indentString: "  ",
@@ -28,7 +27,6 @@ const REFLECTED_ATTRIBUTES = [
   "label",
   "placeholder",
   "mode",
-  "preview",
   "markdown-flavor",
   "tab-behavior",
   "indent-string",
@@ -1321,9 +1319,7 @@ class WritemarkEditorElement extends HTMLElement {
     this._liveNavigationCache = [];
     this._liveIndexDirty = true;
     this._liveDirty = true;
-    this._previewDirty = true;
     this._validationVisible = false;
-    this._previewRenderTimer = 0;
     this._completionUpdateFrame = 0;
     this._virtualState = { active: false, start: 0, end: 0, total: 0, lineHeight: 24 };
     this._virtualScrollFrame = 0;
@@ -1369,10 +1365,8 @@ class WritemarkEditorElement extends HTMLElement {
   }
   disconnectedCallback() {
     this._completion.abort?.abort();
-    if (this._previewRenderTimer) globalThis.clearTimeout?.(this._previewRenderTimer);
     if (this._completionUpdateFrame) cancelAnimationFrame(this._completionUpdateFrame);
     if (this._virtualScrollFrame) cancelAnimationFrame(this._virtualScrollFrame);
-    this._previewRenderTimer = 0;
     this._completionUpdateFrame = 0;
     this._virtualScrollFrame = 0;
   }
@@ -1396,7 +1390,7 @@ class WritemarkEditorElement extends HTMLElement {
     if ((name === "disabled" || name === "readonly") && (this.disabled || this.readonly)) this._closeCompletion();
     this._syncAttributesToControls();
     if (name === "disabled" && this.disabled) this.blur();
-    if (["mode", "preview", "disabled", "readonly"].includes(name)) this._renderAll({ restoreSelection: !this.disabled, force: true });
+    if (["mode", "disabled", "readonly"].includes(name)) this._renderAll({ restoreSelection: !this.disabled, force: true });
     if (["required", "disabled", "readonly", "maxlength", "minlength"].includes(name)) { this._updateFormValue(); this._updateValidity(); }
     if (restoreFocus && !this.disabled) this._focusEditable();
   }
@@ -1411,10 +1405,8 @@ class WritemarkEditorElement extends HTMLElement {
   set label(v) { v == null ? this.removeAttribute("label") : this.setAttribute("label", String(v)); }
   get placeholder() { return this.getAttribute("placeholder") ?? DEFAULTS.placeholder; }
   set placeholder(v) { v == null ? this.removeAttribute("placeholder") : this.setAttribute("placeholder", String(v)); }
-  get mode() { const v = this.getAttribute("mode") ?? DEFAULTS.mode; return ["live", "source", "split", "preview"].includes(v) ? v : DEFAULTS.mode; }
+  get mode() { const v = this.getAttribute("mode") ?? DEFAULTS.mode; return ["live", "source"].includes(v) ? v : DEFAULTS.mode; }
   set mode(v) { v == null ? this.removeAttribute("mode") : this.setAttribute("mode", String(v)); }
-  get preview() { const v = this.getAttribute("preview") ?? DEFAULTS.preview; return ["none", "below", "side", "inline-split"].includes(v) ? v : DEFAULTS.preview; }
-  set preview(v) { v == null ? this.removeAttribute("preview") : this.setAttribute("preview", String(v)); }
   get markdownFlavor() { const v = this.getAttribute("markdown-flavor") ?? DEFAULTS.markdownFlavor; return ["gfm", "commonmark"].includes(v) ? v : DEFAULTS.markdownFlavor; }
   set markdownFlavor(v) { v == null ? this.removeAttribute("markdown-flavor") : this.setAttribute("markdown-flavor", String(v)); }
   get tabBehavior() { const v = this.getAttribute("tab-behavior") ?? DEFAULTS.tabBehavior; return ["accessibility-first", "editor-first"].includes(v) ? v : DEFAULTS.tabBehavior; }
@@ -1437,7 +1429,7 @@ class WritemarkEditorElement extends HTMLElement {
   get willValidate() { return this._internals?.willValidate ?? !this.disabled; }
 
   focus(options) { this._focusEditable(options); }
-  blur() { this._focusWithin = false; this._shadow?.activeElement?.blur?.(); this._sourceTextarea?.blur(); this._liveEditor?.blur(); this._preview?.blur(); this._hideSelectionToolbar?.(); }
+  blur() { this._focusWithin = false; this._shadow?.activeElement?.blur?.(); this._sourceTextarea?.blur(); this._liveEditor?.blur(); this._hideSelectionToolbar?.(); }
   select() { this.setSelectionRange(0, this._value.length); }
   setSelectionRange(start, end, direction = "none") {
     const s = clamp(Number(start) || 0, 0, this._value.length);
@@ -1481,7 +1473,7 @@ class WritemarkEditorElement extends HTMLElement {
   setCustomValidity(message) { this._customValidityMessage = String(message ?? ""); this._updateValidity(); }
 
   _upgradeProperties() {
-    for (const prop of ["value", "defaultValue", "name", "label", "placeholder", "mode", "preview", "markdownFlavor", "tabBehavior", "indentString", "disabled", "readonly", "required"]) {
+    for (const prop of ["value", "defaultValue", "name", "label", "placeholder", "mode", "markdownFlavor", "tabBehavior", "indentString", "disabled", "readonly", "required"]) {
       if (Object.prototype.hasOwnProperty.call(this, prop)) { const value = this[prop]; delete this[prop]; this[prop] = value; }
     }
   }
@@ -1514,8 +1506,6 @@ class WritemarkEditorElement extends HTMLElement {
           --md-editor-popup-fg: CanvasText;
           --md-editor-popup-border: color-mix(in srgb, CanvasText 24%, Canvas 76%);
           --md-editor-popup-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
-          --md-editor-preview-bg: color-mix(in srgb, Canvas 96%, CanvasText 4%);
-          --md-editor-preview-fg: CanvasText;
           --md-editor-code-bg: color-mix(in srgb, CanvasText 8%, Canvas 92%);
           --md-editor-code-header-bg: color-mix(in srgb, CanvasText 5%, Canvas 95%);
           --md-editor-code-accent: color-mix(in srgb, CanvasText 45%, Canvas 55%);
@@ -1531,9 +1521,8 @@ class WritemarkEditorElement extends HTMLElement {
         .label:empty { display: none; }
         .label { font-weight: 650; color: var(--md-editor-fg); }
         .workspace { display: grid; gap: 10px; }
-        :host([mode="split"]) .workspace, :host([preview="side"]) .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
         .editor-shell { position: relative; min-width: 0; }
-        .live-editor, textarea, .preview {
+        .live-editor, textarea {
           box-sizing: border-box; inline-size: 100%; min-block-size: var(--md-editor-min-height); max-block-size: var(--md-editor-max-height);
           border: 1px solid var(--md-editor-border); border-radius: var(--md-editor-radius); padding: var(--md-editor-padding);
           background: var(--md-editor-bg); color: var(--md-editor-fg); line-height: var(--md-editor-line-height); overflow: auto;
@@ -1546,13 +1535,6 @@ class WritemarkEditorElement extends HTMLElement {
         textarea { display: none; resize: vertical; font-family: var(--md-editor-mono-font); font-size: var(--md-editor-font-size); tab-size: 2; }
         :host([mode="source"]) .live-editor { display: none; }
         :host([mode="source"]) textarea { display: block; }
-        :host([mode="split"]) .live-editor { display: none; }
-        :host([mode="split"]) textarea { display: block; }
-        :host([mode="preview"]) .live-editor { display: none; }
-        :host([mode="preview"]) textarea { display: none; }
-        .preview { display: none; background: var(--md-editor-preview-bg); color: var(--md-editor-preview-fg); }
-        :host([mode="preview"]) .preview, :host([mode="split"]) .preview, :host([preview="below"]) .preview, :host([preview="side"]) .preview, :host([preview="inline-split"]) .preview { display: block; }
-        :host([preview="none"]):not([mode="split"]):not([mode="preview"]) .preview { display: none; }
         .live-placeholder { color: var(--md-editor-placeholder, var(--md-editor-muted)); pointer-events: none; }
         .md-empty-placeholder::before { content: attr(data-placeholder); position: absolute; color: var(--md-editor-placeholder, var(--md-editor-muted)); pointer-events: none; }
         .md-virtual-spacer { display: block; pointer-events: none; user-select: none; inline-size: 1px; min-block-size: 0; }
@@ -1624,13 +1606,6 @@ class WritemarkEditorElement extends HTMLElement {
         .md-table th, .md-table td { border: 1px solid var(--md-editor-border); padding: 6px 8px; vertical-align: top; }
         .md-table th { background: color-mix(in srgb, CanvasText 7%, Canvas 93%); font-weight: 700; text-align: left; }
         .md-cell { min-height: 1.35em; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
-        .preview :first-child { margin-block-start: 0; } .preview :last-child { margin-block-end: 0; }
-        .preview pre { overflow: auto; padding: 10px; border-radius: 6px; background: var(--md-editor-code-bg); }
-        .preview code { font-family: var(--md-editor-mono-font); font-size: 0.95em; }
-        .preview :not(pre) > code { padding: 0.1em 0.3em; border-radius: 4px; background: var(--md-editor-code-bg); }
-        .preview blockquote { border-inline-start: 4px solid var(--md-editor-border); margin-inline-start: 0; padding-inline-start: 1em; color: var(--md-editor-muted); }
-        .preview img { max-inline-size: 100%; block-size: auto; }
-        .preview .md-table-wrap { overflow: auto; } .preview table { border-collapse: collapse; inline-size: 100%; } .preview th, .preview td { border: 1px solid var(--md-editor-border); padding: 6px 8px; } .preview th { text-align: left; }
         .completion-popup { position: absolute; z-index: 20; min-inline-size: 240px; max-inline-size: min(420px, 90vw); max-block-size: min(320px, 50vh); overflow: auto; border: 1px solid var(--md-editor-popup-border); border-radius: var(--md-editor-radius); background: var(--md-editor-popup-bg); color: var(--md-editor-popup-fg); box-shadow: var(--md-editor-popup-shadow); padding: 4px; }
         .completion-popup[hidden] { display: none; }
         /* Floating selection toolbar (bubble menu) shown above a text selection.
@@ -1652,7 +1627,7 @@ class WritemarkEditorElement extends HTMLElement {
         .completion-label { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .completion-detail, .completion-description { color: var(--md-editor-muted); font-size: 0.9em; } .completion-description { grid-column: 1 / -1; }
         .validation { min-block-size: 1.2em; color: var(--md-editor-danger); font-size: 0.92em; } .validation:empty { display: none; }
         .sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-        @media (max-width: 720px) { :host([mode="split"]) .workspace, :host([preview="side"]) .workspace { grid-template-columns: 1fr; } }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; } }
 
         /* Nonograph theme: make the live document and slash menu resemble the
@@ -1690,7 +1665,6 @@ class WritemarkEditorElement extends HTMLElement {
             <div class="completion-popup" part="completion-popup" id="${this._ids.completion}" role="listbox" hidden></div>
             <div class="selection-toolbar" part="selection-toolbar" id="${this._ids.toolbar}" role="toolbar" aria-label="Formatting" hidden></div>
           </div>
-          <div class="preview" part="preview" aria-label="Rendered markdown preview" tabindex="-1"></div>
         </div>
         <div class="validation" part="error" id="${this._ids.validation}"></div>
         <div class="sr-only" part="status" id="${this._ids.status}" aria-live="polite" aria-atomic="true"></div>
@@ -1698,7 +1672,6 @@ class WritemarkEditorElement extends HTMLElement {
     this._label = this._shadow.querySelector(".label");
     this._liveEditor = this._shadow.querySelector(".live-editor");
     this._sourceTextarea = this._shadow.querySelector("textarea");
-    this._preview = this._shadow.querySelector(".preview");
     this._completionPopup = this._shadow.querySelector(".completion-popup");
     this._selectionToolbar = this._shadow.querySelector(".selection-toolbar");
     this._validation = this._shadow.querySelector(".validation");
@@ -1750,7 +1723,6 @@ class WritemarkEditorElement extends HTMLElement {
     this._liveEditor.addEventListener("drop", event => this._onDrop(event));
     this._liveEditor.addEventListener("compositionstart", () => { this._isComposing = true; this._closeCompletion(); });
     this._liveEditor.addEventListener("compositionend", () => { this._isComposing = false; this._onSelectionChanged(); });
-    this._preview.addEventListener("click", event => this._onPreviewClick(event));
 
     this._completionPopup.addEventListener("mousedown", e => e.preventDefault());
     this._completionPopup.addEventListener("click", e => { const item = e.target.closest("[data-index]"); if (!item) return; const index = Number(item.dataset.index); if (this._completion.items[index]?.disabled) return; this._completion.activeIndex = index; this._acceptCompletion("pointer"); });
@@ -1774,7 +1746,6 @@ class WritemarkEditorElement extends HTMLElement {
       ? "false"
       : this._lineEditable();
     this._liveEditor.tabIndex = this.disabled ? -1 : 0;
-    this._preview.tabIndex = this.disabled ? -1 : (this.mode === "preview" ? 0 : -1);
     const maxLength = parseLengthConstraint(this.getAttribute("maxlength"));
     const minLength = parseLengthConstraint(this.getAttribute("minlength"));
     maxLength != null ? this._sourceTextarea.maxLength = maxLength : this._sourceTextarea.removeAttribute("maxlength");
@@ -1789,13 +1760,6 @@ class WritemarkEditorElement extends HTMLElement {
       if (ariaLabelledby) el.setAttribute("aria-labelledby", ariaLabelledby); else if (this.label) el.setAttribute("aria-labelledby", this._ids.label); else el.removeAttribute("aria-labelledby");
       const dir = this.getAttribute("dir");
       if (dir) el.dir = dir; else el.removeAttribute("dir");
-    }
-    if (ariaLabelledby) {
-      this._preview.setAttribute("aria-labelledby", ariaLabelledby);
-      this._preview.removeAttribute("aria-label");
-    } else {
-      this._preview.removeAttribute("aria-labelledby");
-      this._preview.setAttribute("aria-label", ariaLabel ? `${ariaLabel} preview` : this.label ? `${this.label} preview` : "Rendered markdown preview");
     }
   }
 
@@ -1900,39 +1864,9 @@ class WritemarkEditorElement extends HTMLElement {
     } else {
       this._liveDirty = true;
     }
-    this._schedulePreviewRender({ immediate: force || !this._previewDirty });
   }
   _isLiveVisible() {
     return this.mode === "live";
-  }
-  _isPreviewVisible() {
-    return this.mode === "preview" || this.mode === "split" || this.preview !== "none";
-  }
-  _renderDebounceMs() {
-    const attribute = this.getAttribute("render-debounce-ms");
-    if (attribute == null) return DEFAULTS.renderDebounceMs;
-    const raw = Number(attribute);
-    return Number.isFinite(raw) ? clamp(raw, 0, 1000) : DEFAULTS.renderDebounceMs;
-  }
-  _schedulePreviewRender({ immediate = false } = {}) {
-    this._previewDirty = true;
-    if (!this._isPreviewVisible()) return;
-    const run = () => {
-      this._previewRenderTimer = 0;
-      if (this._isPreviewVisible()) this._renderPreview();
-    };
-    if (immediate) {
-      if (this._previewRenderTimer) globalThis.clearTimeout?.(this._previewRenderTimer);
-      run();
-      return;
-    }
-    if (this._previewRenderTimer) return;
-    this._previewRenderTimer = globalThis.setTimeout?.(run, this._renderDebounceMs()) ?? 0;
-  }
-  _renderPreview() {
-    if (!this._preview) return;
-    try { this._preview.innerHTML = this.getHTML(); this._previewDirty = false; this._dispatch("md-render", { html: this._preview.innerHTML }); }
-    catch (error) { this._preview.innerHTML = `<pre><code>${escapeHtml(this._value)}</code></pre>`; this._emitError("render", error, true); }
   }
   _getBlocks() {
     if (this._blockCacheValue === this._value && this._blockCache) return this._blockCache;
@@ -2283,7 +2217,7 @@ class WritemarkEditorElement extends HTMLElement {
       : decorateInline(block.line.text, options);
     return `<div ${lineAttrs(block.line, "paragraph")}>${content}</div>`;
   }
-  _lineEditable() { return (!this.disabled && !this.readonly && this.mode !== "preview") ? "true" : "false"; }
+  _lineEditable() { return (!this.disabled && !this.readonly) ? "true" : "false"; }
   _renderHeadingLine(text, heading) {
     const markerEnd = heading.indent.length + heading.markerText.length;
     return `<span class="md-token">${escapeHtml(text.slice(0, markerEnd))}</span>${decorateInline(text.slice(markerEnd), this._rendererOptions())}`;
@@ -2632,9 +2566,7 @@ class WritemarkEditorElement extends HTMLElement {
     this._announce(`Navigated to ${label || id}.`);
     return true;
   }
-  _onPreviewClick(event) {
-    this._navigateFragmentLink(event, this._preview);
-  }
+
   _onLiveClick(event) {
     if (this._suppressLiveClick) {
       this._suppressLiveClick = false;
@@ -2765,7 +2697,7 @@ class WritemarkEditorElement extends HTMLElement {
   _onNavigationKey(event) { if (NAVIGATION_KEYS.has(event.key)) this._onSelectionChanged(); }
 
   _maybeHandleLineBoundaryKey(event, activeCell = null, activeEditable = null) {
-    if (event.defaultPrevented || event.altKey || event.ctrlKey || activeCell || this.mode === "preview") return false;
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || activeCell) return false;
     const isMac = /Mac|iPhone|iPad|iPod/.test(globalThis.navigator?.platform ?? "");
     let boundary = null;
     if (!event.metaKey && (event.key === "Home" || event.key === "End")) boundary = event.key === "Home" ? "start" : "end";
@@ -3065,14 +2997,14 @@ class WritemarkEditorElement extends HTMLElement {
   }
 
   // Show the floating formatting toolbar above a non-empty selection in the live
-  // editor. Hidden in source/preview mode, while composing, when the slash
+  // editor. Hidden in source mode, while composing, when the slash
   // completion popup is open, when the editor isn't focused, or with no selection.
   _updateSelectionToolbar() {
     if (!this._selectionToolbar) return;
     const sel = this._selection;
     const hasRange = sel && sel.start !== sel.end;
     const canShow = hasRange && !this.disabled && !this._isComposing
-      && this.mode !== "source" && this.mode !== "split" && this.mode !== "preview"
+      && this.mode !== "source"
       && !this._completion.open && this._focusWithin;
     if (!canShow) { this._hideSelectionToolbar(); return; }
     const wasHidden = this._selectionToolbar.hidden;
@@ -3110,11 +3042,10 @@ class WritemarkEditorElement extends HTMLElement {
     this._selectionToolbar.style.top = `${top}px`;
   }
 
-  _isSourceActive() { return this._shadow.activeElement === this._sourceTextarea || this.mode === "source" || this.mode === "split"; }
+  _isSourceActive() { return this._shadow.activeElement === this._sourceTextarea || this.mode === "source"; }
   _focusEditable(options) {
     if (this.disabled) return;
-    if (this.mode === "source" || this.mode === "split") { this._sourceTextarea?.focus(options); this._sourceTextarea?.setSelectionRange(this._selection.start, this._selection.end, this._selection.direction); return; }
-    if (this.mode === "preview") { this._preview?.focus(options); return; }
+    if (this.mode === "source") { this._sourceTextarea?.focus(options); this._sourceTextarea?.setSelectionRange(this._selection.start, this._selection.end, this._selection.direction); return; }
     this._liveEditor?.focus(options); this._restoreLiveSelection(this._selection);
   }
   _getCurrentSelection() {
@@ -3285,6 +3216,7 @@ class WritemarkEditorElement extends HTMLElement {
       remaining -= len;
     }
     if (lastText) return { node: lastText, offset: lastText.nodeValue.length, editable: el };
+    if (el.firstChild && el.firstChild.nodeName === "BR") return { node: el, offset: 0, editable: el };
     const text = document.createTextNode(""); el.appendChild(text); return { node: text, offset: 0, editable: el };
   }
   _ensureEmptyLiveEditable() {
@@ -3949,7 +3881,7 @@ class WritemarkEditorElement extends HTMLElement {
     const sel = this._getCurrentSelection(); this._selection = sel;
     const parseOptions = this._parseOptions();
     const value = this._value; const line = getLineRange(value, sel.start); const currentLine = makeLineInfo(line.start, line.end, line.text, parseOptions); const selectedLines = getSelectedLineRanges(value, sel.start, sel.end, parseOptions); const block = classifyLine(value, sel.start, currentLine, parseOptions); const lineBeforeCursor = currentLine.text.slice(0, sel.start - currentLine.start);
-    return { value, selectionStart: sel.start, selectionEnd: sel.end, selectionDirection: sel.direction || "none", mode: this.disabled ? "disabled" : this.readonly ? "readonly" : this._isComposing ? "composing-ime" : this._completion.open ? (this._completion.providerId === "slash" ? "slash-open" : "completion-open") : "idle", currentLine, selectedLines, block, inline: { insideInlineCode: isInsideInlineCode(lineBeforeCursor) }, completion: { ...this._completion }, config: { mode: this.mode, preview: this.preview, markdownFlavor: this.markdownFlavor, tabBehavior: this.tabBehavior, indentString: this.indentString, disabled: this.disabled, readonly: this.readonly }, host: this };
+    return { value, selectionStart: sel.start, selectionEnd: sel.end, selectionDirection: sel.direction || "none", mode: this.disabled ? "disabled" : this.readonly ? "readonly" : this._isComposing ? "composing-ime" : this._completion.open ? (this._completion.providerId === "slash" ? "slash-open" : "completion-open") : "idle", currentLine, selectedLines, block, inline: { insideInlineCode: isInsideInlineCode(lineBeforeCursor) }, completion: { ...this._completion }, config: { mode: this.mode, markdownFlavor: this.markdownFlavor, tabBehavior: this.tabBehavior, indentString: this.indentString, disabled: this.disabled, readonly: this.readonly }, host: this };
   }
   _runAction(actionId, args, options = {}) {
     const action = this._actions.get(actionId); if (!action) return fail("not-applicable", `Unknown action: ${actionId}`);
@@ -4227,7 +4159,7 @@ class WritemarkEditorElement extends HTMLElement {
   _updateFormValue() { if (!this._internals) return; this.disabled ? this._internals.setFormValue(null) : this._internals.setFormValue(this._value); }
   _fallbackValidity() { const flags = this._computeValidityFlags(); return { valid: Object.keys(flags).length === 0, valueMissing: Boolean(flags.valueMissing), tooShort: Boolean(flags.tooShort), tooLong: Boolean(flags.tooLong), customError: Boolean(flags.customError) }; }
   _computeValidityFlags() { const flags = {}; const value = this._value; if (this._customValidityMessage) flags.customError = true; if (this.required) { const empty = DEFAULTS.emptyRequiredTrim ? value.trim().length === 0 : value.length === 0; if (empty) flags.valueMissing = true; } const min = parseLengthConstraint(this.getAttribute("minlength")); if (min != null && value.length > 0 && value.length < min) flags.tooShort = true; const max = parseLengthConstraint(this.getAttribute("maxlength")); if (max != null && value.length > max) flags.tooLong = true; return flags; }
-  _updateValidity() { if (!this._sourceTextarea) return; const flags = this._computeValidityFlags(); const valid = Object.keys(flags).length === 0; if (valid) this._validationVisible = false; for (const el of [this._sourceTextarea, this._liveEditor]) el?.setAttribute("aria-invalid", valid ? "false" : "true"); this._validation.textContent = ""; this._validationMessage = this._customValidityMessage || ""; const anchor = this.mode === "source" || this.mode === "split" ? this._sourceTextarea : this.mode === "preview" ? this._preview : this._liveEditor; const setValidityMessage = valid ? "" : (this._customValidityMessage || " "); this._internals?.setValidity(flags, setValidityMessage, anchor); }
+  _updateValidity() { if (!this._sourceTextarea) return; const flags = this._computeValidityFlags(); const valid = Object.keys(flags).length === 0; if (valid) this._validationVisible = false; for (const el of [this._sourceTextarea, this._liveEditor]) el?.setAttribute("aria-invalid", valid ? "false" : "true"); this._validation.textContent = ""; this._validationMessage = this._customValidityMessage || ""; const anchor = this.mode === "source" ? this._sourceTextarea : this._liveEditor; const setValidityMessage = valid ? "" : (this._customValidityMessage || " "); this._internals?.setValidity(flags, setValidityMessage, anchor); }
   _emitSelectionChange() { this._dispatch("md-selection-change", { selectionStart: this._selection.start, selectionEnd: this._selection.end, selectionDirection: this._selection.direction || "none" }); }
   _announce(message) { if (!message || !this._status) return; this._status.textContent = ""; requestAnimationFrame(() => { this._status.textContent = message; }); }
   _dispatch(name, detail = {}, options = {}) { const event = new CustomEvent(name, { detail, bubbles: options.bubbles ?? true, composed: options.composed ?? true, cancelable: options.cancelable ?? false }); this.dispatchEvent(event); return event; }

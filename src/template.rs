@@ -41,7 +41,7 @@ impl TemplateEngine {
                     template_name, e
                 )
             })?;
-            let script = strip_module_exports(&script);
+            let script = strip_module_exports_and_line_comments(&script);
             result = result.replace("{{writemark_js}}", &script);
         }
 
@@ -89,14 +89,13 @@ impl TemplateEngine {
     }
 }
 
-/// Remove top-level ES module `export ...;` statements so the source can run in
-/// a classic (non-module) `<script>` tag. Only lines whose first non-whitespace
-/// token is `export` are dropped, which is sufficient for writemark.js's single
-/// trailing named-export statement.
-fn strip_module_exports(source: &str) -> String {
+fn strip_module_exports_and_line_comments(source: &str) -> String {
     source
         .lines()
-        .filter(|line| !line.trim_start().starts_with("export "))
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            !trimmed.starts_with("export ") && !trimmed.starts_with("//")
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -175,5 +174,29 @@ mod tests {
         let result = engine.render("test", &context).unwrap();
         // Note: Our simple template engine doesn't escape HTML - this will be handled by ammonia
         assert_eq!(result, "<div><script>alert('xss')</script></div>");
+    }
+
+    #[test]
+    fn test_strip_module_exports_and_line_comments() {
+        let source = "\
+// full line comment
+  // indented full line comment
+const re = /https:\\/\\//g; // trailing comment stays
+const url = \"https://example.com\";
+export { Thing };
+  export default Thing;
+const x = 1;";
+
+        let result = strip_module_exports_and_line_comments(source);
+
+        // Full-line comments (including indented ones) are dropped.
+        assert!(!result.contains("full line comment"));
+        assert!(!result.contains("indented full line comment"));
+        // Top-level exports are dropped.
+        assert!(!result.contains("export"));
+        // Code with `//` inside a regex or string is preserved verbatim.
+        assert!(result.contains("const re = /https:\\/\\//g; // trailing comment stays"));
+        assert!(result.contains("const url = \"https://example.com\";"));
+        assert!(result.contains("const x = 1;"));
     }
 }
