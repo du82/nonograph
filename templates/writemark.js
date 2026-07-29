@@ -732,6 +732,12 @@ function parseSetextHeadingLevel(line) {
 }
 function isInsideInlineCode(lineBeforeCursor) { return ((lineBeforeCursor.match(/(?<!\\)`/g) || []).length % 2) === 1; }
 
+function trimTableCellPadding(cell) {
+  let value = String(cell ?? "");
+  if (value.startsWith(" ")) value = value.slice(1);
+  if (value.endsWith(" ")) value = value.slice(0, -1);
+  return value;
+}
 function splitTableRow(line) {
   let row = String(line ?? "").trim();
   if (row.startsWith("|")) row = row.slice(1);
@@ -742,10 +748,10 @@ function splitTableRow(line) {
   for (const char of row) {
     if (escaped) { current += char; escaped = false; continue; }
     if (char === "\\") { current += char; escaped = true; continue; }
-    if (char === "|") { cells.push(current.trim()); current = ""; continue; }
+    if (char === "|") { cells.push(trimTableCellPadding(current)); current = ""; continue; }
     current += char;
   }
-  cells.push(current.trim());
+  cells.push(trimTableCellPadding(current));
   return cells;
 }
 function isTableDelimiter(line) {
@@ -777,8 +783,8 @@ function parseTableLineRanges(line, absoluteStart) {
       const rawCellEnd = i;
       let from = cellStart;
       let to = i;
-      while (from < to && raw[from] === " ") from += 1;
-      while (to > from && raw[to - 1] === " ") to -= 1;
+      if (from < to && raw[from] === " ") from += 1;
+      if (to > from && raw[to - 1] === " ") to -= 1;
       if (from === to && rawCellEnd > rawCellStart && raw[rawCellStart] === " ") {
         from = Math.min(rawCellStart + 1, rawCellEnd);
         to = from;
@@ -1616,7 +1622,7 @@ class WritemarkEditorElement extends HTMLElement {
         .md-table-block { overflow: auto; margin-block: 0.5em; }
         .md-table { border-collapse: collapse; inline-size: 100%; table-layout: fixed; }
         .md-table th, .md-table td { border: 1px solid var(--md-editor-border); padding: 6px 8px; vertical-align: top; }
-        .md-table th { background: color-mix(in srgb, CanvasText 7%, Canvas 93%); font-weight: 700; }
+        .md-table th { background: color-mix(in srgb, CanvasText 7%, Canvas 93%); font-weight: 700; text-align: left; }
         .md-cell { min-height: 1.35em; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
         .preview :first-child { margin-block-start: 0; } .preview :last-child { margin-block-end: 0; }
         .preview pre { overflow: auto; padding: 10px; border-radius: 6px; background: var(--md-editor-code-bg); }
@@ -1624,7 +1630,7 @@ class WritemarkEditorElement extends HTMLElement {
         .preview :not(pre) > code { padding: 0.1em 0.3em; border-radius: 4px; background: var(--md-editor-code-bg); }
         .preview blockquote { border-inline-start: 4px solid var(--md-editor-border); margin-inline-start: 0; padding-inline-start: 1em; color: var(--md-editor-muted); }
         .preview img { max-inline-size: 100%; block-size: auto; }
-        .preview .md-table-wrap { overflow: auto; } .preview table { border-collapse: collapse; inline-size: 100%; } .preview th, .preview td { border: 1px solid var(--md-editor-border); padding: 6px 8px; }
+        .preview .md-table-wrap { overflow: auto; } .preview table { border-collapse: collapse; inline-size: 100%; } .preview th, .preview td { border: 1px solid var(--md-editor-border); padding: 6px 8px; } .preview th { text-align: left; }
         .completion-popup { position: absolute; z-index: 20; min-inline-size: 240px; max-inline-size: min(420px, 90vw); max-block-size: min(320px, 50vh); overflow: auto; border: 1px solid var(--md-editor-popup-border); border-radius: var(--md-editor-radius); background: var(--md-editor-popup-bg); color: var(--md-editor-popup-fg); box-shadow: var(--md-editor-popup-shadow); padding: 4px; }
         .completion-popup[hidden] { display: none; }
         /* Floating selection toolbar (bubble menu) shown above a text selection.
@@ -2544,7 +2550,7 @@ class WritemarkEditorElement extends HTMLElement {
     });
     if (!this._isComposing) this._scheduleCompletionUpdate();
   }
-  _plainText(el) { return (el.innerText ?? el.textContent ?? "").replace(/\u00a0/g, " ").replace(/\n+$/g, ""); }
+  _plainText(el) { return (el.textContent ?? "").replace(/\u00a0/g, " ").replace(/\n+$/g, ""); }
   _editableSourceRange(editable) {
     const from = Number(editable?.dataset?.from);
     const to = Number(editable?.dataset?.to);
