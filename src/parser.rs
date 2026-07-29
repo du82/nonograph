@@ -839,7 +839,7 @@ fn process_lists(text: &str) -> String {
     let mut i = 0;
 
     while i < lines.len() {
-        let line = lines[i].trim();
+        let line = lines[i];
 
         // Check if this line starts a list
         if is_list_item(line) {
@@ -895,13 +895,12 @@ fn remove_standalone_list_tags(text: &str) -> String {
 fn is_list_item(line: &str) -> bool {
     let trimmed = line.trim();
 
-    // Bulleted lists: - * + (including empty items like just "-")
     if trimmed == "-"
         || trimmed == "*"
         || trimmed == "+"
-        || line.starts_with("- ")
-        || line.starts_with("* ")
-        || line.starts_with("+ ")
+        || trimmed.starts_with("- ")
+        || trimmed.starts_with("* ")
+        || trimmed.starts_with("+ ")
     {
         return true;
     }
@@ -917,48 +916,140 @@ fn is_list_item(line: &str) -> bool {
     false
 }
 
+/// Number of leading whitespace columns (tabs count as the configured width).
+fn list_indent(line: &str) -> usize {
+    let mut indent = 0;
+    for c in line.chars() {
+        match c {
+            ' ' => indent += 1,
+            '\t' => indent += LIST_TAB_WIDTH,
+            _ => break,
+        }
+    }
+    indent
+}
+
+/// A single parsed list item, together with its indentation and any children.
+struct ListItem {
+    indent: usize,
+    ordered: bool,
+    content: String,
+    children: Vec<ListItem>,
+}
+
+const LIST_TAB_WIDTH: usize = 2;
+
 fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
-    let mut items = Vec::new();
     let mut i = start_idx;
-    let first_line = lines[start_idx].trim();
 
-    let is_ordered = first_line.chars().next().unwrap_or(' ').is_ascii_digit();
-
-    // Process all consecutive list items
+    let mut flat: Vec<ListItem> = Vec::new();
     while i < lines.len() {
-        let line = lines[i].trim();
+        let raw = lines[i];
+        let trimmed = raw.trim();
 
-        if line.is_empty() {
+        if trimmed.is_empty() {
             i += 1;
             continue;
         }
 
-        if !is_list_item(line) {
+        if !is_list_item(raw) {
             break;
         }
 
-        let trimmed = line.trim();
+        let indent = list_indent(raw);
+        let ordered = trimmed.chars().next().unwrap_or(' ').is_ascii_digit();
         let content = if trimmed == "-" || trimmed == "*" || trimmed == "+" {
-            "" // Empty list item
-        } else if line.starts_with("- ") || line.starts_with("* ") || line.starts_with("+ ") {
-            &line[2..] // Skip "- " or "* " or "+ "
-        } else if let Some(pos) = line.find(". ") {
-            &line[pos + 2..] // Skip "1. " or "2. " etc
+            "".to_string()
+        } else if trimmed.starts_with("- ")
+            || trimmed.starts_with("* ")
+            || trimmed.starts_with("+ ")
+        {
+            trimmed[2..].to_string()
+        } else if let Some(pos) = trimmed.find(". ") {
+            trimmed[pos + 2..].to_string()
         } else {
-            line
+            trimmed.to_string()
         };
 
-        items.push(format!("<li>{}</li>", content));
+        flat.push(ListItem {
+            indent,
+            ordered,
+            content,
+            children: Vec::new(),
+        });
         i += 1;
     }
 
-    let list_html = if is_ordered {
-        format!("<ol>{}</ol>", items.join(""))
-    } else {
-        format!("<ul>{}</ul>", items.join(""))
-    };
+    let mut idx = 0;
+    let tree = build_list_tree(&flat, &mut idx, flat.first().map_or(0, |item| item.indent));
+    let list_html = render_list_tree(&tree);
 
     (list_html, i - start_idx)
+}
+
+fn build_list_tree(flat: &[ListItem], idx: &mut usize, level: usize) -> Vec<ListItem> {
+    let mut siblings: Vec<ListItem> = Vec::new();
+
+    while *idx < flat.len() {
+        let item = &flat[*idx];
+
+        if item.indent < level {
+            // Belongs to an outer list; stop here.
+            break;
+        }
+
+        if item.indent > level {
+            let child_level = item.indent;
+            let children = build_list_tree(flat, idx, child_level);
+            if let Some(last) = siblings.last_mut() {
+                last.children.extend(children);
+            } else {
+                siblings.extend(children);
+            }
+            continue;
+        }
+
+        *idx += 1;
+        let mut node = ListItem {
+            indent: item.indent,
+            ordered: item.ordered,
+            content: item.content.clone(),
+            children: Vec::new(),
+        };
+
+        if *idx < flat.len() && flat[*idx].indent > level {
+            let child_level = flat[*idx].indent;
+            node.children = build_list_tree(flat, idx, child_level);
+        }
+
+        siblings.push(node);
+    }
+
+    siblings
+}
+
+fn render_list_tree(items: &[ListItem]) -> String {
+    if items.is_empty() {
+        return String::new();
+    }
+
+    let ordered = items[0].ordered;
+    let mut inner = String::new();
+
+    for item in items {
+        inner.push_str("<li>");
+        inner.push_str(&item.content);
+        if !item.children.is_empty() {
+            inner.push_str(&render_list_tree(&item.children));
+        }
+        inner.push_str("</li>");
+    }
+
+    if ordered {
+        format!("<ol>{}</ol>", inner)
+    } else {
+        format!("<ul>{}</ul>", inner)
+    }
 }
 
 fn restore_fenced_code_blocks_with_config(
@@ -2244,6 +2335,44 @@ var x = 1;
         assert!(!not_list_result.contains("<ul>"));
         assert!(!not_list_result.contains("<ol>"));
         assert!(!not_list_result.contains("<li>"));
+    }
+
+    #[test]
+    fn test_nested_ordered_lists() {
+        let input = "1. This is neat\n2. Hello world\n  3. nesting is cool\n  4. what else can\n5. one do with nesting?\n  6. Not sure";
+        let result = render_markdown(input);
+
+        assert!(result.contains("<li>This is neat</li>"));
+        assert!(result.contains("<li>one do with nesting?<ol>"));
+        assert!(result.contains("<li>Hello world<ol>"));
+        assert!(result.contains("<li>nesting is cool</li>"));
+        assert!(result.contains("<li>what else can</li>"));
+        assert!(result.contains("<li>Not sure</li>"));
+
+        assert!(result.contains(
+            "<li>Hello world<ol><li>nesting is cool</li><li>what else can</li></ol></li>"
+        ));
+        assert!(result.contains("<li>one do with nesting?<ol><li>Not sure</li></ol></li>"));
+    }
+
+    #[test]
+    fn test_nested_bulleted_lists() {
+        let input = "* this is neat\n  * wow you can nest these too!\n  * woah\n* huh nested bullets!\n* whats up with that\n  * yay!\n  * wow";
+        let result = render_markdown(input);
+
+        assert!(result.contains(
+            "<li>this is neat<ul><li>wow you can nest these too!</li><li>woah</li></ul></li>"
+        ));
+        assert!(result.contains("<li>huh nested bullets!</li>"));
+        assert!(result.contains("<li>whats up with that<ul><li>yay!</li><li>wow</li></ul></li>"));
+    }
+
+    #[test]
+    fn test_deeply_nested_lists() {
+        let input = "- a\n  - b\n    - c\n  - d\n- e";
+        let result = render_markdown(input);
+        assert!(result.contains("<li>a<ul><li>b<ul><li>c</li></ul></li><li>d</li></ul></li>"));
+        assert!(result.contains("<li>e</li>"));
     }
 
     #[test]
