@@ -3503,6 +3503,7 @@ Third paragraph with *italic* formatting."#;
         assert!(context_result.contains("<table>"));
     }
 
+    #[test]
     fn test_table_abovebelow_blanklines() {
         let text = "testing\n| hi | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell 1 | Cell 2 | Cell 3 |\nafter text";
         let result = render_markdown(text);
