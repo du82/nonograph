@@ -1554,7 +1554,7 @@ class WritemarkEditorElement extends HTMLElement {
         .md-h4 { font-size: 1.18em; }
         .md-list { padding-inline-start: calc(var(--md-list-depth, 0) * 1.4em + 2px); }
         .md-task-line { display: flex; align-items: baseline; gap: 0.35em; }
-        .md-task-line input { transform: translateY(0.12em); }
+        .md-task-line input { transform: translateY(0.12em); accent-color: var(--md-editor-checkbox-accent, #333); }
         .md-task-source { flex: 1; min-width: 0; white-space: pre-wrap; outline: none; border-radius: 6px; }
         .md-quote {
           --md-quote-depth: 1;
@@ -3940,12 +3940,12 @@ class WritemarkEditorElement extends HTMLElement {
     r({ id: "block.blockquote", label: "Blockquote", group: "Blocks", aliases: ["quote", "blockquote"], visibleInSlash: true, run: ctx => this._toggleBlockquote(ctx) });
     r({ id: "block.bulletList", label: "Bullet list", group: "Blocks", aliases: ["bullet", "ul", "list"], visibleInSlash: true, run: ctx => this._toggleList(ctx, "bullet") });
     r({ id: "block.orderedList", label: "Numbered list", group: "Blocks", aliases: ["number", "numbered", "ol"], visibleInSlash: true, run: ctx => this._toggleList(ctx, "ordered") });
+    r({ id: "block.taskList", label: "Task list", group: "Blocks", aliases: ["todo", "task", "checkbox"], visibleInSlash: true, run: ctx => this._toggleList(ctx, "task") });
     r({ id: "block.table", label: "Table", group: "Insert", aliases: ["table", "grid"], visibleInSlash: true, run: (ctx, args = {}) => this._insertTable(ctx, args) });
     r({ id: "inline.secret", label: "Hidden text", group: "Inline", aliases: ["secret", "spoiler", "hidden"], visibleInSlash: true, run: ctx => this._wrapInline(ctx, "#", "#", "Hidden text") });
     r({ id: "block.horizontalRule", label: "Divider", group: "Insert", aliases: ["hr", "divider", "rule"], visibleInSlash: true, run: ctx => this._insertHorizontalRule(ctx) });
     // Available as actions/shortcuts but not surfaced in the slash menu (not part of nonograph's set).
     r({ id: "block.paragraph", label: "Paragraph", group: "Blocks", aliases: ["p", "text", "clear"], run: ctx => this._toggleParagraph(ctx) });
-    r({ id: "block.taskList", label: "Task list", group: "Blocks", aliases: ["todo", "task", "checkbox"], run: ctx => this._toggleList(ctx, "task") });
     r({ id: "block.taskDone", label: "Toggle task done", group: "Blocks", aliases: ["done", "check"], run: ctx => this._toggleTaskDone(ctx) });    r({ id: "view.live", label: "Live mode", group: "View", viewSafe: true, readonlySafe: true, run: () => { this.mode = "live"; return okNoop("Live mode."); } });
     r({ id: "view.source", label: "Source mode", group: "View", viewSafe: true, readonlySafe: true, run: () => { this.mode = "source"; return okNoop("Source mode."); } });
     r({ id: "completion.close", label: "Close completion", group: "Completion", viewSafe: true, run: () => { this._closeCompletion(); return okNoop("Completion closed."); } });

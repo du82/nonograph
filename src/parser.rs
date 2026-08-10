@@ -380,6 +380,7 @@ fn sanitize_html(html: String) -> String {
             "ol",
             "ul",
             "li",
+            "input",
             "button",
             "svg",
             "polyline",
@@ -397,7 +398,9 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("a", &["href", "target", "id", "class"])
         .add_tag_attributes("div", &["class"])
         .add_tag_attributes("hr", &["class"])
-        .add_tag_attributes("li", &["id"])
+        .add_tag_attributes("ul", &["class"])
+        .add_tag_attributes("li", &["id", "class"])
+        .add_tag_attributes("input", &["type", "checked", "disabled"])
         .add_tag_attributes("sup", &["id"])
         .add_tag_attributes("h1", &["id"])
         .add_tag_attributes("h2", &["id"])
@@ -933,8 +936,31 @@ fn list_indent(line: &str) -> usize {
 struct ListItem {
     indent: usize,
     ordered: bool,
+    task: Option<bool>,
     content: String,
     children: Vec<ListItem>,
+}
+
+fn parse_task_marker(content: &str) -> Option<(bool, String)> {
+    let mut chars = content.chars();
+    if chars.next()? != '[' {
+        return None;
+    }
+    let state = chars.next()?;
+    if chars.next()? != ']' {
+        return None;
+    }
+    let checked = match state {
+        ' ' => false,
+        'x' | 'X' => true,
+        _ => return None,
+    };
+    let rest = &content[3..];
+    match rest.chars().next() {
+        None => Some((checked, String::new())),
+        Some(c) if c.is_whitespace() => Some((checked, rest.trim_start().to_string())),
+        _ => None,
+    }
 }
 
 const LIST_TAB_WIDTH: usize = 2;
@@ -971,9 +997,19 @@ fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
             trimmed.to_string()
         };
 
+        let (task, content) = if ordered {
+            (None, content)
+        } else {
+            match parse_task_marker(&content) {
+                Some((checked, rest)) => (Some(checked), rest),
+                None => (None, content),
+            }
+        };
+
         flat.push(ListItem {
             indent,
             ordered,
+            task,
             content,
             children: Vec::new(),
         });
@@ -1013,6 +1049,7 @@ fn build_list_tree(flat: &[ListItem], idx: &mut usize, level: usize) -> Vec<List
         let mut node = ListItem {
             indent: item.indent,
             ordered: item.ordered,
+            task: item.task,
             content: item.content.clone(),
             children: Vec::new(),
         };
@@ -1034,10 +1071,21 @@ fn render_list_tree(items: &[ListItem]) -> String {
     }
 
     let ordered = items[0].ordered;
+    let has_task = items.iter().any(|item| item.task.is_some());
     let mut inner = String::new();
 
     for item in items {
-        inner.push_str("<li>");
+        match item.task {
+            Some(checked) => {
+                inner.push_str("<li class=\"task-list-item\">");
+                inner.push_str(if checked {
+                    "<input type=\"checkbox\" checked> "
+                } else {
+                    "<input type=\"checkbox\"> "
+                });
+            }
+            None => inner.push_str("<li>"),
+        }
         inner.push_str(&item.content);
         if !item.children.is_empty() {
             inner.push_str(&render_list_tree(&item.children));
@@ -1047,6 +1095,8 @@ fn render_list_tree(items: &[ListItem]) -> String {
 
     if ordered {
         format!("<ol>{}</ol>", inner)
+    } else if has_task {
+        format!("<ul class=\"contains-task-list\">{}</ul>", inner)
     } else {
         format!("<ul>{}</ul>", inner)
     }
@@ -2347,6 +2397,79 @@ var x = 1;
         assert!(!not_list_result.contains("<ul>"));
         assert!(!not_list_result.contains("<ol>"));
         assert!(!not_list_result.contains("<li>"));
+    }
+
+    #[test]
+    fn test_markdown_task_lists() {
+        let tasks = "- [ ] Todo item\n- [x] Done item\n- [X] Also done";
+        let result = render_markdown(tasks);
+        assert!(result.contains("<ul class=\"contains-task-list\">"));
+        assert!(result.contains("<li class=\"task-list-item\">"));
+        assert!(result.contains("<input type=\"checkbox\"> Todo item"));
+        assert!(result.contains("<input type=\"checkbox\" checked=\"\"> Done item"));
+        assert!(result.contains("<input type=\"checkbox\" checked=\"\"> Also done"));
+
+        let plain = "- Regular item";
+        let plain_result = render_markdown(plain);
+        assert!(plain_result.contains("<ul>"));
+        assert!(!plain_result.contains("task-list-item"));
+        assert!(!plain_result.contains("checkbox"));
+
+        let bracketed = "- [abc] item";
+        let bracketed_result = render_markdown(bracketed);
+        assert!(!bracketed_result.contains("<input"));
+        assert!(bracketed_result.contains("<li>[abc] item</li>"));
+    }
+
+    #[test]
+    fn test_task_list_marker_validation() {
+        // Valid: `- [ ]` and `- [x]` produce checkboxes.
+        for valid in ["- [ ] test", "- [x] test"] {
+            let out = render_markdown(valid);
+            assert!(out.contains("<input"), "expected checkbox for {valid:?}");
+        }
+
+        // Invalid: no space after the dash means it isn't even a list item.
+        for not_a_list in ["-[] test", "-[]test"] {
+            let out = render_markdown(not_a_list);
+            assert!(!out.contains("<li"), "{not_a_list:?} must not be a list");
+            assert!(!out.contains("<input"));
+        }
+
+        // Invalid: empty brackets / missing space are plain list items, no checkbox.
+        for no_checkbox in ["- [] test", "- []test"] {
+            let out = render_markdown(no_checkbox);
+            assert!(
+                out.contains("<li>"),
+                "{no_checkbox:?} should be a plain item"
+            );
+            assert!(
+                !out.contains("<input"),
+                "{no_checkbox:?} must not have a checkbox"
+            );
+        }
+    }
+
+    #[test]
+    fn test_nested_task_lists() {
+        // Nested checkboxes work like nested lists: indentation creates a child <ul>.
+        let input = "- [ ] Parent\n  - [x] Child done\n  - [ ] Child todo";
+        let result = render_markdown(input);
+
+        // Outer and inner lists both carry the task-list class.
+        assert_eq!(
+            result.matches("<ul class=\"contains-task-list\">").count(),
+            2
+        );
+        assert!(result.contains("<input type=\"checkbox\"> Parent"));
+        assert!(result.contains("<input type=\"checkbox\" checked=\"\"> Child done"));
+        assert!(result.contains("<input type=\"checkbox\"> Child todo"));
+
+        // A task list can nest a plain bullet list and vice versa.
+        let mixed = "- [ ] Task\n  - Plain child";
+        let mixed_result = render_markdown(mixed);
+        assert!(mixed_result.contains("<input"));
+        assert!(mixed_result.contains("<li>Plain child</li>"));
     }
 
     #[test]
