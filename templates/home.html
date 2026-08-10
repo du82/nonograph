@@ -941,6 +941,7 @@
             }
 
             // The writemark editor emits input events as the document changes.
+            editor.addEventListener("md-input", updateCharCount);
             editor.addEventListener("input", updateCharCount);
             editor.addEventListener("md-change", updateCharCount);
 

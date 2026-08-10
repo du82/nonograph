@@ -1851,6 +1851,7 @@ class WritemarkEditorElement extends HTMLElement {
     if (["user", "keyboard", "paste", "pointer"].includes(source)) this._validationVisible = true;
     this._updateFormValue(); this._updateValidity(); this._renderAll({ restoreSelection, previousValue, changes });
     const oldDirty = this._dirty; this._dirty = this._value !== this._defaultValue; if (oldDirty !== this._dirty) this._dispatch("md-dirty-change", { dirty: this._dirty });
+    this._updateSelectionToolbar();
     if (!silent) this._dispatch("md-input", { value: this._value, source, inputType });
   }
   _renderAll({ restoreSelection = true, previousValue = null, changes = null, force = false } = {}) {

@@ -685,56 +685,38 @@ fn view_post(
                 )))),
             }
         }
-        None => {
-            let html_404 = r#"<!doctype html>
-<html>
-<head>
-    <title>404 - Page not found</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-        body {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            text-align: center;
-            color: #333;
-        }
-        h1 { font-weight: 300; margin-bottom: 16px; }
-        a { color: #333; }
-    </style>
-</head>
-<body>
-    <h1>Page Not Found</h1>
-    <p><a href="/">Write Your Own</a></p>
-</body>
-</html>"#;
-
-            Err((
-                Status::NotFound,
-                rocket::Either::Right(content::RawHtml(html_404.to_string())),
-            ))
-        }
+        None => Err((
+            Status::NotFound,
+            rocket::Either::Right(content::RawHtml(NOT_FOUND_HTML.to_string())),
+        )),
     }
 }
 
 #[get("/markup")]
-fn markup_page(config: &State<Config>) -> content::RawHtml<String> {
+fn markup_page(
+    config: &State<Config>,
+) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     serve_static_page("markup", config)
 }
 
 #[get("/legal")]
-fn legal_page(config: &State<Config>) -> content::RawHtml<String> {
+fn legal_page(
+    config: &State<Config>,
+) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     serve_static_page("legal", config)
 }
 
 #[get("/about")]
-fn about_page(config: &State<Config>) -> content::RawHtml<String> {
+fn about_page(
+    config: &State<Config>,
+) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     serve_static_page("about", config)
 }
 
 #[get("/api")]
-fn api_page(config: &State<Config>) -> content::RawHtml<String> {
+fn api_page(
+    config: &State<Config>,
+) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     serve_static_page("api", config)
 }
 
@@ -849,7 +831,34 @@ fn nojs_create_post(
     Ok(rocket::response::Redirect::to(format!("/nojs/{}", post_id)))
 }
 
-fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtml<String> {
+const NOT_FOUND_HTML: &str = r#"<!doctype html>
+<html>
+<head>
+    <title>404 - Page not found</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+            color: #333;
+        }
+        h1 { font-weight: 300; margin-bottom: 16px; }
+        a { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Page Not Found</h1>
+    <p><a href="/">Write Your Own</a></p>
+</body>
+</html>"#;
+
+fn serve_static_page(
+    page_name: &str,
+    config: &State<Config>,
+) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     let file_path = format!("content/{}.md", page_name);
 
     match std::fs::read_to_string(&file_path) {
@@ -867,7 +876,10 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 let mut context = HashMap::new();
                 context.insert("title".to_string(), title);
                 context.insert("content".to_string(), rendered_content);
-                context.insert("created_at".to_string(), created_at.format("%B %d, %Y").to_string());
+                context.insert(
+                    "created_at".to_string(),
+                    created_at.format("%B %d, %Y").to_string(),
+                );
                 context.insert("author".to_string(), author);
                 context.insert("author_display".to_string(), String::new());
                 context.insert(
@@ -879,19 +891,20 @@ fn serve_static_page(page_name: &str, config: &State<Config>) -> content::RawHtm
                 context.insert("post_id".to_string(), page_name.to_string());
 
                 match engine.render("post", &context) {
-                    Ok(html) => content::RawHtml(html),
-                    Err(e) => content::RawHtml(format!("Template error: {}", e)),
+                    Ok(html) => Ok(content::RawHtml(html)),
+                    Err(e) => Ok(content::RawHtml(format!("Template error: {}", e))),
                 }
             } else {
-                content::RawHtml(format!("<h1>Error</h1><p>Invalid file format for {}</p>", page_name))
+                Ok(content::RawHtml(format!(
+                    "<h1>Error</h1><p>Invalid file format for {}</p>",
+                    page_name
+                )))
             }
         }
-        Err(_) => {
-            content::RawHtml(format!(
-                "<h1>Page Not Found</h1><p>The {} page doesn't exist yet.</p><p><a href=\"/\">← Home</a></p>",
-                page_name
-            ))
-        }
+        Err(_) => Err((
+            Status::NotFound,
+            content::RawHtml(NOT_FOUND_HTML.to_string()),
+        )),
     }
 }
 
