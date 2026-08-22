@@ -15,7 +15,7 @@
   <a href="https://github.com/du82/nonograph/commits/main/">
     <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/w/du82/nonograph">
   </a>
-  <a href="http://aue5jcgehi2uq5gdrxuhfqmyw4yfrsq3ggd7bvcydqyhlnwha27iqiad.onion/">
+  <a href="http://ortmy3ey5usdzf4ivht6axtb72owjniaeqrexknosyons544aooltzyd.onion/">
     <img src="https://img.shields.io/badge/Tor-Hidden%20Service-7d4698?style=flat&logo=torproject&logoColor=white" alt="Tor Hidden Service">
   </a>
 
