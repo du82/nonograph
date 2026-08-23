@@ -256,6 +256,52 @@ impl Fairing for OnionLocationFairing {
     }
 }
 
+
+// Add security headers to every response.
+struct SecurityHeadersFairing;
+
+#[rocket::async_trait]
+impl Fairing for SecurityHeadersFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "Security headers (CSP et al.)",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        // TODO: Refactor HTML and remove unsafe-inline.
+        response.set_header(Header::new(
+            "Content-Security-Policy",
+            "default-src 'self'; \
+             base-uri 'self'; \
+             font-src 'self' https: data:; \
+             form-action 'self'; \
+             frame-ancestors 'self'; \
+             img-src 'self' data:; \
+             object-src 'none'; \
+             script-src 'self' 'unsafe-inline'; \
+             script-src-attr 'none'; \
+             style-src 'self' https: 'unsafe-inline'",
+        ));
+        response.set_header(Header::new("Cross-Origin-Opener-Policy", "same-origin"));
+        response.set_header(Header::new("Cross-Origin-Resource-Policy", "same-origin"));
+        response.set_header(Header::new("Origin-Agent-Cluster", "?1"));
+        response.set_header(Header::new("Referrer-Policy", "no-referrer"));
+        response.set_header(Header::new(
+            "Strict-Transport-Security",
+            "max-age=15552000; includeSubDomains",
+        ));
+        response.set_header(Header::new("X-Content-Type-Options", "nosniff"));
+        response.set_header(Header::new("X-DNS-Prefetch-Control", "off"));
+        response.set_header(Header::new("X-Download-Options", "noopen"));
+        response.set_header(Header::new("X-Frame-Options", "SAMEORIGIN"));
+        response.set_header(Header::new("X-Permitted-Cross-Domain-Policies", "none"));
+        response.set_header(Header::new("X-XSS-Protection", "0"));
+        response.set_header(Header::new("Cache-Control", "no-store, max-age=0"));
+    }
+}
+
 struct CsrfProtected;
 
 #[rocket::async_trait]
@@ -993,6 +1039,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 .unwrap_or("127.0.0.1".parse().unwrap()),
             ..rocket::Config::default()
         })
+        .attach(SecurityHeadersFairing)
         .manage(storage)
         .manage(FileSaveQueue::new(file_save_sender))
         .manage(config)
