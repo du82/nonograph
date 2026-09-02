@@ -313,6 +313,30 @@ impl<'r> FromRequest<'r> for CsrfProtected {
     }
 }
 
+/// Maximum length of a post identifier, matching typical filesystem limits on
+/// a single path component.
+const MAX_POST_ID_LEN: usize = 255;
+
+/// Returns `true` if `id` is a well-formed post identifier.
+///
+/// A valid identifier is a non-empty, length-bounded slug composed only of
+/// ASCII letters, digits, hyphens, and underscores. Every identifier the
+/// application produces satisfies this: [`generate_post_id`] emits
+/// `[a-z0-9-]`, the static pages are lowercase words, and the Telegraph
+/// archiver yields `[A-Za-z0-9_-]` slugs.
+///
+/// This is the trust boundary for untrusted path input. Because `.`, `/`, and
+/// `\` are all rejected, a value that passes this check cannot express a
+/// path-traversal sequence such as `../`, so it can be safely interpolated
+/// into a `content/{id}.md` path.
+fn is_valid_post_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= MAX_POST_ID_LEN
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
 fn generate_post_id(title: &str, storage: &PostStorage) -> Result<String, String> {
     let now = Utc::now();
     let date_str = now.format("%m-%d-%Y").to_string();
@@ -612,6 +636,15 @@ fn view_post(
     } else {
         &post_id
     };
+
+    // Reject identifiers that could escape the content directory before any
+    // filesystem access takes place. See `is_valid_post_id`.
+    if !is_valid_post_id(actual_post_id) {
+        return Err((
+            Status::NotFound,
+            rocket::Either::Right(content::RawHtml(NOT_FOUND_HTML.to_string())),
+        ));
+    }
 
     if is_raw_request {
         let file_path = format!("content/{}.md", actual_post_id);
@@ -1082,6 +1115,65 @@ mod tests {
         // Test with special characters
         let id2 = generate_post_id("Hello, World! & More", &storage).unwrap();
         assert!(id2.contains("hello-world-more"));
+    }
+
+    #[test]
+    fn test_is_valid_post_id_accepts_generated_ids() {
+        // Slugs produced by generate_post_id and the static pages.
+        assert!(is_valid_post_id("hello-world-09-01-2026"));
+        assert!(is_valid_post_id("hello-world-09-01-2026-3"));
+        assert!(is_valid_post_id("na-ab12-09-01-2026"));
+        assert!(is_valid_post_id("about"));
+        // Telegraph archiver slugs may contain uppercase and underscores.
+        assert!(is_valid_post_id("Sample-Page-12-15"));
+        assert!(is_valid_post_id("some_post_1"));
+    }
+
+    #[test]
+    fn test_is_valid_post_id_rejects_traversal() {
+        // Path separators and dot segments must never be accepted, in any
+        // form the router can deliver after percent-decoding.
+        assert!(!is_valid_post_id(""));
+        assert!(!is_valid_post_id(".."));
+        assert!(!is_valid_post_id("../README"));
+        assert!(!is_valid_post_id("../../etc/passwd"));
+        assert!(!is_valid_post_id("..\\README"));
+        assert!(!is_valid_post_id("foo/bar"));
+        assert!(!is_valid_post_id("foo.bar"));
+        assert!(!is_valid_post_id("post.md"));
+        assert!(!is_valid_post_id("a b"));
+        assert!(!is_valid_post_id("post\0"));
+    }
+
+    #[test]
+    fn test_is_valid_post_id_length_bound() {
+        let at_limit = "a".repeat(MAX_POST_ID_LEN);
+        let over_limit = "a".repeat(MAX_POST_ID_LEN + 1);
+        assert!(is_valid_post_id(&at_limit));
+        assert!(!is_valid_post_id(&over_limit));
+    }
+
+    #[test]
+    fn test_generated_ids_are_always_valid() {
+        // Every id generate_post_id can emit must pass the read-path guard,
+        // otherwise a freshly created post would 404. These titles exercise
+        // each slug branch: a normal slug, the symbol-only and whitespace-only
+        // fallbacks ("na-XXXX"), and the long-title truncation ("-etc").
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+        for title in [
+            "Hello World",
+            "Special!@#$%Characters",
+            "!@#$%^&*()",
+            "   ",
+            &"very long title ".repeat(40),
+        ] {
+            let id = generate_post_id(title, &storage).unwrap();
+            assert!(
+                is_valid_post_id(&id),
+                "generated id {:?} rejected by is_valid_post_id",
+                id
+            );
+        }
     }
 
     #[test]
