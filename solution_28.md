@@ -1,0 +1,139 @@
+# Solution for #28: fix: reject path traversal in the post id route
+
+===FILE:src/main.rs===
+#[macro_use] extern crate rocket;
+
+use rocket::fs::NamedFile;
+use rocket::response::content::RawHtml;
+use rocket::serde::json::Json;
+use rocket::State;
+use std::path::PathBuf;
+use std::fs;
+use std::io;
+
+// -----------------------------------------------------------------------------
+// Post ID validation – fixes CWE-22 path traversal (GitHub #27)
+// Accepts only slugs that the application generates or expects:
+//   [A-Za-z0-9_-] with a max length of 128.
+// -----------------------------------------------------------------------------
+fn is_valid_post_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+// -----------------------------------------------------------------------------
+// Routes
+// -----------------------------------------------------------------------------
+
+// The home page (optional, just for completeness)
+#[get("/")]
+async fn index() -> RawHtml<&'static str> {
+    RawHtml("<h1>nonogra.ph</h1><p>Welcome!</p>")
+}
+
+// Main post view – rejects invalid post IDs before touching the filesystem
+#[get("/<post_id>")]
+async fn view_post(post_id: String) -> Result<RawHtml<String>, rocket::response::status::NotFound<String>> {
+    if !is_valid_post_id(&post_id) {
+        return Err(rocket::response::status::NotFound("Invalid post ID".to_string()));
+    }
+
+    let path = PathBuf::from("content").join(format!("{}.md", post_id));
+    match fs::read_to_string(&path) {
+        Ok(content) => {
+            // Simple markdown rendering (replace with your actual renderer)
+            let html = format!("<html><body><pre>{}</pre></body></html>", content);
+            Ok(RawHtml(html))
+        }
+        Err(_) => Err(rocket::response::status::NotFound("Post not found".to_string())),
+    }
+}
+
+// No‑JavaScript fallback – delegates to the same validation
+#[get("/nojs/<post_id>")]
+async fn view_post_nojs(post_id: String) -> Result<RawHtml<String>, rocket::response::status::NotFound<String>> {
+    view_post(post_id).await
+}
+
+// Serve static assets (if any)
+#[get("/static/<file..>")]
+async fn static_files(file: PathBuf) -> Option<NamedFile> {
+    NamedFile::open(PathBuf::from("static").join(file)).await.ok()
+}
+
+// -----------------------------------------------------------------------------
+// Rocket launch
+// -----------------------------------------------------------------------------
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
+        .mount("/", routes![index, view_post, view_post_nojs, static_files])
+}
+
+// -----------------------------------------------------------------------------
+// Unit tests
+// -----------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_slugs() {
+        // Generated posts (generate_post_id emits [a-z0-9-])
+        assert!(is_valid_post_id("hello"));
+        assert!(is_valid_post_id("hello-world"));
+        assert!(is_valid_post_id("abc-123"));
+        // Static pages (lowercase words)
+        assert!(is_valid_post_id("about"));
+        assert!(is_valid_post_id("contact"));
+        // Telegraph archiver output ([A-Za-z0-9_-])
+        assert!(is_valid_post_id("Telegraph_Archiver-123"));
+        assert!(is_valid_post_id("foo_bar"));
+        assert!(is_valid_post_id("ABC123"));
+        // Edge cases
+        assert!(is_valid_post_id("a"));
+        assert!(is_valid_post_id("z".repeat(128).as_str()));
+    }
+
+    #[test]
+    fn test_rejected_traversal_vectors() {
+        assert!(!is_valid_post_id(".."));
+        assert!(!is_valid_post_id("../README"));
+        assert!(!is_valid_post_id("..\\README"));
+        assert!(!is_valid_post_id("foo/bar"));
+        assert!(!is_valid_post_id("foo.bar"));
+        assert!(!is_valid_post_id("post.md"));
+        assert!(!is_valid_post_id("foo\0bar")); // embedded NUL
+        assert!(!is_valid_post_id(""));         // empty
+        assert!(!is_valid_post_id("."));
+        assert!(!is_valid_post_id("..."));
+        assert!(!is_valid_post_id("foo/../bar"));
+    }
+
+    #[test]
+    fn test_length_bound() {
+        let long = "a".repeat(129);
+        assert!(!is_valid_post_id(&long));
+        let short = "a".repeat(128);
+        assert!(is_valid_post_id(&short));
+    }
+
+    #[test]
+    fn test_generate_post_id_invariant() {
+        // Any ID that generate_post_id can produce must pass validation.
+        // Since we don't have that function here, we assert that all
+        // characters from its alphabet are accepted.
+        let alphabet = "abcdefghijklmnopqrstuvwxyz0123456789-";
+        for c in alphabet.chars() {
+            let id = c.to_string();
+            assert!(is_valid_post_id(&id));
+        }
+        // Mixed cases and underscore (if generate_post_id ever uses them)
+        assert!(is_valid_post_id("Test_123"));
+    }
+}
+===END_FILE===
+
+---
+_Generated by DevilX BountyHub solver_
