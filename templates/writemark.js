@@ -1606,6 +1606,25 @@ class WritemarkEditorElement extends HTMLElement {
         .md-table th, .md-table td { border: 1px solid var(--md-editor-border); padding: 6px 8px; vertical-align: top; }
         .md-table th { background: color-mix(in srgb, CanvasText 7%, Canvas 93%); font-weight: 700; text-align: left; }
         .md-cell { min-height: 1.35em; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; }
+        /* Hover controls (add/remove rows and columns): identically sized,
+           2px-corner tabs. The block adds no padding, so table spacing matches
+           the base rule (margin-block: 0.5em). Each tab is centered on a table
+           edge: column-delete on the top, row-add on the bottom, and column-add
+           and row-delete on the right (over the cells' right padding). Nothing
+           extends horizontally, so there is no scrollbar; overflow is shown so
+           the top/bottom tabs are not clipped. */
+        .md-has-controls { position: relative; overflow: visible; }
+        .md-has-controls .md-table th, .md-has-controls .md-table td { position: relative; }
+        .md-tbl-ctl { position: absolute; z-index: 3; box-sizing: border-box; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--md-editor-border); border-radius: 2px; background: var(--md-editor-code-bg, Canvas); color: var(--md-editor-fg); cursor: pointer; opacity: 0; transition: opacity 0.12s ease; user-select: none; }
+        .md-tbl-ctl svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+        .md-tbl-ctl:focus-visible { opacity: 1; outline: 2px solid var(--md-editor-accent, Highlight); outline-offset: 1px; }
+        [data-table-control="add-col"] { right: 0; top: 50%; transform: translateY(-50%); }
+        [data-table-control="add-row"] { left: 50%; bottom: 0; transform: translate(-50%, 50%); }
+        [data-table-control="del-col"] { left: 50%; top: 0; transform: translate(-50%, -50%); }
+        [data-table-control="del-row"] { right: 0; top: 50%; transform: translateY(-50%); }
+        .md-has-controls:hover [data-table-control^="add-"], .md-has-controls:focus-within [data-table-control^="add-"] { opacity: 0.5; }
+        .md-table th:hover [data-table-control="del-col"], .md-table tr:hover [data-table-control="del-row"] { opacity: 0.6; }
+        .md-has-controls .md-tbl-ctl:hover { opacity: 1; background: color-mix(in srgb, CanvasText 12%, Canvas 88%); }
         .completion-popup { position: absolute; z-index: 20; min-inline-size: 240px; max-inline-size: min(420px, 90vw); max-block-size: min(320px, 50vh); overflow: auto; border: 1px solid var(--md-editor-popup-border); border-radius: var(--md-editor-radius); background: var(--md-editor-popup-bg); color: var(--md-editor-popup-fg); box-shadow: var(--md-editor-popup-shadow); padding: 4px; }
         .completion-popup[hidden] { display: none; }
         /* Floating selection toolbar (bubble menu) shown above a text selection.
@@ -2249,14 +2268,33 @@ class WritemarkEditorElement extends HTMLElement {
   _renderTable(block) {
     const cols = Math.max(block.header.cells.length, ...block.rows.map(r => r.cells.length), 1);
     const alignments = Array.from({ length: cols }, (_, i) => tableAlignmentFromDelimiter(block.delimiter.cells[i]?.text));
-    const renderCell = (cell, tag, row, col) => `<${tag}${tableAlignmentStyle(alignments[col])}><div class="md-cell" part="table-cell" data-editable="cell" data-row="${row}" data-col="${col}" data-from="${cell?.from ?? block.to}" data-to="${cell?.to ?? block.to}" contenteditable="${this._lineEditable()}" spellcheck="${this._sourceTextarea?.spellcheck ? "true" : "false"}">${decorateInline(unescapeTableCellText(cell?.text ?? ""), this._rendererOptions())}</div></${tag}>`;
-    const header = `<thead><tr>${Array.from({ length: cols }, (_, i) => renderCell(block.header.cells[i] ?? { text: "", from: block.header.end, to: block.header.end }, "th", -1, i)).join("")}</tr></thead>`;
-    const bodyRows = block.rows.length ? block.rows : [{ cells: Array.from({ length: cols }, () => ({ text: "", from: block.delimiter.end, to: block.delimiter.end })) }];
-    const body = `<tbody>${bodyRows.map((row, r) => `<tr>${Array.from({ length: cols }, (_, i) => renderCell(row.cells[i] ?? { text: "", from: row.end, to: row.end }, "td", r, i)).join("")}</tr>`).join("")}</tbody>`;
+    // Hover controls (add/remove rows and columns), rendered inline so they are
+    // recreated on every render. They carry no data-editable/data-from and are
+    // contenteditable="false", so the DOM-to-source mapping ignores them.
+    const editable = this._lineEditable() === "true";
+    const icon = inner => `<svg viewBox="0 0 16 16" aria-hidden="true">${inner}</svg>`;
+    const plus = icon('<line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/>');
+    const minus = icon('<line x1="3" y1="8" x2="13" y2="8"/>');
+    const control = (kind, label, glyph, extra = "") =>
+      `<button type="button" class="md-tbl-ctl" data-table-control="${kind}"${extra} contenteditable="false" tabindex="-1" aria-label="${label}" title="${label}">${glyph}</button>`;
+    // Column-delete tabs sit above each header cell; the single column-add tab
+    // and each row-delete tab overlap the table's right edge (last cell); row-add
+    // sits below. Delete tabs are hidden while only two columns / one row remain,
+    // keeping those as the minimums.
+    const addColBtn = editable ? control("add-col", "Add column", plus) : "";
+    const addRowBtn = editable ? control("add-row", "Add row", plus) : "";
+    const delColBtn = i => (editable && cols > 2) ? control("del-col", "Delete column", minus, ` data-index="${i}"`) : "";
+    const delRowBtn = r => (editable && block.rows.length > 1) ? control("del-row", "Delete row", minus, ` data-index="${r}"`) : "";
+    const lastCol = cols - 1;
+    const renderCell = (cell, tag, row, col, extra = "") => `<${tag}${tableAlignmentStyle(alignments[col])}>${extra}<div class="md-cell" part="table-cell" data-editable="cell" data-row="${row}" data-col="${col}" data-from="${cell?.from ?? block.to}" data-to="${cell?.to ?? block.to}" contenteditable="${this._lineEditable()}" spellcheck="${this._sourceTextarea?.spellcheck ? "true" : "false"}">${decorateInline(unescapeTableCellText(cell?.text ?? ""), this._rendererOptions())}</div></${tag}>`;
+    const header = `<thead><tr>${Array.from({ length: cols }, (_, i) => renderCell(block.header.cells[i] ?? { text: "", from: block.header.end, to: block.header.end }, "th", -1, i, `${delColBtn(i)}${i === lastCol ? addColBtn : ""}`)).join("")}</tr></thead>`;
+    const hasRealRows = block.rows.length > 0;
+    const bodyRows = hasRealRows ? block.rows : [{ cells: Array.from({ length: cols }, () => ({ text: "", from: block.delimiter.end, to: block.delimiter.end })) }];
+    const body = `<tbody>${bodyRows.map((row, r) => `<tr>${Array.from({ length: cols }, (_, i) => renderCell(row.cells[i] ?? { text: "", from: row.end, to: row.end }, "td", r, i, i === lastCol && hasRealRows ? delRowBtn(r) : "")).join("")}</tr>`).join("")}</tbody>`;
     const afterAnchor = block.newlineEnd === block.to
       ? `<div class="md-line md-table-after" part="line" data-editable="virtual-table-after" data-kind="blank" data-from="${block.to}" data-to="${block.to}" contenteditable="${this._lineEditable()}" spellcheck="${this._sourceTextarea?.spellcheck ? "true" : "false"}" aria-label="After table"><br></div>`
       : "";
-    return `<div class="md-table-block" part="table" data-kind="table" data-from="${block.from}" data-to="${block.to}"><table class="md-table">${header}${body}</table></div>${afterAnchor}`;
+    return `<div class="md-table-block${editable ? " md-has-controls" : ""}" part="table" data-kind="table" data-from="${block.from}" data-to="${block.to}"><table class="md-table">${header}${body}</table>${addRowBtn}</div>${afterAnchor}`;
   }
 
   _onSourceInput(event) {
@@ -2577,6 +2615,12 @@ class WritemarkEditorElement extends HTMLElement {
     }
     if (this._navigateFragmentLink(event, this._liveEditor)) return;
     this._structuredSelection = null;
+    const tableControl = event.target.closest?.("[data-table-control]");
+    if (tableControl) {
+      event.preventDefault();
+      this._handleTableControlClick(tableControl);
+      return;
+    }
     const checkbox = event.target.closest?.("[data-task-checkbox]");
     if (checkbox) {
       event.preventDefault();
@@ -2604,6 +2648,8 @@ class WritemarkEditorElement extends HTMLElement {
 
   _onLiveMouseDown(event) {
     if (this.disabled || this.readonly || this.mode === "source" || event.button !== 0 || event.detail > 1) return;
+    // Keep a control click from moving the caret or stealing focus.
+    if (event.target.closest?.("[data-table-control]")) { event.preventDefault(); return; }
     if (event.target.closest?.("[data-task-checkbox]")) return;
     const anchor = this._sourceOffsetForClientPoint(event.clientX, event.clientY);
     if (anchor == null) return;
@@ -3417,6 +3463,27 @@ class WritemarkEditorElement extends HTMLElement {
     const from = Number(tableEl.dataset.from);
     const to = Number(tableEl.dataset.to);
     return this._getBlocks().find(block => block.type === "table" && block.from === from && block.to === to) || null;
+  }
+
+  // Dispatch a hover-control click to the matching table mutation primitive.
+  // Adds append after the last column/row; deletes target the index on the
+  // control. The primitive stamps its own actionId onto the transaction.
+  _handleTableControlClick(control) {
+    if (this.disabled || this.readonly) return;
+    const block = this._findTableBlockForCell(control);
+    if (!block) return;
+    const ctx = this._getContext();
+    const cols = Math.max(block.header.cells.length, ...block.rows.map(row => row.cells.length), 1);
+    const index = Number(control.dataset.index);
+    const result = {
+      "add-col": () => this._tableColumnResult(ctx, block, cols - 1, "insert"),
+      "del-col": () => this._tableColumnResult(ctx, block, index, "delete"),
+      "add-row": () => this._tableRowInsertionResult(ctx, block, block.rows.at(-1) || block.delimiter, block.rows.length ? "after-row" : "after-delimiter"),
+      "del-row": () => this._tableDeleteRowResult(ctx, block, index),
+    }[control.dataset.tableControl]?.();
+    if (!result) return;
+    if (!result.ok) { if (result.message) this._announce(result.message); return; }
+    this._applyActionResult(result.transaction.actionId, result, { source: "pointer" });
   }
 
   _tableInfoForCell(cell) {
