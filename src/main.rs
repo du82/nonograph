@@ -476,6 +476,17 @@ fn is_valid_csrf_token(token: &str) -> bool {
     }
 }
 
+/// Validates that a post_id contains only characters the app can safely use.
+/// generate_post_id emits only [a-z0-9-], static pages use lowercase words,
+/// and the Telegraph archiver yields [A-Za-z0-9_-]. Rejecting `.`, `/`, and
+/// `\` makes a traversal sequence unrepresentable.
+fn is_valid_post_id(post_id: &str) -> bool {
+    if post_id.is_empty() || post_id.len() > 250 {
+        return false;
+    }
+    post_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
 #[post("/create", data = "<form>")]
 fn create_post(
     _csrf: CsrfProtected,
@@ -606,6 +617,14 @@ fn view_post(
         rocket::Either<content::RawText<String>, content::RawHtml<String>>,
     ),
 > {
+    // Validate at the trust boundary before any filesystem access
+    if !is_valid_post_id(post_id) {
+        return Err((
+            Status::NotFound,
+            rocket::Either::Left(content::RawText("Page not found".to_string())),
+        ));
+    }
+
     let is_raw_request = post_id.ends_with(".md");
     let actual_post_id = if is_raw_request {
         post_id.strip_suffix(".md").unwrap()
@@ -1082,6 +1101,29 @@ mod tests {
         // Test with special characters
         let id2 = generate_post_id("Hello, World! & More", &storage).unwrap();
         assert!(id2.contains("hello-world-more"));
+    }
+
+    #[test]
+    fn test_is_valid_post_id() {
+        assert!(is_valid_post_id("hello-world"));
+        assert!(is_valid_post_id("test-post-123"));
+        assert!(is_valid_post_id("a"));
+        assert!(is_valid_post_id("UPPERCASE_123"));
+        assert!(is_valid_post_id("my-post_id"));
+        assert!(!is_valid_post_id(".."));
+        assert!(!is_valid_post_id("../README"));
+        assert!(!is_valid_post_id("foo/bar"));
+        assert!(!is_valid_post_id("foo\\bar"));
+        assert!(!is_valid_post_id("post.md"));
+        assert!(!is_valid_post_id(""));
+        assert!(!is_valid_post_id("a..b"));
+        let long_id = "a".repeat(251);
+        assert!(!is_valid_post_id(&long_id));
+        let storage = Arc::new(Mutex::new(PostCache::new(128)));
+        for title in &["Hello World", "Test Post", "Simple", "a", "x-y_z"] {
+            let id = generate_post_id(title, &storage).unwrap();
+            assert!(is_valid_post_id(&id), "Generated id {} should be valid", id);
+        }
     }
 
     #[test]
