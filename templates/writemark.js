@@ -1629,7 +1629,7 @@ class WritemarkEditorElement extends HTMLElement {
         .completion-popup[hidden] { display: none; }
         /* Floating selection toolbar (bubble menu) shown above a text selection.
            Dark by default to match the site's Publish button, with white icons. */
-        .selection-toolbar { position: absolute; z-index: 25; display: flex; gap: 1px; padding: 3px; border-radius: var(--md-editor-toolbar-radius, 6px); background: var(--md-editor-toolbar-bg, #333); color: var(--md-editor-toolbar-fg, #fff); white-space: nowrap; transition: left var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)), top var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)); }
+        .selection-toolbar { position: absolute; z-index: 25; display: flex; gap: 1px; padding: 3px; border-radius: var(--md-editor-toolbar-radius, 4px); background: var(--md-editor-toolbar-bg, #333); color: var(--md-editor-toolbar-fg, #fff); white-space: nowrap; transition: left var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)), top var(--md-editor-toolbar-transition, 120ms cubic-bezier(.2,.8,.2,1)); }
         .selection-toolbar[hidden] { display: none; }
         /* Don't animate the very first placement (avoids sliding in from a stale spot). */
         .selection-toolbar[data-instant] { transition: none; }
