@@ -3383,7 +3383,7 @@ class WritemarkEditorElement extends HTMLElement {
 
     if (mod && !event.shiftKey && !event.altKey) {
       const key = event.key.toLowerCase();
-      const map = { b: "inline.bold", i: "inline.italic", k: "inline.link", e: "inline.code" };
+      const map = { b: "inline.bold", i: "inline.italic", u: "inline.underline", k: "inline.link", e: "inline.code" };
       if (map[key]) { event.preventDefault(); this._runAction(map[key], undefined, { source: "keyboard", apply: true }); return; }
     }
     if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "x") { event.preventDefault(); this._runAction("inline.strikethrough", undefined, { source: "keyboard", apply: true }); return; }
