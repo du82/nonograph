@@ -77,9 +77,20 @@ Hate Docker? Run `./run` to build and run natively (Debian only).
 - Tor hidden service out of the box
 - Runs on 64MB RAM. Fine on a Pi or cheap VPS
 
-## Requirements
-- Debian-based Linux (Raspberry Pi OS, KDE Neon, Pop_OS, etc. - not Ubuntu)
-- 64MB RAM, 64MB disk
+## Screenshots
+The homepage and writing area:
+
+<img width="1920" height="1080" alt="homepage" src="https://github.com/user-attachments/assets/d77c065d-a02f-40f5-b29f-fe45465af018" />
+
+The editor with a page in progress:
+
+<img width="1920" height="1080" alt="editor" src="https://github.com/user-attachments/assets/7546a84f-b172-4c0d-a20a-df6c2defbf3c" />
+
+A published page with an image:
+
+<img width="1920" height="1080" alt="published-page2" src="https://github.com/user-attachments/assets/0fc38a43-8bcc-4fbf-9087-ea4100be3e6c" />
+
+
 
 ## Name
 `anonymous` + `monograph` + `telegraph` = `nonograph`
