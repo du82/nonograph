@@ -23,7 +23,7 @@ English | [简体中文](README.zh.md)
 
 </div>
 
-Self-hosted anonymous publishing. No accounts, no tracking. Write, publish, share. Nothing else collected.
+Nonograph is a simple anonymous publishing platform for anyone who wants their words to exist online without being tied to an identity. You write, you get a shareable link, and that's it. No account creation, no profile, no analytics trail following readers around.
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
