@@ -1118,7 +1118,7 @@ fn restore_fenced_code_blocks_with_config(
         .get(&config.theme.syntax_highlighting)
         .unwrap_or_else(|| {
             eprintln!(
-                "Warning: Theme '{}' not found, falling back to 'base16-ocean.dark'",
+                "Nonograph: Warning: Theme '{}' not found, falling back to 'base16-ocean.dark'",
                 config.theme.syntax_highlighting
             );
             &ts.themes["base16-ocean.dark"]

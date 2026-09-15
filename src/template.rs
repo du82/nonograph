@@ -59,7 +59,7 @@ impl TemplateEngine {
         // Check for any remaining unreplaced variables and warn
         if result.contains("{{") && result.contains("}}") {
             eprintln!(
-                "Warning: Template {} contains unreplaced variables",
+                "Nonograph: Warning: Template {} contains unreplaced variables",
                 template_name
             );
         }

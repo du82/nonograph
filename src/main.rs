@@ -91,9 +91,9 @@ impl PostCache {
         // Remove existing entry if it exists
         if let Some(old_entry) = self.entries.remove(&post_id) {
             self.total_size -= old_entry.post.memory_size();
-            println!("Cache UPDATE for post: {}", post_id);
+            println!("Nonograph: Cache UPDATE for post: {}", post_id);
         } else {
-            println!("Cache INSERT for post: {}", post_id);
+            println!("Nonograph: Cache INSERT for post: {}", post_id);
         }
 
         // Add new entry size
@@ -108,7 +108,7 @@ impl PostCache {
 
         if evicted_count > 0 {
             println!(
-                "Cache EVICTED {} old posts to stay under 128MB limit",
+                "Nonograph: Cache EVICTED {} old posts to stay under 128MB limit",
                 evicted_count
             );
         }
@@ -127,7 +127,7 @@ impl PostCache {
             b => (b as f64 / (1_024.0 * 1_024.0 * 1_024.0), "GB"),
         };
         println!(
-            "Cache now contains {} posts, total size: {:.2} {}",
+            "Nonograph: Cache now contains {} posts, total size: {:.2} {}",
             self.entries.len(),
             size_val,
             size_unit
@@ -139,7 +139,7 @@ impl PostCache {
             if let Some(old_entry) = self.entries.remove(&oldest_id) {
                 self.total_size -= old_entry.post.memory_size();
                 println!(
-                    "Cache EVICT for post: {} (freed: {} KB)",
+                    "Nonograph: Cache EVICT for post: {} (freed: {} KB)",
                     oldest_id,
                     old_entry.post.memory_size() / 1024
                 );
@@ -165,7 +165,7 @@ impl PostCache {
         for id in stale {
             if let Some(entry) = self.entries.remove(&id) {
                 self.total_size -= entry.post.memory_size();
-                println!("Cache EVICT for post: {}.md", id);
+                println!("Nonograph: Cache EVICT for post: {}.md", id);
             }
         }
     }
@@ -255,7 +255,6 @@ impl Fairing for OnionLocationFairing {
         response.set_header(Header::new("Onion-Location", self.onion_url.clone()));
     }
 }
-
 
 // Add security headers to every response.
 struct SecurityHeadersFairing;
@@ -549,7 +548,10 @@ fn create_post(
 
     if let Ok(tx) = file_queue.lock() {
         if let Err(_) = tx.send(post_for_file) {
-            eprintln!("Failed to queue post for background save: {}", post_id);
+            eprintln!(
+                "Nonograph: Failed to queue post for background save: {}",
+                post_id
+            );
         }
     }
 
@@ -903,7 +905,10 @@ fn nojs_create_post(
 
     if let Ok(tx) = file_queue.lock() {
         if let Err(_) = tx.send(post_for_file) {
-            eprintln!("Failed to queue post for background save: {}", post_id);
+            eprintln!(
+                "Nonograph: Failed to queue post for background save: {}",
+                post_id
+            );
         }
     }
 
@@ -1001,7 +1006,10 @@ fn start_file_save_worker() -> mpsc::Sender<Post> {
     thread::spawn(move || {
         for post in rx {
             if let Err(e) = save::save_post_to_file(&post) {
-                eprintln!("Background file save failed for post {}: {}", post.id, e);
+                eprintln!(
+                    "Nonograph: Background file save failed for post {}: {}",
+                    post.id, e
+                );
             }
         }
     });
@@ -1015,7 +1023,7 @@ async fn main() -> Result<(), rocket::Error> {
 
     if args.len() > 1 && args[1] == "archive" {
         if args.len() < 3 {
-            eprintln!("Usage: cargo run archive <telegraph_url>");
+            eprintln!("Nonograph: Usage: cargo run archive <telegraph_url>");
             std::process::exit(1);
         }
 
@@ -1024,11 +1032,11 @@ async fn main() -> Result<(), rocket::Error> {
 
         match archiver.archive_url(url).await {
             Ok(nonograph_url) => {
-                println!("Successfully archived Telegraph page!");
-                println!("View at: http://localhost:8009{}", nonograph_url);
+                println!("Nonograph: Successfully archived Telegraph page!");
+                println!("Nonograph: View at: http://localhost:8009{}", nonograph_url);
             }
             Err(e) => {
-                eprintln!("Error archiving page: {}", e);
+                eprintln!("Nonograph: Error archiving page: {}", e);
                 std::process::exit(1);
             }
         }
@@ -1057,8 +1065,10 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
 
     let onion_url = config.resolve_onion_url();
     match &onion_url {
-        Some(url) => println!("Onion-Location advertising enabled: {}", url),
-        None => println!("Onion-Location disabled (no onion URL configured or detected)"),
+        Some(url) => println!("Nonograph: Onion-Location advertising enabled: {}", url),
+        None => {
+            println!("Nonograph: Onion-Location disabled (no onion URL configured or detected)")
+        }
     }
 
     let mut rocket = rocket::build()
