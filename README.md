@@ -106,3 +106,8 @@ A published page with an image:
 
 ## License
 Public domain ([Unlicense](https://unlicense.org)). This software belongs to everyone. Use it, modify it, share it without restriction. No attribution required, no strings attached, no warranties provided.
+
+## Badges
+
+[![Featured on Hacker News](https://hackerbadge.now.sh/api?id=48714529)](https://news.ycombinator.com/item?id=48714529)
+[![Featured on OpenAlternative](https://openalternative.co/nonograph/badge.svg?theme=light&width=200&height=65)](https://openalternative.co/nonograph?utm_source=openalternative&utm_medium=badge&utm_campaign=embed&utm_content=tool-nonograph)
