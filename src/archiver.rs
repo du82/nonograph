@@ -495,26 +495,63 @@ impl TelegraphArchiver {
     }
 
     fn generate_filename(&self, page: &TelegraphPage) -> String {
-        // Use the path from Telegraph as base, but make it filesystem-safe
-        let mut filename = page.path.clone();
+        // `page.path` comes from a remote response, so it can be anything the
+        // Telegraph API returns -- including ".", "..", "" or a value that is
+        // nothing but separators. This name is used to *write* a file, and the
+        // matching *read* goes through `is_valid_post_id`, which accepts only
+        // ASCII alphanumerics, '-' and '_'. Previously any other character was
+        // kept (only a shell-safety set was replaced), so a path such as
+        // "a/../../etc/passwd" produced "a-..-..-etc-passwd.md": written fine,
+        // and then never served, because the reader rejects the id naming it.
+        //
+        // Apply the reader's character set here instead of a separate one.
+        let mapped: String = page
+            .path
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+            .collect();
 
-        // Replace any unsafe characters
-        filename = filename.replace('/', "-");
-        filename = filename.replace('\\', "-");
-        filename = filename.replace(':', "-");
-        filename = filename.replace('?', "-");
-        filename = filename.replace('*', "-");
-        filename = filename.replace('"', "-");
-        filename = filename.replace('<', "-");
-        filename = filename.replace('>', "-");
-        filename = filename.replace('|', "-");
+        // Collapse runs and trim the ends, so a separator-only path yields an
+        // empty stem rather than a "-"-only one.
+        let mut stem = String::with_capacity(mapped.len());
+        let mut last_dash = false;
+        for c in mapped.chars() {
+            if c == '-' {
+                if !last_dash {
+                    stem.push(c);
+                }
+                last_dash = true;
+            } else {
+                stem.push(c);
+                last_dash = false;
+            }
+        }
+        stem = stem.trim_matches('-').to_string();
 
-        // Ensure it ends with .md
-        if !filename.ends_with(".md") {
-            filename.push_str(".md");
+        // An empty stem is the one case with no recoverable name. "." and ".."
+        // also land here, which is acceptable: nothing derived from them is a
+        // meaningful slug, and each must still be servable.
+        if stem.is_empty() {
+            stem = "untitled".to_string();
         }
 
-        filename
+        // Bound the stem the way `is_valid_post_id` bounds the id it is read
+        // back with, reserving room for the extension appended below
+        // (`MAX_POST_ID_LEN` is 255).
+        const MAX_STEM_LEN: usize = 250;
+        if stem.len() > MAX_STEM_LEN {
+            stem.truncate(MAX_STEM_LEN);
+            stem = stem.trim_end_matches('-').to_string();
+            if stem.is_empty() {
+                stem = "untitled".to_string();
+            }
+        }
+
+        if stem.ends_with(".md") {
+            stem
+        } else {
+            format!("{}.md", stem)
+        }
     }
 }
 
@@ -534,12 +571,10 @@ mod tests {
         assert!(archiver.extract_path_from_url(invalid_url).is_err());
     }
 
-    #[test]
-    fn test_generate_filename() {
-        let archiver = TelegraphArchiver::new();
-        let page = TelegraphPage {
-            path: "Sample-Page-12-15".to_string(),
-            url: "https://telegra.ph/Sample-Page-12-15".to_string(),
+    fn page_with_path(path: &str) -> TelegraphPage {
+        TelegraphPage {
+            path: path.to_string(),
+            url: format!("https://telegra.ph/{}", path),
             title: "Sample Page".to_string(),
             description: "A sample page".to_string(),
             author_name: None,
@@ -547,9 +582,118 @@ mod tests {
             image_url: None,
             content: None,
             views: 100,
-        };
+        }
+    }
 
-        let filename = archiver.generate_filename(&page);
+    #[test]
+    fn test_generate_filename() {
+        let archiver = TelegraphArchiver::new();
+        let filename = archiver.generate_filename(&page_with_path("Sample-Page-12-15"));
         assert_eq!(filename, "Sample-Page-12-15.md");
+    }
+
+    /// The filename is what a *write* creates and what a *read* has to name.
+    /// `is_valid_post_id` gates the read, so a name it rejects is a file that
+    /// is written and then never served.
+    #[test]
+    fn test_generated_filenames_are_servable() {
+        let archiver = TelegraphArchiver::new();
+        for path in [
+            "Sample-Page-12-15",
+            "about",
+            "some_post_1",
+            ".",
+            "..",
+            "...",
+            "",
+            "/",
+            "///",
+            ".env",
+            ".hidden.md",
+            ".a.b",
+            "a/../../etc/passwd",
+            "..\\..\\win",
+            "C:\\windows\\system32",
+            "Q?x*\"y<z>|w",
+            "trailing space ",
+            "  leading",
+            "unicode-日本語-ページ",
+        ] {
+            let filename = archiver.generate_filename(&page_with_path(path));
+            let stem = filename.strip_suffix(".md").expect("filename must end in .md");
+            assert!(
+                crate::is_valid_post_id(stem),
+                "path {path:?} produced {filename:?}, whose id {stem:?} is not readable"
+            );
+            assert!(
+                !filename.starts_with('.'),
+                "path {path:?} produced the hidden filename {filename:?}"
+            );
+        }
+    }
+
+    /// A path made only of separators or dots names nothing. It must still
+    /// produce a servable file rather than the previous `.md` dotfile.
+    #[test]
+    fn test_degenerate_paths_fall_back_to_untitled() {
+        let archiver = TelegraphArchiver::new();
+        for path in [".", "..", "...", "", "/", "///", ".../..."] {
+            assert_eq!(
+                archiver.generate_filename(&page_with_path(path)),
+                "untitled.md",
+                "path {path:?} should fall back to a servable name"
+            );
+        }
+    }
+
+    /// Regression: these all produced a written-but-unreadable file before,
+    /// because only a shell-safety character set was replaced.
+    ///
+    /// Note the deliberate consequence of adopting the reader's ASCII set: a
+    /// path with non-ASCII segments loses them (`unicode-日本語-ページ` becomes
+    /// `unicode.md`). That is the price of a name the reader will accept, and
+    /// it replaces a name the reader could never accept at all.
+    #[test]
+    fn test_separators_and_dots_do_not_survive_into_the_filename() {
+        let archiver = TelegraphArchiver::new();
+        let cases = [
+            ("a/../../etc/passwd", "a-etc-passwd.md"),
+            (".env", "env.md"),
+            (".hidden.md", "hidden-md.md"),
+            (".a.b", "a-b.md"),
+            ("..\\..\\win", "win.md"),
+            ("Q?x*\"y<z>|w", "Q-x-y-z-w.md"),
+            ("trailing space ", "trailing-space.md"),
+            ("  leading", "leading.md"),
+            ("unicode-日本語-ページ", "unicode.md"),
+        ];
+        for (path, expected) in cases {
+            let actual = archiver.generate_filename(&page_with_path(path));
+            assert_eq!(actual, expected, "path {path:?}");
+            let stem = actual.strip_suffix(".md").expect("must end in .md");
+            assert!(
+                crate::is_valid_post_id(stem),
+                "path {path:?} produced an unreadable id {stem:?}"
+            );
+        }
+    }
+
+    /// `is_valid_post_id` rejects ids longer than 255 bytes, so the stem has to
+    /// stay bounded with room for the extension.
+    #[test]
+    fn test_long_path_is_bounded_to_a_readable_id() {
+        let archiver = TelegraphArchiver::new();
+        let filename = archiver.generate_filename(&page_with_path(&"a".repeat(400)));
+        let stem = filename.strip_suffix(".md").expect("must end in .md");
+        assert!(crate::is_valid_post_id(stem), "{filename:?} is not readable");
+    }
+
+    /// Distinct ordinary paths must keep distinct names.
+    #[test]
+    fn test_distinct_ordinary_paths_do_not_collide() {
+        let archiver = TelegraphArchiver::new();
+        let a = archiver.generate_filename(&page_with_path("first-page"));
+        let b = archiver.generate_filename(&page_with_path("second-page"));
+        assert_ne!(a, b);
     }
 }

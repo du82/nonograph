@@ -322,13 +322,18 @@ const MAX_POST_ID_LEN: usize = 255;
 /// ASCII letters, digits, hyphens, and underscores. Every identifier the
 /// application produces satisfies this: [`generate_post_id`] emits
 /// `[a-z0-9-]`, the static pages are lowercase words, and the Telegraph
-/// archiver yields `[A-Za-z0-9_-]` slugs.
+/// archiver applies this same character set when it derives a filename
+/// (see `TelegraphArchiver::generate_filename`).
 ///
 /// This is the trust boundary for untrusted path input. Because `.`, `/`, and
 /// `\` are all rejected, a value that passes this check cannot express a
 /// path-traversal sequence such as `../`, so it can be safely interpolated
 /// into a `content/{id}.md` path.
-fn is_valid_post_id(id: &str) -> bool {
+///
+/// Because this gate is what a *read* goes through, anything that names a file
+/// on *write* must satisfy it too -- otherwise the file is written and then
+/// never served.
+pub(crate) fn is_valid_post_id(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= MAX_POST_ID_LEN
         && id
