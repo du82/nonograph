@@ -15,7 +15,7 @@
   <WebUI>http://[IP]:[PORT:8009]</WebUI>
 
   <!-- Plain text description -->
-  <Overview>Explain what this container does and why users should install it.</Overview>
+  <Overview>Nonograph is a simple anonymous publishing platform for anyone who wants their words to exist online without being tied to an identity. You write something, you get a shareable link, and you share your writing with whoever you'd like. No account creation, no profile, no analytics trail following readers around.</Overview>
 
   <!-- NOTE: Either Support or Project is REQUIRED -->
   <!-- Project page -->
