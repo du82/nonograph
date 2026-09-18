@@ -1,0 +1,77 @@
+<Container version="2">
+  <!-- Delete this file if your repository does not ship Docker apps. -->
+  <Name>Nonograph</Name>
+  <Repository>ghcr.io/du82/nonograph:latest</Repository>
+  <Registry>https://ghcr.io/du82/nonograph</Registry>
+  <Network>bridge</Network>
+
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+
+  <!-- Optional but highly recommended: app icon -->
+  <Icon>https://raw.githubusercontent.com/du82/nonograph/main/icon.png</Icon>
+
+  <!-- Optional theme-specific icon overrides -->
+  <!-- <Icon-black>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-black.png</Icon-black> -->
+  <!-- <Icon-white>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-white.png</Icon-white> -->
+  <!-- <Icon-azure>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-azure.png</Icon-azure> -->
+  <!-- <Icon-gray>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-gray.png</Icon-gray> -->
+
+  <!-- NOTE: The port in the entry ALWAYS refers to the container port, not the host port-->
+  <WebUI>http://[IP]:[PORT:8009]</WebUI>
+
+  <!-- Plain text description -->
+  <Overview>Explain what this container does and why users should install it.</Overview>
+
+  <!-- NOTE: Either Support or Project is REQUIRED -->
+  <!-- Project page -->
+  <Project>https://github.com/du82/nonograph</Project>
+
+  <!-- Raw URL to this exact template file -->
+  <TemplateURL>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/unraid/nonograph.xml</TemplateURL>
+
+  <!-- Readme first file -->
+  <ReadMe>https://raw.githubusercontent.com/du82/nonograph/main/README.md</ReadMe>
+
+
+  <!-- Valid category entries can be generated from the Application Categorizer plugin available in Apps -->
+  <Category>Blog</Category>
+
+  <!-- Optional extra app search terms -->
+  <ExtraSearchTerms>anonymous blog writing telegraph</ExtraSearchTerms>
+
+  <!-- Optional system requirements text -->
+  <Requires>Internet access for first run</Requires>
+
+
+  <!-- Minimum and maximum Unraid version.-->
+  <MinVer>6.1</MinVer>
+  <MaxVer>7.4</MaxVer>
+
+  <!-- Optionally set this if this container is deprecated for all OS versions -->
+  <!-- <Deprecated>true</Deprecated> -->
+
+  <!-- Optional: deprecate starting with a specific OS version -->
+  <!-- <DeprecatedMaxVer>7.2</DeprecatedMaxVer> -->
+
+  <!-- License of the container-->
+  <License>The Unlicense</License>
+
+  <!-- Screenshots -->
+  <!-- You can add multiple screenshots by adding multiple <Screenshot> tags -->
+  <Screenshot>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/screenshot.png</Screenshot>
+
+  <!-- Optional release branch selectors -->
+  <!--
+  <DefaultTagDescription>Stable releases</DefaultTagDescription>
+  <Branch>
+    <Tag>main</Tag>
+    <TagDescription>Latest commits from main branch</TagDescription>
+  </Branch>
+  -->
+
+  <!-- v2 templates should define ports/paths/variables with Config entries -->
+  <Config Name="Web UI Port" Target="8009" Default="8009" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">8009</Config>
+  <Config Name="Content Directory" Target="/app/content" Default="/mnt/user/appdata/nonograph/content" Mode="rw" Description="Directory to store published content" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nonograph/content</Config>
+  <Config Name="Tor Hidden Service" Target="/var/lib/tor/hidden_service" Default="/mnt/user/appdata/nonograph/onion" Mode="rw" Description="Hidden service directory (contains private keys)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/nonograph/onion</Config>
+</Container>

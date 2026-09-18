@@ -108,7 +108,7 @@ impl PostCache {
 
         if evicted_count > 0 {
             println!(
-                "Nonograph: Cache EVICTED {} old posts to stay under 128MB limit",
+                "Nonograph: Cache EVICT {} old posts to stay under 128MB limit",
                 evicted_count
             );
         }
