@@ -17,15 +17,17 @@ use deunicode::deunicode;
 use rand::{thread_rng, Rng};
 use rocket::{
     fairing::{Fairing, Info, Kind},
-    http::{Header, Status},
+    http::{Cookie, CookieJar, Header, SameSite, Status},
     request::{FromRequest, Outcome},
     response::content,
     Request, Response, State,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
+use std::hash::{BuildHasher, Hash, Hasher};
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use template::TemplateEngine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,7 +177,7 @@ type PostStorage = Arc<Mutex<PostCache>>;
 type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
 #[get("/")]
-fn index(config: &State<Config>) -> content::RawHtml<String> {
+fn index(config: &State<Config>, cookies: &CookieJar<'_>) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
     let mut context = HashMap::new();
     context.insert("error".to_string(), "".to_string());
@@ -194,7 +196,7 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
     );
 
     let csrf_token = if config.security.csrf_protection_enabled {
-        generate_csrf_token_with_timestamp()
+        csrf_token_with_nonce(&csrf_nonce_for(cookies))
     } else {
         String::new()
     };
@@ -435,22 +437,54 @@ fn generate_csrf_token() -> String {
         .collect::<String>()
 }
 
-fn generate_csrf_token_with_timestamp() -> String {
+/// Per-process secret used to sign CSRF tokens. `RandomState` carries random
+/// keys chosen at startup, so the signature is not computable offline.
+fn csrf_key() -> &'static RandomState {
+    static KEY: OnceLock<RandomState> = OnceLock::new();
+    KEY.get_or_init(RandomState::new)
+}
+
+fn csrf_sign(data: &str) -> String {
+    let mut hasher = csrf_key().build_hasher();
+    data.hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+
+fn csrf_token_with_nonce(nonce: &str) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let random_part = generate_csrf_token();
-    let combined = format!("{}:{}", timestamp, random_part);
+    let combined = format!("{}:{}", timestamp, nonce);
 
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    combined.hash(&mut hasher);
-    let hash = hasher.finish();
+    format!("{}.{}", combined, csrf_sign(&combined))
+}
 
-    format!("{}.{:x}", combined, hash)
+/// Extracts the nonce embedded in a token's data part (`timestamp:nonce`).
+fn csrf_token_nonce(token: &str) -> Option<&str> {
+    let data = token.split('.').next()?;
+    data.split(':').nth(1).filter(|n| !n.is_empty())
+}
+
+const CSRF_COOKIE: &str = "ng_csrf";
+
+/// Returns the nonce bound to this client: the existing `ng_csrf` cookie when
+/// present (keeps forms in other tabs valid), otherwise a fresh nonce which is
+/// set as a cookie for the double-submit check.
+fn csrf_nonce_for<'a>(cookies: &'a CookieJar<'a>) -> String {
+    if let Some(cookie) = cookies.get(CSRF_COOKIE) {
+        return cookie.value().to_string();
+    }
+    let nonce = generate_csrf_token();
+    cookies.add(
+        Cookie::build((CSRF_COOKIE, nonce.clone()))
+            .path("/")
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .build(),
+    );
+    nonce
 }
 
 fn is_valid_csrf_token(token: &str) -> bool {
@@ -467,15 +501,8 @@ fn is_valid_csrf_token(token: &str) -> bool {
     let data = parts[0];
     let provided_hash = parts[1];
 
-    // Recreate hash from data
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    data.hash(&mut hasher);
-    let expected_hash = format!("{:x}", hasher.finish());
-
-    // Verify hash matches
-    if provided_hash != expected_hash {
+    // Verify hash matches (keyed — not computable without the process secret)
+    if provided_hash != csrf_sign(data) {
         return false;
     }
 
@@ -506,9 +533,13 @@ fn create_post(
     storage: &State<PostStorage>,
     file_queue: &State<FileSaveQueue>,
     config: &State<Config>,
+    cookies: &CookieJar<'_>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
-        if !is_valid_csrf_token(&form.csrf_token) {
+        let bound = csrf_token_nonce(&form.csrf_token)
+            .and_then(|nonce| cookies.get(CSRF_COOKIE).map(|c| c.value() == nonce))
+            .unwrap_or(false);
+        if !is_valid_csrf_token(&form.csrf_token) || !bound {
             let error_url = format!("/?error=csrf_token_invalid");
             return Ok(rocket::response::Redirect::to(error_url));
         }
@@ -816,8 +847,8 @@ fn robots_txt() -> content::RawText<&'static str> {
 }
 
 #[get("/nojs")]
-fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
-    let html = index(config).0;
+fn nojs_index(config: &State<Config>, cookies: &CookieJar<'_>) -> content::RawHtml<String> {
+    let html = index(config, cookies).0;
     let clean_html = nojs::strip_javascript(&html);
     // Update form action to point to /nojs/create
     let nojs_html = clean_html.replace(r#"action="/create""#, r#"action="/nojs/create""#);
@@ -859,9 +890,13 @@ fn nojs_create_post(
     storage: &State<PostStorage>,
     file_queue: &State<FileSaveQueue>,
     config: &State<Config>,
+    cookies: &CookieJar<'_>,
 ) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
     if config.security.csrf_protection_enabled {
-        if !is_valid_csrf_token(&form.csrf_token) {
+        let bound = csrf_token_nonce(&form.csrf_token)
+            .and_then(|nonce| cookies.get(CSRF_COOKIE).map(|c| c.value() == nonce))
+            .unwrap_or(false);
+        if !is_valid_csrf_token(&form.csrf_token) || !bound {
             let error_url = format!("/nojs/?error=csrf_token_invalid");
             return Ok(rocket::response::Redirect::to(error_url));
         }
@@ -1113,6 +1148,51 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_csrf_token_forgery_rejected() {
+        // Regression: tokens were signed with `DefaultHasher` (fixed public
+        // keys), so anyone could mint an accepted token offline. The keyed
+        // `RandomState` signer must reject a token forged the old way.
+        use std::collections::hash_map::DefaultHasher;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let data = format!("{}:{}", now, "attacker-controlled-nonce");
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+        let forged = format!("{}.{:x}", data, hasher.finish());
+
+        assert!(!is_valid_csrf_token(&forged));
+    }
+
+    #[test]
+    fn test_csrf_token_nonce_extraction() {
+        let token = csrf_token_with_nonce(&generate_csrf_token());
+        let nonce = csrf_token_nonce(&token).unwrap();
+        assert!(!nonce.is_empty());
+        assert_eq!(token.split('.').count(), 2);
+
+        // No nonce → no binding possible.
+        assert!(csrf_token_nonce("1234567890:.").is_none());
+        assert!(csrf_token_nonce("garbage").is_none());
+    }
+
+    #[test]
+    fn test_csrf_signed_token_roundtrip() {
+        // A token minted by csrf_token_with_nonce validates and carries the
+        // nonce the cookie check compares against.
+        let token = csrf_token_with_nonce("bound-nonce-abc");
+        assert!(is_valid_csrf_token(&token));
+        assert_eq!(csrf_token_nonce(&token), Some("bound-nonce-abc"));
+
+        // Tampering with the nonce invalidates the signature.
+        let tampered = token.replace("bound-nonce-abc", "other-nonce");
+        assert!(!is_valid_csrf_token(&tampered));
+    }
 
     #[test]
     fn test_post_id_generation() {
