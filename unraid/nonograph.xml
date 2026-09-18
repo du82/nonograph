@@ -9,13 +9,7 @@
   <Privileged>false</Privileged>
 
   <!-- Optional but highly recommended: app icon -->
-  <Icon>https://raw.githubusercontent.com/du82/nonograph/main/icon.png</Icon>
-
-  <!-- Optional theme-specific icon overrides -->
-  <!-- <Icon-black>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-black.png</Icon-black> -->
-  <!-- <Icon-white>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-white.png</Icon-white> -->
-  <!-- <Icon-azure>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-azure.png</Icon-azure> -->
-  <!-- <Icon-gray>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_PLUGIN_REPO/main/icon-gray.png</Icon-gray> -->
+  <Icon>https://raw.githubusercontent.com/du82/nonograph/refs/heads/main/icon.png</Icon>
 
   <!-- NOTE: The port in the entry ALWAYS refers to the container port, not the host port-->
   <WebUI>http://[IP]:[PORT:8009]</WebUI>
