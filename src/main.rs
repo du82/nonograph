@@ -472,7 +472,7 @@ const CSRF_COOKIE: &str = "ng_csrf";
 /// Returns the nonce bound to this client: the existing `ng_csrf` cookie when
 /// present (keeps forms in other tabs valid), otherwise a fresh nonce which is
 /// set as a cookie for the double-submit check.
-fn csrf_nonce_for<'a>(cookies: &'a CookieJar<'a>) -> String {
+fn csrf_nonce_for(cookies: &CookieJar<'_>) -> String {
     if let Some(cookie) = cookies.get(CSRF_COOKIE) {
         return cookie.value().to_string();
     }
