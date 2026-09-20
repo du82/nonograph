@@ -200,6 +200,20 @@ fn index(config: &State<Config>) -> content::RawHtml<String> {
     };
     context.insert("csrf_token".to_string(), csrf_token);
 
+    // Only surface the sidebar links for static pages whose source files exist.
+    context.insert(
+        "has_markup_page".to_string(),
+        std::path::Path::new("content/markup.md")
+            .exists()
+            .to_string(),
+    );
+    context.insert(
+        "has_legal_page".to_string(),
+        std::path::Path::new("content/legal.md")
+            .exists()
+            .to_string(),
+    );
+
     match engine.render_with_defaults("home", &context) {
         Ok(html) => content::RawHtml(html),
         Err(e) => content::RawHtml(format!("Template error: {}", e)),
@@ -758,6 +772,14 @@ fn view_post(
             };
             context.insert("description".to_string(), description);
 
+            // Only surface the footer link when its static page source exists.
+            context.insert(
+                "has_legal_page".to_string(),
+                std::path::Path::new("content/legal.md")
+                    .exists()
+                    .to_string(),
+            );
+
             match engine.render("post", &context) {
                 Ok(html) => Ok(rocket::Either::Left(content::RawHtml(html))),
                 Err(e) => Ok(rocket::Either::Left(content::RawHtml(format!(
@@ -973,6 +995,12 @@ fn serve_static_page(
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
                 context.insert("post_id".to_string(), page_name.to_string());
+                context.insert(
+                    "has_legal_page".to_string(),
+                    std::path::Path::new("content/legal.md")
+                        .exists()
+                        .to_string(),
+                );
 
                 match engine.render("post", &context) {
                     Ok(html) => Ok(content::RawHtml(html)),

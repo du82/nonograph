@@ -450,9 +450,10 @@
 
             .bottom-sheet-title {
                 margin: 0;
-                font-size: 18px;
+                font-size: 20px;
                 font-weight: 600;
                 color: #333;
+                font-family: Georgia, "Times New Roman", Times, serif;
             }
 
             .bottom-sheet-close {
@@ -480,6 +481,14 @@
 
             .bottom-sheet-content {
                 padding: 20px;
+                font-size: 16px;
+                line-height: 1.6;
+                font-family: Georgia, "Times New Roman", Times, serif;
+                color: #1a1a1a;
+            }
+
+            .bottom-sheet-content ::selection {
+                background: #dbdbdb;
             }
 
             .help-section {
@@ -488,26 +497,43 @@
 
             .help-section h3 {
                 margin: 0 0 12px 0;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 600;
-                color: #333;
+                color: #1a1a1a;
             }
 
             .help-section p {
-                margin: 0 0 8px 0;
-                line-height: 1.5;
-                color: #666;
+                margin: 0 0 12px 0;
+                line-height: 1.6;
+                overflow-wrap: break-word;
+                word-wrap: break-word;
             }
 
             .help-section ul {
-                margin: 8px 0;
-                padding-left: 20px;
-                color: #666;
+                margin: 12px 0;
+                padding-left: 32px;
             }
 
             .help-section li {
-                margin-bottom: 4px;
-                line-height: 1.4;
+                margin-bottom: 8px;
+                line-height: 1.6;
+            }
+
+            .help-section strong {
+                font-weight: 600;
+            }
+
+            .help-section em {
+                font-style: italic;
+            }
+
+            .help-section a {
+                color: #333;
+                text-decoration: underline;
+            }
+
+            .help-section a:hover {
+                color: #000;
             }
 
             .help-section code {
@@ -515,12 +541,37 @@
                 padding: 2px 4px;
                 border-radius: 3px;
                 font-family: "Courier New", monospace;
-                font-size: 13px;
+                font-size: 0.9em;
             }
             .help-section .shortcut {
                 color: #888;
                 font-size: 0.85em;
                 margin-left: 4px;
+            }
+
+            /* Desktop: float the help sheet as a centered modal */
+            @media (min-width: 481px) {
+                .bottom-sheet {
+                    top: 50%;
+                    left: 50%;
+                    right: auto;
+                    bottom: auto;
+                    width: 90%;
+                    max-width: 560px;
+                    max-height: 80vh;
+                    border-radius: 12px;
+                    transform: translate(-50%, -50%) scale(0.96);
+                    transition:
+                        transform 0.25s ease-out,
+                        opacity 0.25s ease-out;
+                    opacity: 0;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+                }
+
+                .bottom-sheet-overlay:target .bottom-sheet {
+                    transform: translate(-50%, -50%) scale(1);
+                    opacity: 1;
+                }
             }
 
             /* Mobile Styles */
@@ -735,10 +786,10 @@
                     </div>
 
                     <div class="help-section">
-                        <h3>Source code</h3>
+                        <h3>Is Nonograph open source?</h3>
                         <p>
-                            It's entirely open source. The code is at
-                            <strong>github.com/du82/nonograph</strong>. You can
+                            Nonograph is entirely open source, licensed under "The Unlicense". The code is at
+                            <a href="https://github.com/du82/nonograph">github.com/du82/nonograph</a>. You can
                             read it, run it yourself, and host for others
                             easily.
                         </p>
@@ -840,8 +891,9 @@
                     <span>0 / 256,000</span>
                 </div>
                 <div class="links">
-                    <a href="/markup" target="_blank">markup guide</a>
-                    <a href="/legal" target="_blank">legal &amp; privacy</a>
+                    <a href="#help-sheet">what's this?</a>
+                    {{#if has_markup_page}}<a href="/markup" target="_blank">markup guide</a>{{/if}}
+                    {{#if has_legal_page}}<a href="/legal" target="_blank">legal &amp; privacy</a>{{/if}}
                     <a href="https://github.com/du82/nonograph" target="_blank"
                         >source code</a
                     >

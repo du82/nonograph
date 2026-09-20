@@ -26,6 +26,12 @@ impl TemplateEngine {
 
         let mut result = template_content;
 
+        // Resolve `{{#if key}}...{{/if}}` blocks before variable substitution.
+        // A block is kept when the context contains `key` with a truthy value
+        // ("true" or "1"), and removed entirely otherwise. This keeps the engine
+        // simple while letting templates hide optional sections.
+        result = resolve_conditionals(&result, context);
+
         // Inject the writemark.js editor source when requested, so templates can
         // embed the editor inline via `{{writemark_js}}`. The file ships as an ES
         // module (it ends with an `export { ... }` statement), but we inline it
@@ -87,6 +93,48 @@ impl TemplateEngine {
 
         self.render(template_name, &full_context)
     }
+}
+
+/// Resolve `{{#if key}}...{{/if}}` conditional blocks.
+///
+/// The block body is kept only when `context[key]` is truthy ("true" or "1").
+/// Blocks are non-nested; the search restarts after each fully processed block.
+fn resolve_conditionals(template: &str, context: &HashMap<String, String>) -> String {
+    let mut result = template.to_string();
+
+    loop {
+        let Some(open_start) = result.find("{{#if ") else {
+            break;
+        };
+        let after_open = open_start + "{{#if ".len();
+        let Some(rel_open_end) = result[after_open..].find("}}") else {
+            break;
+        };
+        let open_end = after_open + rel_open_end;
+        let key = result[after_open..open_end].trim().to_string();
+        let body_start = open_end + "}}".len();
+
+        let Some(rel_close) = result[body_start..].find("{{/if}}") else {
+            break;
+        };
+        let close_start = body_start + rel_close;
+        let block_end = close_start + "{{/if}}".len();
+
+        let keep = matches!(
+            context.get(&key).map(|v| v.as_str()),
+            Some("true") | Some("1")
+        );
+
+        let replacement = if keep {
+            result[body_start..close_start].to_string()
+        } else {
+            String::new()
+        };
+
+        result.replace_range(open_start..block_end, &replacement);
+    }
+
+    result
 }
 
 fn strip_module_exports_and_line_comments(source: &str) -> String {
@@ -174,6 +222,39 @@ mod tests {
         let result = engine.render("test", &context).unwrap();
         // Note: Our simple template engine doesn't escape HTML - this will be handled by ammonia
         assert_eq!(result, "<div><script>alert('xss')</script></div>");
+    }
+
+    #[test]
+    fn test_conditional_blocks() {
+        let dir = tempdir().unwrap();
+        let templates_path = dir.path().to_str().unwrap();
+
+        let template_content =
+            "<ul>{{#if show_a}}<li>A</li>{{/if}}{{#if show_b}}<li>B</li>{{/if}}</ul>";
+        fs::write(dir.path().join("test.html"), template_content).unwrap();
+
+        let engine = TemplateEngine::new(templates_path);
+        let mut context = HashMap::new();
+        context.insert("show_a".to_string(), "true".to_string());
+        context.insert("show_b".to_string(), "false".to_string());
+
+        let result = engine.render("test", &context).unwrap();
+        assert_eq!(result, "<ul><li>A</li></ul>");
+    }
+
+    #[test]
+    fn test_conditional_block_missing_key_is_removed() {
+        let dir = tempdir().unwrap();
+        let templates_path = dir.path().to_str().unwrap();
+
+        let template_content = "<div>{{#if maybe}}kept{{/if}}done</div>";
+        fs::write(dir.path().join("test.html"), template_content).unwrap();
+
+        let engine = TemplateEngine::new(templates_path);
+        let context = HashMap::new();
+
+        let result = engine.render("test", &context).unwrap();
+        assert_eq!(result, "<div>done</div>");
     }
 
     #[test]

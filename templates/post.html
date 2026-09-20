@@ -829,7 +829,7 @@
 
         <div class="footer">
             <a href="/" target="_blank">write your own</a>
-            <a href="/legal" target="_blank">legal</a>
+            {{#if has_legal_page}}<a href="/legal" target="_blank">legal</a>{{/if}}
             <a href="/api" target="_blank">api</a>
             <a href="/nojs/{{post_id}}" target="_blank">nojs</a>
             <a href="https://github.com/du82/nonograph" target="_blank"
