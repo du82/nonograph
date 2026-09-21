@@ -72,11 +72,10 @@ docker logs nonograph
 Hate Docker? Run `./run` to build and run natively (Debian only).
 
 ## Features
-- Markdown with tables, code blocks, footnotes, and `#spoiler#` syntax
-- Image and video embedding from URLs
-- No accounts, no IPs logged, no analytics
-- Tor hidden service out of the box
-- Runs on 64MB RAM. Fine on a Pi or cheap VPS
+Nonograph comes with an extensive list of markup options; type `/` on a new line to display a list of them.
+
+<img width="561" height="447" alt="image" src="https://github.com/user-attachments/assets/cda96a9c-08bc-4add-bf5b-e8eb0b352201" />
+
 
 ## Screenshots
 The homepage and writing area:
