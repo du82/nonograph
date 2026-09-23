@@ -1247,12 +1247,8 @@ fn format_paragraphs_with_headers(text: &str) -> String {
         else if trimmed.lines().any(|line| line.trim().starts_with("> ")) {
             result.push_str(&process_single_blockquote(trimmed));
         }
-        // Check for mixed block content
-        else if (trimmed.contains("{{FENCEDBLOCK")
-            || trimmed.contains("{{CODEBLOCK")
-            || trimmed.contains("<table>"))
+        else if (trimmed.contains("{{FENCEDBLOCK") || trimmed.contains("<table>"))
             && !trimmed.starts_with("{{FENCEDBLOCK")
-            && !trimmed.starts_with("{{CODEBLOCK")
             && !trimmed.starts_with("<table>")
         {
             let lines: Vec<&str> = part.lines().collect();
@@ -1261,9 +1257,7 @@ fn format_paragraphs_with_headers(text: &str) -> String {
             for line in lines {
                 let line_trimmed = line.trim();
 
-                if line_trimmed.starts_with("{{FENCEDBLOCK")
-                    || line_trimmed.starts_with("{{CODEBLOCK")
-                    || line_trimmed.starts_with("<table>")
+                if line_trimmed.starts_with("{{FENCEDBLOCK") || line_trimmed.starts_with("<table>")
                 {
                     if !current_paragraph.is_empty() {
                         result.push_str(&format!("<p>{}</p>\n", current_paragraph.trim()));
@@ -1283,7 +1277,6 @@ fn format_paragraphs_with_headers(text: &str) -> String {
                 result.push_str(&format!("<p>{}</p>", current_paragraph.trim()));
             }
         } else if trimmed.starts_with("{{FENCEDBLOCK")
-            || trimmed.starts_with("{{CODEBLOCK")
             || trimmed.starts_with("<img ")
             || trimmed.starts_with("<video ")
             || trimmed.starts_with("<table>")
@@ -2121,6 +2114,57 @@ mod tests {
         let result4 = render_markdown(text4);
         assert!(result4.contains("<code>first</code>"));
         assert!(result4.contains("<code>second</code>"));
+    }
+
+    #[test]
+    fn test_inline_code_on_separate_lines_gets_line_breaks() {
+        let text = "`int`\n`fuck`\n`whatever`";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<code>int</code>"));
+        assert!(result.contains("<code>fuck</code>"));
+        assert!(result.contains("<code>whatever</code>"));
+        assert!(result.contains("<code>int</code><br><code>fuck</code>"));
+        assert!(result.contains("<code>fuck</code><br><code>whatever</code>"));
+        assert!(!result.contains("<code>int</code><code>fuck</code>"));
+    }
+
+    #[test]
+    fn test_mixed_text_and_inline_code_lines_get_line_breaks() {
+        let text = "B\nC\n`int`\n`fuck`";
+        let result = render_markdown(text);
+
+        assert!(result.contains("B<br>C<br><code>int</code><br><code>fuck</code>"));
+    }
+
+    #[test]
+    fn test_malicious_inline_code_on_separate_lines_is_neutralized() {
+        let text = "`<script>alert('xss')</script>`\n`<img src=x onerror=alert(1)>`\n`</code><script>alert('escape')</script><code>`";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<code>&lt;script&gt;alert('xss')&lt;/script&gt;</code>"));
+        assert!(result.contains("<code>&lt;img src=x onerror=alert(1)&gt;</code>"));
+        assert!(result.contains(
+            "<code>&lt;/code&gt;&lt;script&gt;alert('escape')&lt;/script&gt;&lt;code&gt;</code>"
+        ));
+
+        assert!(!result.contains("<script>"));
+        assert!(!result.contains("<img "));
+
+        assert!(result.matches("<br>").count() >= 2);
+    }
+
+    #[test]
+    fn test_markdown_inside_inline_code_on_lines_stays_literal() {
+        let text = "`**not bold**`\n`[not a link](https://example.com)`\n`# not a header`";
+        let result = render_markdown(text);
+
+        assert!(result.contains("<code>**not bold**</code>"));
+        assert!(result.contains("<code>[not a link](https://example.com)</code>"));
+        assert!(result.contains("<code># not a header</code>"));
+        assert!(!result.contains("<strong>"));
+        assert!(!result.contains("<a href"));
+        assert!(!result.contains("<h1"));
     }
 
     #[test]
