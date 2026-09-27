@@ -936,6 +936,7 @@ fn list_indent(line: &str) -> usize {
 struct ListItem {
     indent: usize,
     ordered: bool,
+    number: Option<u64>,
     task: Option<bool>,
     content: String,
     children: Vec<ListItem>,
@@ -984,6 +985,7 @@ fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
 
         let indent = list_indent(raw);
         let ordered = trimmed.chars().next().unwrap_or(' ').is_ascii_digit();
+        let mut number = None;
         let content = if trimmed == "-" || trimmed == "*" || trimmed == "+" {
             "".to_string()
         } else if trimmed.starts_with("- ")
@@ -992,6 +994,7 @@ fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
         {
             trimmed[2..].to_string()
         } else if let Some(pos) = trimmed.find(". ") {
+            number = trimmed[..pos].parse::<u64>().ok();
             trimmed[pos + 2..].to_string()
         } else {
             trimmed.to_string()
@@ -1009,6 +1012,7 @@ fn process_list_block(lines: &[&str], start_idx: usize) -> (String, usize) {
         flat.push(ListItem {
             indent,
             ordered,
+            number,
             task,
             content,
             children: Vec::new(),
@@ -1049,6 +1053,7 @@ fn build_list_tree(flat: &[ListItem], idx: &mut usize, level: usize) -> Vec<List
         let mut node = ListItem {
             indent: item.indent,
             ordered: item.ordered,
+            number: item.number,
             task: item.task,
             content: item.content.clone(),
             children: Vec::new(),
@@ -1094,7 +1099,10 @@ fn render_list_tree(items: &[ListItem]) -> String {
     }
 
     if ordered {
-        format!("<ol>{}</ol>", inner)
+        match items[0].number {
+            Some(start) if start != 1 => format!("<ol start=\"{}\">{}</ol>", start, inner),
+            _ => format!("<ol>{}</ol>", inner),
+        }
     } else if has_task {
         format!("<ul class=\"contains-task-list\">{}</ul>", inner)
     } else {
@@ -1246,8 +1254,7 @@ fn format_paragraphs_with_headers(text: &str) -> String {
         // Check for blockquotes
         else if trimmed.lines().any(|line| line.trim().starts_with("> ")) {
             result.push_str(&process_single_blockquote(trimmed));
-        }
-        else if (trimmed.contains("{{FENCEDBLOCK") || trimmed.contains("<table>"))
+        } else if (trimmed.contains("{{FENCEDBLOCK") || trimmed.contains("<table>"))
             && !trimmed.starts_with("{{FENCEDBLOCK")
             && !trimmed.starts_with("<table>")
         {
@@ -2522,16 +2529,31 @@ var x = 1;
         let result = render_markdown(input);
 
         assert!(result.contains("<li>This is neat</li>"));
-        assert!(result.contains("<li>one do with nesting?<ol>"));
-        assert!(result.contains("<li>Hello world<ol>"));
+        assert!(result.contains("<li>one do with nesting?<ol start=\"6\">"));
+        assert!(result.contains("<li>Hello world<ol start=\"3\">"));
         assert!(result.contains("<li>nesting is cool</li>"));
         assert!(result.contains("<li>what else can</li>"));
         assert!(result.contains("<li>Not sure</li>"));
 
         assert!(result.contains(
-            "<li>Hello world<ol><li>nesting is cool</li><li>what else can</li></ol></li>"
+            "<li>Hello world<ol start=\"3\"><li>nesting is cool</li><li>what else can</li></ol></li>"
         ));
-        assert!(result.contains("<li>one do with nesting?<ol><li>Not sure</li></ol></li>"));
+        assert!(
+            result.contains("<li>one do with nesting?<ol start=\"6\"><li>Not sure</li></ol></li>")
+        );
+    }
+
+    #[test]
+    fn test_ordered_list_start_value() {
+        let from_one = render_markdown("1. first\n2. second");
+        assert!(from_one.contains("<ol><li>first</li><li>second</li></ol>"));
+        assert!(!from_one.contains("start="));
+
+        let from_two = render_markdown("2. two\n3. three\n4. four");
+        assert!(from_two.contains("<ol start=\"2\"><li>two</li><li>three</li><li>four</li></ol>"));
+
+        let standalone = render_markdown("3. lonely");
+        assert!(standalone.contains("<ol start=\"3\"><li>lonely</li></ol>"));
     }
 
     #[test]
