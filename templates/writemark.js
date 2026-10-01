@@ -2217,7 +2217,10 @@ class WritemarkEditorElement extends HTMLElement {
     if (block.type === "horizontal-rule") {
       // Keep the divider line editable and its source text visible so it can be
       // typed/backspaced through (e.g. editing ****/*** while toggling bold).
-      return `<div ${lineAttrs(block.line, "horizontal-rule", "md-hr-line")} aria-label="Divider"><span class="md-token">${escapeHtml(block.line.text)}</span></div>`;
+      const afterAnchor = block.newlineEnd === block.to
+        ? `<div class="md-line md-hr-after" part="line" data-editable="virtual-hr-after" data-kind="blank" data-from="${block.to}" data-to="${block.to}" contenteditable="${this._lineEditable()}" spellcheck="${this._sourceTextarea?.spellcheck ? "true" : "false"}" aria-label="After divider"><br></div>`
+        : "";
+      return `<div ${lineAttrs(block.line, "horizontal-rule", "md-hr-line")} aria-label="Divider"><span class="md-token">${escapeHtml(block.line.text)}</span></div>${afterAnchor}`;
     }
     if (block.type === "task-list-item") {
       const list = block.list; const checkOffset = block.line.start + list.indent.length + `${list.marker} [`.length;
@@ -3410,7 +3413,7 @@ class WritemarkEditorElement extends HTMLElement {
         return;
       }
       const activeEditableType = activeEditable?.dataset.editable;
-      if (activeEditableType === "virtual-code-after" || activeEditableType === "virtual-table-after") {
+      if (activeEditableType === "virtual-code-after" || activeEditableType === "virtual-table-after" || activeEditableType === "virtual-hr-after" || activeEditableType === "virtual-setext-after") {
         this._runAction("editor.insertParagraph", undefined, { source: "keyboard", apply: true });
         return;
       }
