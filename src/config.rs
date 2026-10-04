@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+pub const MIN_CONTENT_MAX_LENGTH: usize = 16_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub limits: Limits,
@@ -186,6 +188,10 @@ impl Config {
     /// Replace semantically invalid values with their defaults. This keeps a
     /// single bad field from disabling an otherwise valid configuration.
     fn normalize(&mut self) {
+        if self.limits.content_max_length < MIN_CONTENT_MAX_LENGTH {
+            self.limits.content_max_length = MIN_CONTENT_MAX_LENGTH;
+        }
+
         let defaults = CodeBlocks::default();
         if self.code_blocks.syntax_highlighting.trim().is_empty() {
             self.code_blocks.syntax_highlighting = defaults.syntax_highlighting.clone();
@@ -285,6 +291,24 @@ mod tests {
         assert_eq!(config.limits.alias_max_length, 32);
         assert_eq!(config.limits.content_max_length, 128000);
         assert_eq!(config.server.port, 8000);
+    }
+
+    #[test]
+    fn test_content_max_length_hard_minimum() {
+        let mut too_small = Config::default();
+        too_small.limits.content_max_length = 5_000;
+        too_small.normalize();
+        assert_eq!(too_small.limits.content_max_length, MIN_CONTENT_MAX_LENGTH);
+
+        let mut at_floor = Config::default();
+        at_floor.limits.content_max_length = MIN_CONTENT_MAX_LENGTH;
+        at_floor.normalize();
+        assert_eq!(at_floor.limits.content_max_length, MIN_CONTENT_MAX_LENGTH);
+
+        let mut above_floor = Config::default();
+        above_floor.limits.content_max_length = 256_000;
+        above_floor.normalize();
+        assert_eq!(above_floor.limits.content_max_length, 256_000);
     }
 
     #[test]
