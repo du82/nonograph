@@ -9,7 +9,8 @@ pub struct Config {
     pub cache: Cache,
     pub performance: Performance,
     pub security: Security,
-    pub theme: Theme,
+    #[serde(default)]
+    pub code_blocks: CodeBlocks,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,8 +54,42 @@ pub struct Security {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Theme {
+pub struct CodeBlocks {
+    #[serde(default = "default_syntax_highlighting")]
     pub syntax_highlighting: String,
+    #[serde(default = "default_collapse_min_lines")]
+    pub collapse_min_lines: u32,
+    #[serde(default = "default_collapse_default_lines")]
+    pub collapse_default_lines: u32,
+    #[serde(default = "default_wrap_min_line_chars")]
+    pub wrap_min_line_chars: usize,
+}
+
+fn default_syntax_highlighting() -> String {
+    "base16-ocean.dark".to_string()
+}
+
+fn default_collapse_min_lines() -> u32 {
+    10
+}
+
+fn default_collapse_default_lines() -> u32 {
+    100
+}
+
+fn default_wrap_min_line_chars() -> usize {
+    20
+}
+
+impl Default for CodeBlocks {
+    fn default() -> Self {
+        CodeBlocks {
+            syntax_highlighting: default_syntax_highlighting(),
+            collapse_min_lines: default_collapse_min_lines(),
+            collapse_default_lines: default_collapse_default_lines(),
+            wrap_min_line_chars: default_wrap_min_line_chars(),
+        }
+    }
 }
 
 impl Default for Config {
@@ -86,9 +121,7 @@ impl Default for Config {
                 external_link_security: true,
                 csrf_protection_enabled: true,
             },
-            theme: Theme {
-                syntax_highlighting: "base16-ocean.dark".to_string(),
-            },
+            code_blocks: CodeBlocks::default(),
         }
     }
 }
@@ -141,9 +174,30 @@ impl Config {
             let content = fs::read_to_string(config_path)
                 .map_err(|e| format!("Failed to read Config.toml: {}", e))?;
 
-            toml::from_str(&content).map_err(|e| format!("Failed to parse Config.toml: {}", e))
+            let mut config: Config = toml::from_str(&content)
+                .map_err(|e| format!("Failed to parse Config.toml: {}", e))?;
+            config.normalize();
+            Ok(config)
         } else {
             Ok(Config::default())
+        }
+    }
+
+    /// Replace semantically invalid values with their defaults. This keeps a
+    /// single bad field from disabling an otherwise valid configuration.
+    fn normalize(&mut self) {
+        let defaults = CodeBlocks::default();
+        if self.code_blocks.syntax_highlighting.trim().is_empty() {
+            self.code_blocks.syntax_highlighting = defaults.syntax_highlighting.clone();
+        }
+        if self.code_blocks.collapse_min_lines == 0 {
+            self.code_blocks.collapse_min_lines = defaults.collapse_min_lines;
+        }
+        if self.code_blocks.collapse_default_lines == 0 {
+            self.code_blocks.collapse_default_lines = defaults.collapse_default_lines;
+        }
+        if self.code_blocks.wrap_min_line_chars == 0 {
+            self.code_blocks.wrap_min_line_chars = defaults.wrap_min_line_chars;
         }
     }
 
@@ -312,6 +366,115 @@ mod tests {
         assert_eq!(normalize_onion_url("   "), None);
         assert_eq!(normalize_onion_url("abcd.onion\r\nSet-Cookie: x=1"), None);
         assert_eq!(normalize_onion_url("ftp://abcd.onion"), None);
+    }
+
+    #[test]
+    fn test_code_blocks_defaults() {
+        let config = Config::default();
+        assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
+        assert_eq!(config.code_blocks.collapse_min_lines, 10);
+        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
+    }
+
+    #[test]
+    fn test_code_blocks_section_missing_falls_back_to_defaults() {
+        // A config without a [code_blocks] section should still parse, using
+        // the default thresholds.
+        let toml = r#"
+[limits]
+title_max_length = 128
+alias_max_length = 32
+content_max_length = 256000
+form_data_limit_kb = 512
+
+[server]
+port = 8009
+address = "127.0.0.1"
+onion_url = ""
+onion_hostname_file = "/var/lib/tor/hidden_service/hostname"
+
+[cache]
+max_cache_size_mb = 128
+stream_buffer_size = 8192
+cache_purge_interval_mins = 60
+
+[performance]
+large_content_threshold = 30000
+streaming_threshold = 50000
+
+[security]
+max_url_length = 4096
+external_link_security = true
+csrf_protection_enabled = true
+"#;
+
+        let config: Config = toml::from_str(toml).expect("config should parse");
+        assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
+        assert_eq!(config.code_blocks.collapse_min_lines, 10);
+        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
+    }
+
+    #[test]
+    fn test_code_blocks_partial_section_fills_missing_fields() {
+        // Only one field provided; the rest fall back to defaults.
+        let toml = r#"
+[limits]
+title_max_length = 128
+alias_max_length = 32
+content_max_length = 256000
+form_data_limit_kb = 512
+
+[server]
+port = 8009
+address = "127.0.0.1"
+onion_url = ""
+onion_hostname_file = "/var/lib/tor/hidden_service/hostname"
+
+[cache]
+max_cache_size_mb = 128
+stream_buffer_size = 8192
+cache_purge_interval_mins = 60
+
+[performance]
+large_content_threshold = 30000
+streaming_threshold = 50000
+
+[security]
+max_url_length = 4096
+external_link_security = true
+csrf_protection_enabled = true
+
+[code_blocks]
+syntax_highlighting = "InspiredGitHub"
+collapse_default_lines = 250
+"#;
+
+        let config: Config = toml::from_str(toml).expect("config should parse");
+        assert_eq!(config.code_blocks.syntax_highlighting, "InspiredGitHub");
+        assert_eq!(config.code_blocks.collapse_default_lines, 250);
+        // Unspecified fields keep their defaults.
+        assert_eq!(config.code_blocks.collapse_min_lines, 10);
+        assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
+    }
+
+    #[test]
+    fn test_code_blocks_invalid_zero_values_normalized() {
+        // Zero is semantically invalid for these thresholds; normalize() should
+        // restore the defaults without discarding the rest of the config.
+        let mut config = Config::default();
+        config.code_blocks.syntax_highlighting = "  ".to_string();
+        config.code_blocks.collapse_min_lines = 0;
+        config.code_blocks.collapse_default_lines = 0;
+        config.code_blocks.wrap_min_line_chars = 0;
+
+        config.normalize();
+
+        assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
+        assert_eq!(config.code_blocks.collapse_min_lines, 10);
+        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
     }
 
     #[test]

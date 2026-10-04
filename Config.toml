@@ -54,9 +54,22 @@ external_link_security = true
 # For production deployments, this should always be 'true'
 csrf_protection_enabled = true
 
-[theme]
+[code_blocks]
+# Settings for fenced code blocks and their interactive affordances.
+# Any missing or invalid value falls back to the default shown below.
+
 # Syntax highlighting theme for code blocks
 # Available themes: "base16-ocean.dark", "base16-ocean.light",
 # "base16-mocha.dark", "base16-mocha.light", "base16-eighties.dark",
 # "base16-eighties.light", "Solarized (dark)", "Solarized (light)", "InspiredGitHub"
 syntax_highlighting = "InspiredGitHub"
+
+# Minimum number of lines before the Collapse/Expand control is shown.
+collapse_min_lines = 10
+
+# Blocks with more than this many lines start collapsed by default.
+collapse_default_lines = 100
+
+# Minimum length (in characters) of the longest line before the Wrap control
+# is shown.
+wrap_min_line_chars = 20

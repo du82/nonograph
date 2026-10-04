@@ -1123,11 +1123,11 @@ fn restore_fenced_code_blocks_with_config(
 
     let theme = ts
         .themes
-        .get(&config.theme.syntax_highlighting)
+        .get(&config.code_blocks.syntax_highlighting)
         .unwrap_or_else(|| {
             eprintln!(
                 "Nonograph: Warning: Theme '{}' not found, falling back to 'base16-ocean.dark'",
-                config.theme.syntax_highlighting
+                config.code_blocks.syntax_highlighting
             );
             &ts.themes["base16-ocean.dark"]
         });
@@ -1144,6 +1144,7 @@ fn restore_fenced_code_blocks_with_config(
             &syntect_lang,
             code_content,
             *line_count,
+            &config.code_blocks,
         );
 
         result = result.replace(&placeholder, &replacement);
@@ -1159,6 +1160,7 @@ fn render_code_block(
     syntect_language: &str,
     code_content: &str,
     line_count: u32,
+    code_blocks: &crate::config::CodeBlocks,
 ) -> String {
     // Find syntax for language - syntect_language is already mapped to syntect names
     let (syntax, auto_detected) = if let Some(s) = syntax_set.find_syntax_by_name(syntect_language)
@@ -1220,15 +1222,48 @@ fn render_code_block(
         )
     };
 
-    let class_attr = if css_lang.is_empty() {
+    let longest_line_chars = code_content
+        .lines()
+        .map(|line| line.chars().count())
+        .max()
+        .unwrap_or(0);
+
+    let show_collapse = line_count >= code_blocks.collapse_min_lines;
+    let show_wrap = longest_line_chars >= code_blocks.wrap_min_line_chars;
+    let collapsed_by_default = line_count > code_blocks.collapse_default_lines;
+
+    let mut pre_classes: Vec<String> = Vec::new();
+    if !css_lang.is_empty() {
+        pre_classes.push(format!("language-{}", css_lang));
+    }
+    if collapsed_by_default {
+        pre_classes.push("collapsed".to_string());
+    }
+    let class_attr = if pre_classes.is_empty() {
         String::new()
     } else {
-        format!(" class=\"language-{}\"", css_lang)
+        format!(" class=\"{}\"", pre_classes.join(" "))
+    };
+
+    let wrap_button = if show_wrap {
+        r#"<button class="wrap-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="11" y2="8"/><line x1="2" y1="12" x2="9" y2="12"/></svg><span class="btn-label">Wrap</span></button>"#
+    } else {
+        ""
+    };
+
+    let collapse_button = if show_collapse {
+        if collapsed_by_default {
+            r#"<button class="collapse-button active"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14,11 8,5 2,11"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,5 8,11 14,5"/></svg><span class="btn-label">Expand</span></button>"#
+        } else {
+            r#"<button class="collapse-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14,11 8,5 2,11"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,5 8,11 14,5"/></svg><span class="btn-label">Collapse</span></button>"#
+        }
+    } else {
+        ""
     };
 
     format!(
-        r#"<pre{}><div class="code-header">{}<div class="code-controls"><button class="wrap-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="11" y2="8"/><line x1="2" y1="12" x2="9" y2="12"/></svg><span class="btn-label">Wrap</span></button><button class="collapse-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14,11 8,5 2,11"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,5 8,11 14,5"/></svg><span class="btn-label">Collapse</span></button><button class="copy-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1"/><rect x="6" y="1" width="4" height="3" rx="0.5"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,8 6,12 14,4"/></svg><span class="btn-label">Copy</span></button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div></pre>"#,
-        class_attr, lang_display, line_numbers, highlighted_code
+        r#"<pre{}><div class="code-header">{}<div class="code-controls">{}{}<button class="copy-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1"/><rect x="6" y="1" width="4" height="3" rx="0.5"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,8 6,12 14,4"/></svg><span class="btn-label">Copy</span></button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div><div class="collapse-fade" aria-hidden="true"><span>Click to expand code snippet</span></div></pre>"#,
+        class_attr, lang_display, wrap_button, collapse_button, line_numbers, highlighted_code
     )
 }
 
@@ -2386,8 +2421,9 @@ var x = 1;
     fn test_theme_configuration() {
         // Test with valid theme
         let config = crate::config::Config {
-            theme: crate::config::Theme {
+            code_blocks: crate::config::CodeBlocks {
                 syntax_highlighting: "Solarized (light)".to_string(),
+                ..Default::default()
             },
             ..Default::default()
         };
@@ -2401,8 +2437,9 @@ var x = 1;
 
         // Test with invalid theme (should fall back to default)
         let invalid_config = crate::config::Config {
-            theme: crate::config::Theme {
+            code_blocks: crate::config::CodeBlocks {
                 syntax_highlighting: "NonExistentTheme".to_string(),
+                ..Default::default()
             },
             ..Default::default()
         };
@@ -2788,15 +2825,61 @@ var x = 1;
         assert!(!result_large.contains("<span class=\"line-number\">11</span>"));
     }
 
+    #[test]
+    fn test_collapse_button_visibility_by_line_count() {
+        // Fewer than 10 lines: no collapse control.
+        let short = "```rust\n".to_string() + &"let x = 0;\n".repeat(9) + "```";
+        let result_short = render_markdown(&short);
+        assert!(!result_short.contains("collapse-button"));
+        assert!(result_short.contains("copy-button"));
+
+        // Exactly 10 lines (the threshold): collapse control appears.
+        let at_threshold = "```rust\n".to_string() + &"let x = 0;\n".repeat(10) + "```";
+        let result_threshold = render_markdown(&at_threshold);
+        assert!(result_threshold.contains("collapse-button"));
+    }
+
+    #[test]
+    fn test_long_code_block_collapsed_by_default() {
+        // At or below 100 lines: not collapsed by default.
+        let hundred = "```rust\n".to_string() + &"let x = 0;\n".repeat(100) + "```";
+        let result_hundred = render_markdown(&hundred);
+        assert!(!result_hundred.contains("class=\"language-rust collapsed\""));
+        assert!(result_hundred.contains(">Collapse<"));
+        assert!(!result_hundred.contains(">Expand<"));
+
+        // Over 100 lines: collapsed by default with the button in expand state.
+        let long = "```rust\n".to_string() + &"let x = 0;\n".repeat(101) + "```";
+        let result_long = render_markdown(&long);
+        assert!(result_long.contains("collapsed"));
+        assert!(result_long.contains("collapse-button active"));
+        assert!(result_long.contains(">Expand<"));
+    }
+
+    #[test]
+    fn test_wrap_button_visibility_by_line_length() {
+        // Longest line shorter than 20 chars: no wrap control.
+        let narrow = "```rust\nlet x = 0;\n```";
+        let result_narrow = render_markdown(narrow);
+        assert!(!result_narrow.contains("wrap-button"));
+        assert!(result_narrow.contains("copy-button"));
+
+        // A line of 20+ chars: wrap control appears.
+        let wide_line = "a".repeat(25);
+        let wide = format!("```rust\n{}\n```", wide_line);
+        let result_wide = render_markdown(&wide);
+        assert!(result_wide.contains("wrap-button"));
+    }
+
     // Helper function for testing server-rendered code block structure
     fn assert_code_block_structure(result: &str, language: Option<&str>, has_content: bool) {
         assert!(result.contains("<pre"));
         assert!(result.contains("code-header"));
         assert!(result.contains("code-controls"));
         assert!(result.contains("line-numbers"));
+        // The Copy control is always present. The Wrap and Collapse controls are
+        // conditional on content size, so they are asserted in dedicated tests.
         assert!(result.contains("Copy"));
-        assert!(result.contains("Wrap"));
-        assert!(result.contains("Collapse"));
 
         if let Some(lang) = language {
             if !lang.is_empty() {
