@@ -472,7 +472,7 @@ create_test_post() {
     fi
 
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$SERVICE_PORT/create" \
+    local response=$(curl -s -w "%{http_code}" -X POST "http://localhost:$SERVICE_PORT/api/page/create" \
         -d "title=Test Post - $timestamp" \
         -d "content=This is an automated test post created by the run script at $timestamp. If you can see this, Nonograph is working correctly!" \
         -H "Content-Type: application/x-www-form-urlencoded")

@@ -8,7 +8,7 @@ generator: nonograph v0.2.8
 Nonograph provides a simple HTTP API for programmatically publishing articles.
 
 ## Publishing a Post
-**Endpoint:** `POST /create`
+**Endpoint:** `POST /api/page/create`
 **Content-Type:** `application/x-www-form-urlencoded`
 
 ### Parameters
@@ -20,7 +20,7 @@ Nonograph provides a simple HTTP API for programmatically publishing articles.
 
 ### Example Request
 ```bash
-curl -X POST http://localhost:8000/create \
+curl -X POST http://localhost:8000/api/page/create \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "title=My API Article" \
   -d "alias=API User" \
@@ -105,7 +105,7 @@ print("API publishing works!")
 [Visit the docs](https://example.com)'''
 }
 
-response = requests.post('http://localhost:8000/create', data=data)
+response = requests.post('http://localhost:8000/api/page/create', data=data)
 if response.status_code == 200:
     post_url = response.url
     print(f"Published: {post_url}")
@@ -128,7 +128,7 @@ This article was created with Node.js.
 - [External links](https://nodejs.org)`
 });
 
-axios.post('http://localhost:8000/create', data)
+axios.post('http://localhost:8000/api/page/create', data)
     .then(response => {
         console.log('Published:', response.request.res.responseUrl);
     })
@@ -159,7 +159,7 @@ Generated at: $(date)
 
 [Dashboard](https://monitoring.example.com)"
 
-curl -X POST http://localhost:8000/create \
+curl -X POST http://localhost:8000/api/page/create \
   --data-urlencode "title=$TITLE" \
   --data-urlencode "alias=$ALIAS" \
   --data-urlencode "content=$CONTENT" \
