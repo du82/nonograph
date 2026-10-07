@@ -165,7 +165,7 @@ create_test() {
 
     # Create test post
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    curl -s -X POST http://localhost:8009/create \
+    curl -s -X POST http://localhost:8009/api/page/create \
         -d "title=Test Post - $TIMESTAMP" \
         -d "content=This is a test post created at $TIMESTAMP to verify Nonograph is working correctly as a Tor hidden service." \
         -H "Content-Type: application/x-www-form-urlencoded" > /dev/null
