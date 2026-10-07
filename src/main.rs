@@ -434,8 +434,10 @@ fn generate_csrf_token_with_timestamp() -> String {
     format!("{}.{:x}", combined, hash)
 }
 
+const MAX_CSRF_TOKEN_LEN: usize = 120;
+
 pub(crate) fn is_valid_csrf_token(token: &str) -> bool {
-    if token.is_empty() {
+    if token.is_empty() || token.len() > MAX_CSRF_TOKEN_LEN {
         return false;
     }
 
@@ -1098,6 +1100,18 @@ mod tests {
         let over_limit = "a".repeat(MAX_POST_ID_LEN + 1);
         assert!(is_valid_post_id(&at_limit));
         assert!(!is_valid_post_id(&over_limit));
+    }
+
+    #[test]
+    fn test_csrf_token_length_bound() {
+        // A freshly generated token gotta stay within the limit
+        let token = generate_csrf_token_with_timestamp();
+        assert!(token.len() <= MAX_CSRF_TOKEN_LEN);
+        assert!(is_valid_csrf_token(&token));
+
+        let padded = format!("{}{}", token, "a".repeat(MAX_CSRF_TOKEN_LEN));
+        assert!(padded.len() > MAX_CSRF_TOKEN_LEN);
+        assert!(!is_valid_csrf_token(&padded));
     }
 
     #[test]

@@ -106,7 +106,7 @@ Publish a page
      title        string   required   see field limits   Page title
      content      string   required   see field limits   Page body (markdown)
      alias        string   optional   see field limits   Author alias
-     csrf_token   string   required   max 95 chars       Anti-CSRF token
+     csrf_token   string   required   max 120 chars      Anti-CSRF token
 
      302 Found, Location: /{page-id}
 
@@ -133,7 +133,7 @@ Read a page
 Page limits
 -----------
 
-  GET /api/page/limits   Validation limits for new pages (JSON)
+  GET /api/page/limits   Field limits for new pages (JSON)
 
   Fields:
      title_max_length          Max title length in bytes
@@ -147,8 +147,6 @@ pub(crate) fn api_page() -> content::RawText<&'static str> {
     content::RawText(API_REFERENCE)
 }
 
-/// The subset of configuration a client needs to validate a page before
-/// submitting it. Deliberately excludes server, cache, and onion internals.
 #[derive(Serialize)]
 pub(crate) struct PageLimits {
     title_max_length: usize,
