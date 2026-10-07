@@ -122,8 +122,9 @@ Publish a page
 Read a page
 -----------
 
-  GET /{page-id}        Rendered HTML
+  GET /{page-id}        Rendered HTML webpage
   GET /{page-id}.md     Raw markdown source (text/plain)
+  GET /{page-id}.json   Page metadata and raw content (text/json)
 
   Errors:
      Page not found     Page never existed or was removed
