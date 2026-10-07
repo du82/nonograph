@@ -103,10 +103,10 @@ Publish a page
   Content-Type: application/x-www-form-urlencoded
 
   Parameters:
-     title        string   required   max 128 chars      Page title
-     content      string   required   max 256000 chars   Page body (markdown)
-     alias        string   optional   max 32 chars       Author alias
-     csrf_token   string   required   -                  Anti-CSRF token
+     title        string   required   see field limits   Page title
+     content      string   required   see field limits   Page body (markdown)
+     alias        string   optional   see field limits   Author alias
+     csrf_token   string   required   max 95 chars       Anti-CSRF token
 
      302 Found, Location: /{page-id}
 
@@ -130,10 +130,10 @@ Read a page
      Page not found     Page never existed or was removed
 
 
-Server limits
--------------
+Page limits
+-----------
 
-  GET /api/limits       Validation limits for this instance (JSON)
+  GET /api/page/limits   Validation limits for new pages (JSON)
 
   Fields:
      title_max_length          Max title length in bytes
@@ -150,16 +150,16 @@ pub(crate) fn api_page() -> content::RawText<&'static str> {
 /// The subset of configuration a client needs to validate a page before
 /// submitting it. Deliberately excludes server, cache, and onion internals.
 #[derive(Serialize)]
-pub(crate) struct Limits {
+pub(crate) struct PageLimits {
     title_max_length: usize,
     content_max_length: usize,
     alias_max_length: usize,
     csrf_protection_enabled: bool,
 }
 
-#[get("/api/limits")]
-pub(crate) fn limits(config: &State<Config>) -> Json<Limits> {
-    Json(Limits {
+#[get("/api/page/limits")]
+pub(crate) fn page_limits(config: &State<Config>) -> Json<PageLimits> {
+    Json(PageLimits {
         title_max_length: config.limits.title_max_length,
         content_max_length: config.limits.content_max_length,
         alias_max_length: config.limits.alias_max_length,

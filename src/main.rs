@@ -1028,7 +1028,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
             routes![
                 index,
                 api::create_post,
-                api::limits,
+                api::page_limits,
                 view_post,
                 markup_page,
                 legal_page,
