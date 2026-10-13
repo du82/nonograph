@@ -780,6 +780,164 @@ fn markup_page(
     serve_static_page("markup", config)
 }
 
+#[derive(Deserialize)]
+struct SaveRequest {
+    url: String,
+}
+
+#[derive(Serialize)]
+struct SaveResponse {
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Normalize a user-supplied target into a fetchable URL.
+///
+/// Accepts fully-qualified URLs (`https://example.com/a`) as well as the
+/// scheme-less, path-style form used by `GET /save/<url..>` (e.g.
+/// `example.com/a/b`), defaulting to `https://` when no scheme is present.
+///
+/// Because path routing collapses the `//` in a scheme, a pasted
+/// `https://example.com` arrives here as `https:/example.com`; we repair that
+/// so both spellings work.
+fn normalize_target_url(raw: &str) -> String {
+    let trimmed = raw.trim();
+
+    // Repair a scheme whose `//` was collapsed to `/` by path normalization.
+    if let Some(rest) = trimmed.strip_prefix("https:/") {
+        if !rest.starts_with('/') {
+            return format!("https://{}", rest);
+        }
+    }
+    if let Some(rest) = trimmed.strip_prefix("http:/") {
+        if !rest.starts_with('/') {
+            return format!("http://{}", rest);
+        }
+    }
+
+    if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{}", trimmed)
+    }
+}
+
+/// Fetch and persist an external page as a Nonograph post.
+///
+/// Returns the generated post id on success. The post is stored in the cache
+/// and queued for background file-save, mirroring `create_post`.
+async fn archive_and_store(
+    target_url: &str,
+    storage: &PostStorage,
+    file_queue: &FileSaveQueue,
+    config: &Config,
+) -> Result<String, String> {
+    let archiver = archiver::Archiver::new();
+    let extracted = archiver
+        .extract(target_url)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let title = parser::sanitize_text(&extracted.title);
+    let author = extracted
+        .author
+        .as_deref()
+        .map(parser::sanitize_text)
+        .unwrap_or_default();
+
+    let post_id = generate_post_id(&title, storage)
+        .map_err(|_| "no available slots for this title".to_string())?;
+
+    let rendered_content = parser::render_markdown_with_config(&extracted.body, config);
+
+    let post = Post {
+        id: post_id.clone(),
+        title,
+        author,
+        content: rendered_content,
+        raw_content: extracted.body,
+        created_at: Utc::now(),
+    };
+
+    let post_for_file = post.clone();
+    {
+        let mut posts = storage.lock().unwrap();
+        posts.insert(post_id.clone(), post);
+    }
+
+    if let Ok(tx) = file_queue.lock() {
+        if tx.send(post_for_file).is_err() {
+            eprintln!(
+                "Nonograph: Failed to queue archived post for background save: {}",
+                post_id
+            );
+        }
+    }
+
+    Ok(post_id)
+}
+
+/// Archive an external web page and persist it (JSON API).
+///
+/// Accepts a JSON body `{ "url": "https://..." }` and returns the saved post
+/// id and local URL.
+#[post("/save", data = "<request>")]
+async fn save_url(
+    request: rocket::serde::json::Json<SaveRequest>,
+    storage: &State<PostStorage>,
+    file_queue: &State<FileSaveQueue>,
+    config: &State<Config>,
+) -> rocket::serde::json::Json<SaveResponse> {
+    let target = normalize_target_url(&request.url);
+    let result = archive_and_store(&target, storage, file_queue, config).await;
+    rocket::serde::json::Json(match result {
+        Ok(id) => SaveResponse {
+            ok: true,
+            url: Some(format!("/{}", id)),
+            id: Some(id),
+            error: None,
+        },
+        Err(e) => SaveResponse {
+            ok: false,
+            id: None,
+            url: None,
+            error: Some(e),
+        },
+    })
+}
+
+/// Archive an external web page from a path-style URL, then redirect to it.
+///
+/// Example: `GET /save/argmin.net/p/faster-fourier-transforms` archives
+/// `https://argmin.net/p/faster-fourier-transforms` and redirects the browser
+/// to the saved page. A fully-qualified `GET /save/https://argmin.net/...` is
+/// also accepted.
+///
+/// Raw segments are used (rather than a `PathBuf` guard) so that characters
+/// like `:` are not rejected by Rocket's filesystem-safety filtering.
+#[get("/save/<target..>")]
+async fn save_url_path(
+    target: rocket::http::uri::Segments<'_, rocket::http::uri::fmt::Path>,
+    storage: &State<PostStorage>,
+    file_queue: &State<FileSaveQueue>,
+    config: &State<Config>,
+) -> Result<rocket::response::Redirect, content::RawHtml<String>> {
+    let raw = target.collect::<Vec<_>>().join("/");
+    let url = normalize_target_url(&raw);
+    match archive_and_store(&url, storage, file_queue, config).await {
+        Ok(id) => Ok(rocket::response::Redirect::to(format!("/{}", id))),
+        Err(e) => Err(content::RawHtml(format!(
+            "<h1>Archive failed</h1><p>{}</p>",
+            ammonia::clean_text(&e)
+        ))),
+    }
+}
+
 #[get("/legal")]
 fn legal_page(
     config: &State<Config>,
@@ -1023,17 +1181,17 @@ async fn main() -> Result<(), rocket::Error> {
 
     if args.len() > 1 && args[1] == "archive" {
         if args.len() < 3 {
-            eprintln!("Nonograph: Usage: cargo run archive <telegraph_url>");
+            eprintln!("Nonograph: Usage: cargo run archive <url>");
             std::process::exit(1);
         }
 
         let url = &args[2];
-        let archiver = archiver::TelegraphArchiver::new();
+        let archiver = archiver::Archiver::new();
 
-        match archiver.archive_url(url).await {
-            Ok(nonograph_url) => {
-                println!("Nonograph: Successfully archived Telegraph page!");
-                println!("Nonograph: View at: http://localhost:8009{}", nonograph_url);
+        match archiver.archive(url).await {
+            Ok(markup) => {
+                println!("Nonograph: Successfully archived page!");
+                println!("{}", markup);
             }
             Err(e) => {
                 eprintln!("Nonograph: Error archiving page: {}", e);
@@ -1091,6 +1249,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
             routes![
                 index,
                 create_post,
+                save_url,
+                save_url_path,
                 view_post,
                 markup_page,
                 legal_page,
@@ -2402,6 +2562,38 @@ mod tests {
         // Test normal title
         let normal_title = "A Great Article Title";
         assert!(normal_title.len() <= 128);
+    }
+
+    #[test]
+    fn test_normalize_target_url() {
+        // Scheme-less path-style form defaults to https.
+        assert_eq!(
+            normalize_target_url("argmin.net/p/faster-fourier-transforms"),
+            "https://argmin.net/p/faster-fourier-transforms"
+        );
+        // Collapsed scheme (from path normalization) is repaired.
+        assert_eq!(
+            normalize_target_url("https:/argmin.net/p/x"),
+            "https://argmin.net/p/x"
+        );
+        assert_eq!(
+            normalize_target_url("http:/example.com"),
+            "http://example.com"
+        );
+        // Already-well-formed URLs are left untouched.
+        assert_eq!(
+            normalize_target_url("https://example.com/a"),
+            "https://example.com/a"
+        );
+        assert_eq!(
+            normalize_target_url("http://example.com/a"),
+            "http://example.com/a"
+        );
+        // Surrounding whitespace is trimmed.
+        assert_eq!(
+            normalize_target_url("  example.com/a  "),
+            "https://example.com/a"
+        );
     }
 
     #[test]
