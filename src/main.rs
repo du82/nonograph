@@ -360,34 +360,14 @@ pub(crate) fn generate_post_id(title: &str, storage: &PostStorage) -> Result<Str
         title_slug
     };
 
-    if final_slug.is_empty() {
-        // Use "na-" + 4 random characters only for completely empty titles
+    // Force minimum slug to deal with spammer get the short titles
+    let mut final_slug = final_slug;
+    if final_slug.len() < 3 {
         let mut rng = thread_rng();
-        let chars: String = (0..4)
-            .map(|_| {
-                let chars = b"abcdefghijklmnopqrstuvwxyz0123456789";
-                chars[rng.gen_range(0..chars.len())] as char
-            })
-            .collect();
-
-        let fallback_slug = format!("na-{}", chars);
-        let posts = storage.lock().unwrap();
-
-        for i in 0..1000 {
-            let post_id = if i == 0 {
-                format!("{}-{}", fallback_slug, date_str)
-            } else {
-                format!("{}-{}-{}", fallback_slug, date_str, i)
-            };
-
-            if !posts.contains_key(&post_id) {
-                return Ok(post_id);
-            }
+        while final_slug.len() < 3 {
+            let chars = b"abcdefghijklmnopqrstuvwxyz0123456789";
+            final_slug.push(chars[rng.gen_range(0..chars.len())] as char);
         }
-
-        return Err(
-            "All slots for this title and date are taken. Please choose another title.".to_string(),
-        );
     }
 
     let posts = storage.lock().unwrap();
@@ -1071,7 +1051,7 @@ mod tests {
         // Slugs produced by generate_post_id and the static pages.
         assert!(is_valid_post_id("hello-world-09-01-2026"));
         assert!(is_valid_post_id("hello-world-09-01-2026-3"));
-        assert!(is_valid_post_id("na-ab12-09-01-2026"));
+        assert!(is_valid_post_id("ab12-09-01-2026"));
         assert!(is_valid_post_id("about"));
         // Telegraph archiver slugs may contain uppercase and underscores.
         assert!(is_valid_post_id("Sample-Page-12-15"));
@@ -1119,7 +1099,6 @@ mod tests {
         // Every id generate_post_id can emit must pass the read-path guard,
         // otherwise a freshly created post would 404. These titles exercise
         // each slug branch: a normal slug, the symbol-only and whitespace-only
-        // fallbacks ("na-XXXX"), and the long-title truncation ("-etc").
         let storage = Arc::new(Mutex::new(PostCache::new(128)));
         for title in [
             "Hello World",
@@ -1732,7 +1711,7 @@ mod tests {
             );
         }
 
-        // Test cases that should still use na- fallback (only for empty slugs)
+        // Test cases that should use the random fallback (only for empty slugs)
         let fallback_cases = vec![
             "",    // Empty string
             "   ", // Only whitespace
@@ -1745,8 +1724,8 @@ mod tests {
 
             let post_id = result.unwrap();
             assert!(
-                post_id.starts_with("na-"),
-                "Title '{}' should use na- fallback but got: {}",
+                !post_id.starts_with("na-"),
+                "Title '{}' should use the random fallback but got: {}",
                 title,
                 post_id
             );
@@ -2352,9 +2331,20 @@ mod tests {
         // Test very short titles
         let short_title = "A";
         let storage = Arc::new(Mutex::new(PostCache::new(128)));
-        let id = generate_post_id(short_title, &storage);
-        assert!(id.is_ok());
-        assert!(id.unwrap().starts_with("a-"));
+        let id = generate_post_id(short_title, &storage).unwrap();
+        let date_str = Utc::now().format("%m-%d-%Y").to_string();
+        let slug = id.strip_suffix(&format!("-{}", date_str)).unwrap_or(&id);
+        assert!(
+            slug.starts_with('a'),
+            "expected slug to start with the title letter, got: {}",
+            id
+        );
+        assert_eq!(
+            slug.len(),
+            3,
+            "expected 1-char title padded to minimum slug length 3, got: {}",
+            id
+        );
 
         let special_only = "!@#$%^&*()";
         let result = generate_post_id(special_only, &storage);
