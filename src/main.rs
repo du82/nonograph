@@ -4,6 +4,7 @@ extern crate rocket;
 mod api;
 mod archiver;
 mod config;
+mod format;
 mod nojs;
 mod parser;
 mod save;

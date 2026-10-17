@@ -1228,6 +1228,13 @@ fn render_code_block(
         .max()
         .unwrap_or(0);
 
+    let display_line_count = if code_content.is_empty() {
+        1
+    } else {
+        code_content.lines().count()
+    };
+    let display_line_count = crate::format::format_count(display_line_count as f64);
+
     let show_collapse = line_count >= code_blocks.collapse_min_lines;
     let show_wrap = longest_line_chars >= code_blocks.wrap_min_line_chars;
     let collapsed_by_default = line_count > code_blocks.collapse_default_lines;
@@ -1262,8 +1269,14 @@ fn render_code_block(
     };
 
     format!(
-        r#"<pre{}><div class="code-header">{}<div class="code-controls">{}{}<button class="copy-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1"/><rect x="6" y="1" width="4" height="3" rx="0.5"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,8 6,12 14,4"/></svg><span class="btn-label">Copy</span></button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div><div class="collapse-fade" aria-hidden="true"><span>Click to expand code snippet</span></div></pre>"#,
-        class_attr, lang_display, wrap_button, collapse_button, line_numbers, highlighted_code
+        r#"<pre{}><div class="code-header">{}<div class="code-controls">{}{}<button class="copy-button"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1"/><rect x="6" y="1" width="4" height="3" rx="0.5"/></svg><svg class="btn-icon btn-icon-alt" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,8 6,12 14,4"/></svg><span class="btn-label">Copy</span></button></div></div><div class="line-numbers">{}</div><div class="code-wrapper"><code>{}</code></div><div class="collapse-fade" aria-hidden="true"><span>Click to expand {} lines</span></div></pre>"#,
+        class_attr,
+        lang_display,
+        wrap_button,
+        collapse_button,
+        line_numbers,
+        highlighted_code,
+        display_line_count
     )
 }
 
@@ -2823,6 +2836,23 @@ var x = 1;
 
         assert!(result_large.contains("<span class=\"line-number\">10</span>"));
         assert!(!result_large.contains("<span class=\"line-number\">11</span>"));
+    }
+
+    #[test]
+    fn test_expand_text_groups_large_line_counts() {
+        let four_digit = "```rust\n".to_string() + &"x\n".repeat(9999) + "```";
+        let result_four = render_markdown(&four_digit);
+        assert!(
+            result_four.contains("Click to expand 9999 lines"),
+            "four-digit line count should not be grouped"
+        );
+
+        let five_digit = "```rust\n".to_string() + &"x\n".repeat(10_000) + "```";
+        let result_five = render_markdown(&five_digit);
+        assert!(
+            result_five.contains("Click to expand 10,000 lines"),
+            "five-digit line count should be comma-grouped"
+        );
     }
 
     #[test]
