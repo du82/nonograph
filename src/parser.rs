@@ -140,6 +140,9 @@ pub fn render_markdown_with_config(content: &str, config: &crate::config::Config
     // Process comments before other formatting to remove them from HTML output
     working_content = process_comments(&working_content);
 
+    // 在提取媒体/链接前，将链接包裹的图片解包为纯图片。
+    working_content = unwrap_linked_images(&working_content);
+
     let (working_content_no_media, media_blocks) = extract_media_syntax(&working_content);
     working_content = working_content_no_media;
 
@@ -1598,6 +1601,58 @@ pub fn html_escape(text: &str) -> String {
         .replace('\'', "&#x27;")
 }
 
+// 从 start 起查找 ch 的下标，遇换行或越界则返回 None。
+fn find_before_newline(chars: &[char], start: usize, ch: char) -> Option<usize> {
+    (start..chars.len())
+        .take_while(|&i| chars[i] != '\n')
+        .find(|&i| chars[i] == ch)
+}
+
+// 将链接包裹的图片 [![alt](img)](link) 解包为纯图片 ![alt](img)，避免可点击图片的风险（代码块已在上游保护）。
+fn unwrap_linked_images(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut result = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < chars.len() {
+        // 仅在未转义、非 ![ 的 [ 处尝试匹配。
+        let escaped = i > 0 && matches!(chars[i - 1], '!' | '\\');
+        if chars[i] == '[' && !escaped {
+            if let Some((image, end)) = match_linked_image(&chars, i) {
+                result.push_str(&image);
+                i = end + 1;
+                continue;
+            }
+        }
+        result.push(chars[i]);
+        i += 1;
+    }
+    result
+}
+
+// 匹配 chars[start] 为 [ 处的 [![alt](img)](link)（标签须恰为单张图片），返回替换图片与结尾 ) 的下标。
+fn match_linked_image(chars: &[char], start: usize) -> Option<(String, usize)> {
+    // 内层图片 ![alt](img)：[ 后紧跟 ![，解析出 ]、) 位置。
+    if chars.get(start + 1) != Some(&'!') || chars.get(start + 2) != Some(&'[') {
+        return None;
+    }
+    let alt_end = find_before_newline(chars, start + 3, ']')?;
+    if chars.get(alt_end + 1) != Some(&'(') {
+        return None;
+    }
+    let img_end = find_before_newline(chars, alt_end + 2, ')')?;
+    let img_url: String = chars[(alt_end + 2)..img_end].iter().collect();
+    if img_url.trim().is_empty() {
+        return None;
+    }
+    // 图片后须紧接标签的 ] 与外层链接的 (...)。
+    if chars.get(img_end + 1) != Some(&']') || chars.get(img_end + 2) != Some(&'(') {
+        return None;
+    }
+    let link_end = find_before_newline(chars, img_end + 3, ')')?;
+    let alt: String = chars[(start + 3)..alt_end].iter().collect();
+    Some((format!("![{}]({})", alt, img_url), link_end))
+}
+
 fn extract_media_syntax(text: &str) -> (String, Vec<String>) {
     let mut result = String::new();
     let mut media_blocks = Vec::new();
@@ -2035,6 +2090,112 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_linked_image_unwraps_to_plain_image() {
+        // `[![alt](img)](link)` must render as a plain, non-clickable image and
+        // must not leak a `{{MEDIASYNTAX..}}` placeholder.
+        let same =
+            render_markdown("[![Mountains](https://img.test/a.png)](https://img.test/a.png)");
+        assert!(same.contains("<img src=\"https://img.test/a.png\" alt=\"Mountains\">"));
+        assert!(!same.contains("MEDIASYNTAX"));
+        assert!(!same.contains("<a "));
+
+        // Ghost pattern: link points at a larger asset; we keep the displayed image.
+        let ghost =
+            render_markdown("[![A cat](https://img.test/small.jpg)](https://img.test/large.jpg)");
+        assert!(ghost.contains("<img src=\"https://img.test/small.jpg\" alt=\"A cat\">"));
+        assert!(!ghost.contains("https://img.test/large.jpg"));
+        assert!(!ghost.contains("<a "));
+    }
+
+    #[test]
+    fn test_linked_image_no_alt_and_inline_and_multiple() {
+        let no_alt = render_markdown("[![](https://img.test/b.png)](https://img.test/b-big.png)");
+        assert!(no_alt.contains("<img src=\"https://img.test/b.png\" alt=\"\">"));
+        assert!(!no_alt.contains("MEDIASYNTAX"));
+
+        let inline = render_markdown(
+            "Here is [![pup](https://img.test/c.png)](https://img.test/c.png) sitting.",
+        );
+        assert!(inline.contains("<img src=\"https://img.test/c.png\" alt=\"pup\">"));
+        assert!(!inline.contains("MEDIASYNTAX"));
+
+        let two = render_markdown(
+            "[![one](https://img.test/1.png)](https://img.test/1.png) [![two](https://img.test/2.png)](https://img.test/2.png)",
+        );
+        assert!(two.contains("alt=\"one\""));
+        assert!(two.contains("alt=\"two\""));
+        assert!(!two.contains("MEDIASYNTAX"));
+    }
+
+    #[test]
+    fn test_linked_video_unwraps_to_player() {
+        let out =
+            render_markdown("[![A video](https://v.test/small.mp4)](https://v.test/large.mp4)");
+        assert!(out.contains("<video"));
+        assert!(out.contains("src=\"https://v.test/small.mp4\""));
+        assert!(!out.contains("<a "));
+        assert!(!out.contains("MEDIASYNTAX"));
+    }
+
+    #[test]
+    fn test_unwrap_leaves_other_constructs_untouched() {
+        // Plain image stays an image.
+        let img = render_markdown("![A plain image](https://img.test/plain.png)");
+        assert!(img.contains("<img src=\"https://img.test/plain.png\" alt=\"A plain image\">"));
+
+        // Regular text link stays a link.
+        let link = render_markdown("[A regular link](https://example.com)");
+        assert!(link.contains("<a href=\"https://example.com\""));
+        assert!(link.contains(">A regular link</a>"));
+
+        // Bare bracket link stays a link.
+        let bare = render_markdown("[https://example.com]");
+        assert!(bare.contains("<a href=\"https://example.com\""));
+
+        // Image syntax inside code is left literal.
+        let fence =
+            render_markdown("```md\n[![x](https://img.test/x.png)](https://img.test/x.png)\n```");
+        assert!(fence.contains("[![x](https://img.test/x.png)](https://img.test/x.png)"));
+        let inline_code = render_markdown(
+            "Inline `[![x](https://img.test/x.png)](https://img.test/x.png)` sample.",
+        );
+        assert!(inline_code
+            .contains("<code>[![x](https://img.test/x.png)](https://img.test/x.png)</code>"));
+    }
+
+    #[test]
+    fn test_unwrap_linked_images_fn() {
+        assert_eq!(
+            unwrap_linked_images("[![a](https://i/a.png)](https://i/a.png)"),
+            "![a](https://i/a.png)"
+        );
+        // Different link target: keep the image's own url, drop the link.
+        assert_eq!(
+            unwrap_linked_images("[![a](https://i/a.png)](https://i/big.png)"),
+            "![a](https://i/a.png)"
+        );
+        // Not a pure image label: left untouched.
+        assert_eq!(
+            unwrap_linked_images("[![a](https://i/a.png) text](https://l)"),
+            "[![a](https://i/a.png) text](https://l)"
+        );
+        // Escaped opening bracket: left untouched.
+        assert_eq!(
+            unwrap_linked_images("\\[![a](https://i/a.png)](https://l)"),
+            "\\[![a](https://i/a.png)](https://l)"
+        );
+        // Plain image and plain link: unchanged.
+        assert_eq!(
+            unwrap_linked_images("![a](https://i/a.png)"),
+            "![a](https://i/a.png)"
+        );
+        assert_eq!(
+            unwrap_linked_images("[label](https://l)"),
+            "[label](https://l)"
+        );
+    }
 
     #[test]
     fn test_basic_formatting() {
