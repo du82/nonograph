@@ -308,6 +308,29 @@ function parseInlineLinkAt(text, start = 0) {
   return null;
 }
 
+// fix link image artifact when copy news article `[![alt](img)](link)`
+function unwrapLinkedImages(markdown) {
+  const source = String(markdown ?? "");
+  let result = "";
+  for (let i = 0; i < source.length; i += 1) {
+    if (source[i] !== "[" || source[i - 1] === "!" || isBackslashEscaped(source, i)) {
+      result += source[i];
+      continue;
+    }
+    const link = parseInlineLinkAt(source, i);
+    if (!link || link.bang) { result += source[i]; continue; }
+    const label = link.label.trim();
+    const image = parseInlineLinkAt(label, 0);
+    if (image && image.bang && image.to === label.length) {
+      result += `![${image.label}](${image.url}${image.title ? ` "${image.title}"` : ""})`;
+      i = link.to - 1;
+      continue;
+    }
+    result += source[i];
+  }
+  return result;
+}
+
 // Nonograph bare bracket link: [https://example.com] renders as a link whose
 // text is the URL itself. Mirrors process_links in src/parser.rs: only fires
 // when the bracket content starts with "http" and contains no line break, and
@@ -442,7 +465,14 @@ function htmlToMarkdown(html) {
     if (tag === "code" && node.parentElement?.tagName?.toLowerCase() !== "pre") return `\`${children()}\``;
     if (tag === "pre") return block(`\`\`\`\n${node.textContent.replace(/\n+$/g, "")}\n\`\`\``);
     if (tag === "blockquote") return block(children().trim().split("\n").map(line => `> ${line}`).join("\n"));
-    if (tag === "a") { const href = node.getAttribute("href") || ""; const label = children().trim() || href; return href && isSafeUrl(href) ? `[${label}](${href})` : label; }
+    if (tag === "a") {
+      // A link whose only meaningful content is an image is an "linked image"
+      // (common in CMS exports like Ghost). Unwrap it to the bare image so it is
+      // not clickable navigation. See unwrapLinkedImages for the markdown path.
+      const elementChildren = Array.from(node.childNodes).filter(n => n.nodeType !== Node.TEXT_NODE || n.nodeValue.trim());
+      if (elementChildren.length === 1 && elementChildren[0].nodeType === Node.ELEMENT_NODE && elementChildren[0].tagName.toLowerCase() === "img") return walk(elementChildren[0]);
+      const href = node.getAttribute("href") || ""; const label = children().trim() || href; return href && isSafeUrl(href) ? `[${label}](${href})` : label;
+    }
     if (tag === "img") { const src = node.getAttribute("src") || ""; const alt = node.getAttribute("alt") || ""; return src && isSafeUrl(src, { allowDataImage: false }) ? `![${alt}](${src})` : alt; }
     if (tag === "ul" || tag === "ol") {
       const items = Array.from(node.children).filter(el => el.tagName.toLowerCase() === "li");
@@ -3916,6 +3946,7 @@ class WritemarkEditorElement extends HTMLElement {
   _preparePastedMarkdown(markdown, kind = "text") {
     let insert = normalizeLineEndings(markdown ?? "");
     if (!insert) return insert;
+    insert = unwrapLinkedImages(insert);
     const sel = this._getCurrentSelection();
     if (sel.start !== sel.end) return insert;
     const shouldSeparate = kind === "markdown" || kind === "html" || kind === "table" || insert.includes("\n") || looksLikeBlockMarkdown(insert);
