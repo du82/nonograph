@@ -2,7 +2,7 @@
   <img align="center" width="96" height="96" alt="android-chrome-512x512" src="https://github.com/user-attachments/assets/9a06a3fe-46ee-422c-93ad-ce3e504603c0" />
 </div>
 
-<h1 align="center">Nonograph</h1>
+<h1 align="center">Nonograph [无迹]</h1>
 
 <p align="center"><b>为注重隐私的网络提供匿名发布服务</b></p>
 <div align="center">
