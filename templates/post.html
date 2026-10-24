@@ -1026,17 +1026,54 @@
                     r.setStart(sN, sO);
                     r.setEnd(eN, eO);
                     _hl = true;
-                    var mk = document.createElement("mark");
-                    mk.className = "selection-highlight";
-                    r.surroundContents(mk);
+
+                    // surroundContents() throws when the range partially
+                    // selects a non-Text node (e.g. spanning across <p>
+                    // tags). Instead, collect every Text node that
+                    // intersects the range and wrap each one's selected
+                    // portion in its own <mark>.
+                    var firstMark = null;
+                    var walker = document.createTreeWalker(
+                        r.commonAncestorContainer,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                    );
+                    var textNodes = [];
+                    var n;
+                    while ((n = walker.nextNode())) {
+                        if (r.intersectsNode(n)) textNodes.push(n);
+                    }
+
+                    for (var i = 0; i < textNodes.length; i++) {
+                        var node = textNodes[i];
+                        var start = node === sN ? sO : 0;
+                        var end = node === eN ? eO : node.length;
+                        if (end <= start) continue;
+
+                        var target = node;
+                        // Split off the trailing part we don't want.
+                        if (end < node.length) target.splitText(end);
+                        // Split off the leading part we don't want; the
+                        // remainder (the piece we want) is the new node.
+                        if (start > 0) target = target.splitText(start);
+
+                        var mk = document.createElement("mark");
+                        mk.className = "selection-highlight";
+                        target.parentNode.replaceChild(mk, target);
+                        mk.appendChild(target);
+                        if (!firstMark) firstMark = mk;
+                    }
+
                     _hl = false;
-                    window.scrollTo({
-                        top:
-                            mk.getBoundingClientRect().top +
-                            window.scrollY -
-                            window.innerHeight * 0.2,
-                        behavior: "smooth",
-                    });
+                    if (firstMark) {
+                        window.scrollTo({
+                            top:
+                                firstMark.getBoundingClientRect().top +
+                                window.scrollY -
+                                window.innerHeight * 0.2,
+                            behavior: "smooth",
+                        });
+                    }
                 } catch (x) {
                     _hl = false;
                 }
