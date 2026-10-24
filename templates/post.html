@@ -1044,6 +1044,9 @@
             if (document.readyState === "loading")
                 document.addEventListener("DOMContentLoaded", _doHighlight);
             else _doHighlight();
+            window.addEventListener("hashchange", function () {
+                if (!_hl) location.reload();
+            });
 
             // Process pre-rendered code blocks to add interactivity
             document.addEventListener("DOMContentLoaded", function () {

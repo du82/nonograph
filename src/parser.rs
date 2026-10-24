@@ -2047,7 +2047,8 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
                         {
                             result.push_str("<a href=\"");
                             result.push_str(&link_url);
-                            if config.security.external_link_security {
+                            if config.security.external_link_security && !link_url.starts_with('#')
+                            {
                                 result.push_str("\" target=\"_blank\">");
                             } else {
                                 result.push_str("\">");
@@ -2066,7 +2067,7 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
                 {
                     result.push_str("<a href=\"");
                     result.push_str(&link_url);
-                    if config.security.external_link_security {
+                    if config.security.external_link_security && !link_url.starts_with('#') {
                         result.push_str("\" target=\"_blank\">");
                     } else {
                         result.push_str("\">");
@@ -2260,6 +2261,20 @@ mod tests {
         assert!(result.contains("target=\"_blank\""));
         assert!(result.contains("rel=\"noopener noreferrer\""));
         assert!(result.contains(">https://example.com</a>"));
+    }
+
+    #[test]
+    fn test_same_page_anchor_opens_same_tab() {
+        // jump in page
+        let result = render_markdown("[Jump to top](#h1)");
+
+        assert!(result.contains("<a href=\"#h1\""));
+        assert!(!result.contains("target=\"_blank\""));
+        assert!(result.contains(">Jump to top</a>"));
+
+        // new tab
+        let external = render_markdown("[External](https://example.com)");
+        assert!(external.contains("target=\"_blank\""));
     }
 
     #[test]
