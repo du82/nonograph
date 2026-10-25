@@ -98,6 +98,7 @@ A published page with an image:
 
 ## Audits and security
 
+- 10/13/2026 - [@du82](https://github.com/du82) added $13,200 USD worth of Monero to the bug bounty program.
 - 9/5/2026 - [@netqo](https://github.com/netqo) contributed security improvements. Paid in Monero in [this pull request](https://github.com/du82/nonograph/pull/28).
 * 8/21/2026 - [@sgpinkus](https://github.com/sgpinkus) contributed security improvements. Paid in Monero in [this pull request](https://github.com/du82/nonograph/pull/26).
 * 6/22/2026 - [@SmokeCamel](t.me/cigssss) was reimbursed and provided isolated VMs for running top AI models against Nonograph's parser. No vulnerabilities were found.
