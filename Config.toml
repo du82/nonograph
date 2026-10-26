@@ -68,7 +68,7 @@ syntax_highlighting = "InspiredGitHub"
 collapse_min_lines = 10
 
 # Blocks with more than this many lines start collapsed by default.
-collapse_default_lines = 100
+collapse_default_lines = 256
 
 # Minimum length (in characters) of the longest line before the Wrap control
 # is shown.
