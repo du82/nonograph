@@ -331,6 +331,21 @@ function unwrapLinkedImages(markdown) {
   return result;
 }
 
+// Detect a line whose entire (trimmed) content is a single image, e.g.
+// `![alt](src "title")`. Returns the parsed image plus the leading/trailing
+// whitespace offsets so the live editor can render an inline preview while
+// keeping the source range mapping intact. Reference-style and bare-bracket
+// images are intentionally excluded to keep the preview unambiguous.
+function parseStandaloneImageLine(text) {
+  const raw = String(text ?? "");
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("![")) return null;
+  const leading = raw.length - raw.trimStart().length;
+  const image = parseInlineLinkAt(trimmed, 0);
+  if (!image || !image.bang || image.to !== trimmed.length) return null;
+  return { image, from: leading, to: leading + trimmed.length };
+}
+
 // Nonograph bare bracket link: [https://example.com] renders as a link whose
 // text is the URL itself. Mirrors process_links in src/parser.rs: only fires
 // when the bracket content starts with "http" and contains no line break, and
@@ -1342,6 +1357,11 @@ class WritemarkEditorElement extends HTMLElement {
     this._pointerSelection = null;
     this._suppressLiveClick = false;
     this._focusWithin = false;
+    // Source range of the standalone image line (if any) whose markup is
+    // currently revealed for editing, so a cursor move away can re-render it.
+    this._revealedImageLineKey = null;
+    // Set when an image preview toggle is postponed until a pointer gesture ends.
+    this._imagePreviewToggleDeferred = false;
     this._blockCacheValue = null;
     this._blockCache = null;
     this._liveBlocks = [];
@@ -1467,7 +1487,7 @@ class WritemarkEditorElement extends HTMLElement {
     this._selection = { start: s, end: e, direction };
     this._structuredSelection = (!this._isSourceActive() && s !== e) ? { start: s, end: e, direction, label: "selection" } : null;
     if (this._sourceTextarea && this._isSourceActive()) this._sourceTextarea.setSelectionRange(s, e, direction);
-    if (this._liveEditor && !this._isSourceActive()) { this._ignoreSelectionChangeCount = 2; this._restoreLiveSelection(this._selection); }
+    if (this._liveEditor && !this._isSourceActive()) { this._maybeToggleImagePreview(); this._ignoreSelectionChangeCount = 2; this._restoreLiveSelection(this._selection); }
     this._emitSelectionChange();
     this._scheduleCompletionUpdate();
   }
@@ -1577,6 +1597,24 @@ class WritemarkEditorElement extends HTMLElement {
         .md-line[data-kind="blank"] { min-block-size: var(--md-editor-paragraph-gap, 1.1em); }
         .md-token { color: var(--md-editor-token); font-weight: 500; }
         .md-url { color: var(--md-editor-muted); text-decoration: underline; }
+        /* Standalone image lines render an inline preview that mirrors the
+           published post output exactly (post.html / src/parser.rs). With alt
+           text: a centered image plus caption (.media-with-caption /
+           .media-caption). Without alt text: a bare, left-aligned block image
+           (.article-content img). Clicking the line reveals the markdown source
+           for editing. */
+        .md-image-line { white-space: normal; cursor: pointer; }
+        .md-image-preview {
+          max-width: 100%; height: auto; margin: 20px 0; display: block;
+          user-select: none; -webkit-user-drag: none;
+        }
+        .md-media-with-caption { display: block; text-align: center; margin: 20px 0; }
+        .md-media-with-caption .md-image-preview { margin: 0 auto; display: block; }
+        .md-media-caption {
+          display: block; margin-top: 8px; font-size: 0.9em;
+          color: var(--md-editor-muted); font-style: italic; text-align: center;
+          user-select: none;
+        }
         .md-heading { font-family: var(--md-editor-font); font-weight: 760; line-height: 1.18; margin-block: 0.22em; }
         .md-h1 { font-size: 2.0em; }
         .md-h2 { font-size: 1.6em; }
@@ -1776,8 +1814,8 @@ class WritemarkEditorElement extends HTMLElement {
     this._completionPopup.addEventListener("mousedown", e => e.preventDefault());
     this._completionPopup.addEventListener("click", e => { const item = e.target.closest("[data-index]"); if (!item) return; const index = Number(item.dataset.index); if (this._completion.items[index]?.disabled) return; this._completion.activeIndex = index; this._acceptCompletion("pointer"); });
     this._label.addEventListener("click", event => { event.preventDefault(); this._focusEditable(); });
-    this._shadow.addEventListener("focusin", () => { this._focusWithin = true; });
-    this._shadow.addEventListener("focusout", () => { queueMicrotask(() => { this._focusWithin = Boolean(this._shadow.activeElement); if (!this._focusWithin) this._hideSelectionToolbar?.(); }); });
+    this._shadow.addEventListener("focusin", () => { this._focusWithin = true; this._maybeToggleImagePreview?.(); });
+    this._shadow.addEventListener("focusout", () => { queueMicrotask(() => { this._focusWithin = Boolean(this._shadow.activeElement); if (!this._focusWithin) { this._hideSelectionToolbar?.(); this._maybeToggleImagePreview?.(); } }); });
     this._shadow.addEventListener("selectionchange", () => this._onSelectionChanged?.());
   }
 
@@ -2265,10 +2303,47 @@ class WritemarkEditorElement extends HTMLElement {
     }
     if (block.type === "code-fence") return this._renderCodeFence(block);
     if (block.type === "table") return this._renderTable(block);
+    const standaloneImage = parseStandaloneImageLine(block.line.text);
+    if (standaloneImage && !this._shouldRevealImageLine(block.line)) {
+      return this._renderImagePreviewLine(block, standaloneImage, lineAttrs);
+    }
     const content = parseReferenceDefinition(block.line.text)
       ? escapeHtml(block.line.text)
       : decorateInline(block.line.text, options);
     return `<div ${lineAttrs(block.line, "paragraph")}>${content}</div>`;
+  }
+  // An image line shows its raw markdown (so it can be edited) whenever the
+  // selection touches the line's source range; otherwise it renders a preview.
+  // A collapsed caret only reveals the source while the editor is focused, so an
+  // unfocused editor always shows previews.
+  _shouldRevealImageLine(line) {
+    const sel = this._selection;
+    if (!sel) return false;
+    const start = Math.min(sel.start, sel.end);
+    const end = Math.max(sel.start, sel.end);
+    if (!(start <= line.end && end >= line.start)) return false;
+    if (start === end && !this._focusWithin) return false;
+    return true;
+  }
+  _renderImagePreviewLine(block, standalone, lineAttrs) {
+    const { image } = standalone;
+    const safe = safeHref(image.url, { allowDataImage: false });
+    // Fall back to the editable source when the destination is unsafe/empty so
+    // the user can fix it instead of staring at a broken preview.
+    if (safe === "#" || safe === "") {
+      return `<div ${lineAttrs(block.line, "paragraph")}>${decorateInline(block.line.text, this._rendererOptions())}</div>`;
+    }
+    const alt = String(image.label || "");
+    const img = `<img class="md-image-preview" src="${escapeAttribute(safe)}" alt="${escapeAttribute(alt)}" draggable="false" loading="lazy" contenteditable="false">`;
+    // Mirror the published output (src/parser.rs process_images): alt text, when
+    // present, renders a centered image inside .media-with-caption with the alt
+    // repeated as a .media-caption below it. No alt text renders a bare,
+    // left-aligned image.
+    const body = alt.trim()
+      ? `<span class="md-media-with-caption" contenteditable="false">${img}<span class="md-media-caption">${escapeHtml(alt)}</span></span>`
+      : img;
+    const captionClass = alt.trim() ? " md-image-captioned" : "";
+    return `<div ${lineAttrs(block.line, "paragraph", `md-image-line${captionClass}`, `data-image-preview="true" aria-label="Image: ${escapeAttribute(alt || image.url)}. Click to edit."`)}>${body}</div>`;
   }
   _lineEditable() { return (!this.disabled && !this.readonly) ? "true" : "false"; }
   _renderHeadingLine(text, heading) {
@@ -2750,6 +2825,9 @@ class WritemarkEditorElement extends HTMLElement {
     const doc = this.ownerDocument || document;
     doc.removeEventListener("mousemove", this._boundLiveMouseMove, true);
     doc.removeEventListener("mouseup", this._boundLiveMouseEnd, true);
+    // Now that the gesture is finished and the final selection is known, apply
+    // any image preview reveal/collapse that was deferred during the drag.
+    if (this._imagePreviewToggleDeferred) { this._imagePreviewToggleDeferred = false; this._maybeToggleImagePreview(); }
     if (!state.native) event.preventDefault();
     else {
       this._emitSelectionChange();
@@ -3060,6 +3138,7 @@ class WritemarkEditorElement extends HTMLElement {
   _onSelectionChanged() {
     if (this._ignoreSelectionChangeCount > 0) {
       this._ignoreSelectionChangeCount -= 1;
+      this._maybeToggleImagePreview();
       this._emitSelectionChange();
       if (!this._isComposing) this._scheduleCompletionUpdate();
       this._updateSelectionToolbar();
@@ -3067,9 +3146,41 @@ class WritemarkEditorElement extends HTMLElement {
     }
     this._structuredSelection = null;
     this._selection = this._getCurrentSelection();
+    this._maybeToggleImagePreview();
     this._emitSelectionChange();
     if (!this._isComposing) this._scheduleCompletionUpdate();
     this._updateSelectionToolbar();
+  }
+
+  // Re-render the live view when the caret enters or leaves a standalone image
+  // line, swapping between the inline preview and the editable markdown source.
+  _maybeToggleImagePreview() {
+    if (!this._isLiveVisible() || !this._liveEditor) return;
+    // Defer toggling while a pointer selection gesture is in flight: revealing a
+    // line's source mid-drag would reflow the layout under the cursor and leave
+    // a spurious selection (which then pops the formatting toolbar). The gesture
+    // end runs this again to settle on the final state.
+    if (this._pointerSelection) { this._imagePreviewToggleDeferred = true; return; }
+    const key = this._revealedImageLineKeyForSelection();
+    if (key === this._revealedImageLineKey) return;
+    this._revealedImageLineKey = key;
+    // Avoid stealing focus back when re-rendering purely because the editor just
+    // lost focus (which re-collapses revealed image lines into previews).
+    this._renderAll({ restoreSelection: this._focusWithin, force: true });
+  }
+
+  // Identify which standalone image line (by source range) the selection is
+  // currently touching, so it can be shown as editable markup. Returns null
+  // when the selection is not on any image line.
+  _revealedImageLineKeyForSelection() {
+    const blocks = this._liveBlocks?.length ? this._liveBlocks : this._getBlocks();
+    for (const block of blocks) {
+      if (block.type !== "paragraph" && block.type !== "blank") continue;
+      const line = block.line;
+      if (!line || !parseStandaloneImageLine(line.text)) continue;
+      if (this._shouldRevealImageLine(line)) return `${line.start}:${line.end}`;
+    }
+    return null;
   }
 
   _hideSelectionToolbar() {
