@@ -121,17 +121,10 @@ impl PostCache {
         };
 
         self.entries.insert(post_id.clone(), entry);
-        let (size_val, size_unit) = match self.total_size {
-            b if b < 1_024 => (b as f64, "B"),
-            b if b < 1_024 * 1_024 => (b as f64 / 1_024.0, "KB"),
-            b if b < 1_024 * 1_024 * 1_024 => (b as f64 / (1_024.0 * 1_024.0), "MB"),
-            b => (b as f64 / (1_024.0 * 1_024.0 * 1_024.0), "GB"),
-        };
         println!(
-            "Nonograph: Cache now contains {} posts, total size: {:.2} {}",
+            "Nonograph: Cache now contains {} posts, total size: {}",
             self.entries.len(),
-            size_val,
-            size_unit
+            crate::format::size(self.total_size as u64),
         );
     }
 
@@ -468,6 +461,7 @@ struct Frontmatter {
     author: String,
     created_at: DateTime<Utc>,
     generator: Option<String>,
+    origin: Option<String>,
     raw_content: String,
 }
 
@@ -478,6 +472,7 @@ struct PageMetadata {
     alias: String,
     date: String,
     generator: Option<String>,
+    origin: Option<String>,
     content: String,
 }
 
@@ -493,6 +488,7 @@ fn parse_yaml_frontmatter(file_content: &str) -> Option<Frontmatter> {
     let mut author = String::new();
     let mut date_str = String::new();
     let mut generator = None;
+    let mut origin = None;
 
     for line in frontmatter_block.lines() {
         let line = line.trim();
@@ -510,6 +506,11 @@ fn parse_yaml_frontmatter(file_content: &str) -> Option<Frontmatter> {
             if !value.is_empty() {
                 generator = Some(value);
             }
+        } else if let Some(value) = line.strip_prefix("origin:") {
+            let value = parser::sanitize_text(value.trim());
+            if !value.is_empty() {
+                origin = Some(value);
+            }
         }
     }
 
@@ -524,6 +525,7 @@ fn parse_yaml_frontmatter(file_content: &str) -> Option<Frontmatter> {
         author,
         created_at,
         generator,
+        origin,
         raw_content: raw_content.to_string(),
     })
 }
@@ -557,6 +559,7 @@ fn parse_legacy_frontmatter(file_content: &str) -> Option<Frontmatter> {
         author,
         created_at,
         generator: None,
+        origin: None,
         raw_content,
     })
 }
@@ -635,6 +638,7 @@ fn view_post(
                 alias: fm.author,
                 date: fm.created_at.format("%Y-%m-%d").to_string(),
                 generator: fm.generator,
+                origin: fm.origin,
                 content: fm.raw_content,
             };
             serde_json::to_string(&metadata).ok()
@@ -727,13 +731,11 @@ fn view_post(
 
             context.insert(
                 "created_at".to_string(),
-                post.created_at.format("%B %d, %Y").to_string(),
+                crate::format::display(post.created_at),
             );
             context.insert(
                 "created_at_iso".to_string(),
-                post.created_at
-                    .format("%Y-%m-%dT00:00:00+00:00")
-                    .to_string(),
+                crate::format::iso(post.created_at),
             );
             context.insert("post_id".to_string(), actual_post_id.to_string());
 
@@ -882,13 +884,13 @@ fn serve_static_page(
                 context.insert("content".to_string(), rendered_content);
                 context.insert(
                     "created_at".to_string(),
-                    fm.created_at.format("%B %d, %Y").to_string(),
+                    crate::format::display(fm.created_at),
                 );
                 context.insert("author".to_string(), fm.author);
                 context.insert("author_display".to_string(), String::new());
                 context.insert(
                     "created_at_iso".to_string(),
-                    fm.created_at.format("%Y-%m-%dT00:00:00+00:00").to_string(),
+                    crate::format::iso(fm.created_at),
                 );
                 context.insert("url".to_string(), format!("/{}", page_name));
                 context.insert("description".to_string(), String::new());
@@ -2029,10 +2031,32 @@ mod tests {
     }
 
     #[test]
+    fn test_frontmatter_origin_parsing() {
+        let with_origin = "---\ntitle: Archived Post\ndate: 2024-01-15\nauthor: Author\norigin: https://telegra.ph/Archived-Post-01-15\n---\n\nBody";
+        let result = parse_yaml_frontmatter(with_origin).unwrap();
+        assert_eq!(
+            result.origin.as_deref(),
+            Some("https://telegra.ph/Archived-Post-01-15")
+        );
+
+        let no_origin = "---\ntitle: No Origin\ndate: 2024-01-15\n---\n\nBody";
+        let result = parse_yaml_frontmatter(no_origin).unwrap();
+        assert_eq!(result.origin, None);
+
+        let empty_origin = "---\ntitle: Empty Origin\ndate: 2024-01-15\norigin:   \n---\n\nBody";
+        let result = parse_yaml_frontmatter(empty_origin).unwrap();
+        assert_eq!(result.origin, None);
+
+        let legacy = "January 15, 2024 | Author\n\n# Legacy\nBody";
+        let result = parse_legacy_frontmatter(legacy).unwrap();
+        assert_eq!(result.origin, None);
+    }
+
+    #[test]
     fn test_page_metadata_json_serialization() {
         // verifies the serialized shape and field names that clients depend on.
         let fm = parse_yaml_frontmatter(
-            "---\ntitle: JSON Page\ndate: 2026-10-07\nauthor: Tester\ngenerator: nonograph v0.4.7\n---\n\nHello **world**.",
+            "---\ntitle: JSON Page\ndate: 2026-10-07\nauthor: Tester\ngenerator: nonograph v0.4.7\norigin: https://telegra.ph/JSON-Page-10-07\n---\n\nHello **world**.",
         )
         .unwrap();
 
@@ -2042,6 +2066,7 @@ mod tests {
             alias: fm.author,
             date: fm.created_at.format("%Y-%m-%d").to_string(),
             generator: fm.generator,
+            origin: fm.origin,
             content: fm.raw_content,
         };
 
@@ -2054,11 +2079,12 @@ mod tests {
         assert_eq!(json["alias"], "Tester");
         assert_eq!(json["date"], "2026-10-07");
         assert_eq!(json["generator"], "nonograph v0.4.7");
+        assert_eq!(json["origin"], "https://telegra.ph/JSON-Page-10-07");
         assert_eq!(json["content"], "Hello **world**.");
 
         // No `author` key leaks through, and no unexpected fields are present.
         assert!(json.get("author").is_none());
-        assert_eq!(json.as_object().unwrap().len(), 6);
+        assert_eq!(json.as_object().unwrap().len(), 7);
     }
 
     #[test]
@@ -2073,6 +2099,7 @@ mod tests {
             alias: fm.author,
             date: fm.created_at.format("%Y-%m-%d").to_string(),
             generator: fm.generator,
+            origin: fm.origin,
             content: fm.raw_content,
         };
 
@@ -2080,6 +2107,8 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&metadata).unwrap()).unwrap();
 
         assert!(json["generator"].is_null());
+        // Legacy pages were never archived from a source URL.
+        assert!(json["origin"].is_null());
         // Anonymous legacy author -> empty alias string (not missing).
         assert_eq!(json["alias"], "");
         assert_eq!(json["title"], "Legacy");

@@ -1236,7 +1236,7 @@ fn render_code_block(
     } else {
         code_content.lines().count()
     };
-    let display_line_count = crate::format::format_count(display_line_count as f64);
+    let display_line_count = crate::format::count(display_line_count as f64);
 
     let show_collapse = line_count >= code_blocks.collapse_min_lines;
     let show_wrap = longest_line_chars >= code_blocks.wrap_min_line_chars;
