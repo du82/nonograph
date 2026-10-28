@@ -74,7 +74,7 @@ fn default_collapse_min_lines() -> u32 {
 }
 
 fn default_collapse_default_lines() -> u32 {
-    100
+    256
 }
 
 fn default_wrap_min_line_chars() -> usize {
@@ -187,6 +187,7 @@ impl Config {
     /// single bad field from disabling an otherwise valid configuration.
     fn normalize(&mut self) {
         // Prevent Nonograph from becoming microblogging slop, always allow long-form
+        // Short-form is destroying attention spans and the internet. Fuck u Mastodon!
         if self.limits.content_max_length < 16_000 {
             self.limits.content_max_length = 16_000;
         }
@@ -396,7 +397,7 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
         assert_eq!(config.code_blocks.collapse_min_lines, 10);
-        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.collapse_default_lines, 256);
         assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
     }
 
@@ -435,7 +436,7 @@ csrf_protection_enabled = true
         let config: Config = toml::from_str(toml).expect("config should parse");
         assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
         assert_eq!(config.code_blocks.collapse_min_lines, 10);
-        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.collapse_default_lines, 256);
         assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
     }
 
