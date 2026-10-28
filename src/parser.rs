@@ -3047,15 +3047,15 @@ var x = 1;
 
     #[test]
     fn test_long_code_block_collapsed_by_default() {
-        // At or below 100 lines: not collapsed by default.
-        let hundred = "```rust\n".to_string() + &"let x = 0;\n".repeat(100) + "```";
-        let result_hundred = render_markdown(&hundred);
-        assert!(!result_hundred.contains("class=\"language-rust collapsed\""));
-        assert!(result_hundred.contains(">Collapse<"));
-        assert!(!result_hundred.contains(">Expand<"));
+        // At or below the 256-line default threshold: not collapsed by default.
+        let threshold = "```rust\n".to_string() + &"let x = 0;\n".repeat(256) + "```";
+        let result_threshold = render_markdown(&threshold);
+        assert!(!result_threshold.contains("class=\"language-rust collapsed\""));
+        assert!(result_threshold.contains(">Collapse<"));
+        assert!(!result_threshold.contains(">Expand<"));
 
-        // Over 100 lines: collapsed by default with the button in expand state.
-        let long = "```rust\n".to_string() + &"let x = 0;\n".repeat(101) + "```";
+        // Over 256 lines: collapsed by default with the button in expand state.
+        let long = "```rust\n".to_string() + &"let x = 0;\n".repeat(257) + "```";
         let result_long = render_markdown(&long);
         assert!(result_long.contains("collapsed"));
         assert!(result_long.contains("collapse-button active"));
