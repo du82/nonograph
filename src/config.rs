@@ -497,7 +497,7 @@ collapse_default_lines = 250
 
         assert_eq!(config.code_blocks.syntax_highlighting, "base16-ocean.dark");
         assert_eq!(config.code_blocks.collapse_min_lines, 10);
-        assert_eq!(config.code_blocks.collapse_default_lines, 100);
+        assert_eq!(config.code_blocks.collapse_default_lines, 250);
         assert_eq!(config.code_blocks.wrap_min_line_chars, 20);
     }
 
