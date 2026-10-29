@@ -98,6 +98,8 @@ A published page with an image:
 
 Nonograph is an open-source alternative to Telegraph (telegra.ph) with a focus on privacy and anonymity. Here is a decent [history of the project](https://nonogra.ph/history-of-this-10-29-2026) that someone made in attempt to dox me.
 
+"Nonograph" is pronounced like "non" + "oh" + "graph". Non, as in "aNONymous"
+
 ## Audits and security
 
 - 10/13/2026 - [@du82](https://github.com/du82) added $13,200 USD worth of Monero to the bug bounty program.
