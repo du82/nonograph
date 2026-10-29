@@ -5,6 +5,8 @@ use std::path::Path;
 
 const FALLBACK_LOCALE: &str = "en";
 
+const EMBEDDED_STRINGS: &str = include_str!("../Strings.toml");
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Strings {
     #[serde(flatten)]
@@ -12,37 +14,42 @@ pub struct Strings {
 }
 
 impl Strings {
-    pub fn load() -> Result<Self, String> {
+    fn embedded() -> Self {
+        toml::from_str(EMBEDDED_STRINGS).expect("embedded Strings.toml should always be valid TOML")
+    }
+    fn load_from_disk() -> Result<Option<Self>, String> {
         let path = Path::new("Strings.toml");
         if !path.exists() {
-            return Ok(Strings::default());
+            return Ok(None);
         }
 
         let content =
             fs::read_to_string(path).map_err(|e| format!("Failed to read Strings.toml: {}", e))?;
-        toml::from_str(&content).map_err(|e| format!("Failed to parse Strings.toml: {}", e))
+        let strings =
+            toml::from_str(&content).map_err(|e| format!("Failed to parse Strings.toml: {}", e))?;
+        Ok(Some(strings))
     }
 
     pub fn load_with_logging() -> Self {
-        match Self::load() {
-            Ok(strings) => {
-                if strings.locales.is_empty() {
-                    eprintln!("Nonograph: No Strings.toml found; homepage will not be localized");
-                } else {
-                    let mut names: Vec<&str> = strings.locales.keys().map(String::as_str).collect();
-                    names.sort_unstable();
-                    println!(
-                        "Nonograph: Loaded {} homepage locale(s): {}",
-                        names.len(),
-                        names.join(", ")
-                    );
-                }
+        match Self::load_from_disk() {
+            Ok(Some(strings)) => {
+                let mut names: Vec<&str> = strings.locales.keys().map(String::as_str).collect();
+                names.sort_unstable();
+                println!(
+                    "Nonograph: Loaded {} homepage locale(s) from Strings.toml: {}",
+                    names.len(),
+                    names.join(", ")
+                );
                 strings
+            }
+            Ok(None) => {
+                eprintln!("Nonograph: No Strings.toml found; using built-in homepage translations");
+                Self::embedded()
             }
             Err(e) => {
                 eprintln!("Nonograph: Localization error: {}", e);
-                eprintln!("Nonograph: Homepage will fall back to template defaults");
-                Strings::default()
+                eprintln!("Nonograph: Falling back to built-in homepage translations");
+                Self::embedded()
             }
         }
     }
@@ -191,8 +198,18 @@ about = "О сервисе"
     }
 
     #[test]
-    fn missing_file_yields_empty_context() {
+    fn default_yields_empty_context() {
         let strings = Strings::default();
         assert!(strings.context_for(Some("en")).is_empty());
+    }
+
+    #[test]
+    fn embedded_strings_parse_and_contain_english() {
+        let strings = Strings::embedded();
+        assert!(strings.locales.contains_key(FALLBACK_LOCALE));
+
+        let ctx = strings.context_for(Some("en-US"));
+        assert_eq!(ctx.get("publish").map(String::as_str), Some("Publish"));
+        assert_eq!(ctx.get("about").map(String::as_str), Some("About"));
     }
 }
