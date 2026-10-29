@@ -93,8 +93,10 @@ A published page with an image:
 ## Also available on...
 - Radicle: [`rad:z2irFqQ3Zx1S8kqsVgH9itBoVUxkT`](https://radicle.network/nodes/iris.radicle.network/rad%3Az2irFqQ3Zx1S8kqsVgH9itBoVUxkT)
 
-## Name
+## Name and origins
 `anonymous` + `monograph` + `telegraph` = `nonograph`
+
+Nonograph is an open-source alternative to Telegraph (telegra.ph) with a focus on privacy and anonymity. Here is a decent [history of the project](https://nonogra.ph/history-of-this-10-29-2026) that someone made in attempt to dox me.
 
 ## Audits and security
 
