@@ -19,7 +19,7 @@
     <img src="https://img.shields.io/badge/Tor-Hidden%20Service-7d4698?style=flat&logo=torproject&logoColor=white" alt="Tor Hidden Service">
   </a>
 
-[English](README.md) | 简体中文
+[English](README.md) | 简体中文 | [Русский](README.ru.md) | [Magyar](README.hu.md)
 
 </div>
 
