@@ -23,7 +23,7 @@
 
 </div>
 
-A Nonograph egy egyszerű anonim publikációs platform bárkinek aki szeretné, hogy szavai online legyenek egy hozzákapcsolt személyazonosság nélkül. Írsz valamit, kapsz egy megosztható linket, és kész. Nincs felhasználói fiók, nincs profil, és nincs elemzés ami követi az olvasókat.
+A Nonograph egy egyszerű anonim publikációs platform bárkinek aki szeretné, hogy szavai online legyenek egy hozzákapcsolt személyazonosság nélkül. Írsz valamit, kapsz egy megosztható linket, és kész. Nincs felhasználói fiók, nincs profil, és nincs elemzés ami követné az olvasókat.
 
 https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 
