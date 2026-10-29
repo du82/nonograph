@@ -27,14 +27,12 @@ impl Strings {
         match Self::load() {
             Ok(strings) => {
                 if strings.locales.is_empty() {
-                    eprintln!(
-                        "Nonograph: ⚠️  No Strings.toml found; homepage will not be localized"
-                    );
+                    eprintln!("Nonograph: No Strings.toml found; homepage will not be localized");
                 } else {
                     let mut names: Vec<&str> = strings.locales.keys().map(String::as_str).collect();
                     names.sort_unstable();
                     println!(
-                        "Nonograph: ✅ Loaded {} homepage locale(s): {}",
+                        "Nonograph: Loaded {} homepage locale(s): {}",
                         names.len(),
                         names.join(", ")
                     );
@@ -42,8 +40,8 @@ impl Strings {
                 strings
             }
             Err(e) => {
-                eprintln!("Nonograph: ⚠️  Localization error: {}", e);
-                eprintln!("Nonograph:    Homepage will fall back to template defaults");
+                eprintln!("Nonograph: Localization error: {}", e);
+                eprintln!("Nonograph: Homepage will fall back to template defaults");
                 Strings::default()
             }
         }
