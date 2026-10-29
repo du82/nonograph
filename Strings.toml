@@ -1,0 +1,39 @@
+# User-facing strings for the Nonograph homepage.
+#
+# To add a language, copy the `[en]` table, rename it to the language tag, and
+# translate the values. Any key you leave out falls back to English, so partial
+# translations are fine.
+
+[en]
+publish = "Publish"
+about = "About"
+about_heading = "About Nonograph"
+whats_this_heading = "What's this?"
+whats_this_body = "Nonograph is for writing things you want to exist somewhere permanent without that somewhere being attached to you. A thought, an essay, a rant, class notes, up to you. You write it, you get a link. Share the link with whoever you'd like, or keep it to yourself."
+longevity_body = "The service and software are designed to last. Your pages are stored as plaintext markup, no proprietary formats. Being a simple, lightweight, open-source project means it should last a long time with very little funding."
+principles_heading = "Principles"
+principle_no_ads = "No ads, no monetization, no investors"
+principle_immutable = "Posts cannot be edited or deleted after publishing"
+principle_no_accounts = "No accounts, no tracking, no analytics"
+principle_open = "Open to all, no political or social biases"
+principle_self_hostable = "Open source, self-hostable"
+source_heading = "Source code"
+source_body = "It's entirely open source. The code is at github.com/du82/nonograph. You can read it, run it yourself, and host for others easily."
+formatting_heading = "Formatting"
+formatting_body = "Type / for a menu of formatting options, or use markdown directly. Add .md to any post URL to see the raw source."
+title_placeholder = "Title"
+title_opsec = "Mind your opsec. Limited to 128 characters."
+alias_placeholder = "Alias (optional)"
+alias_opsec = "Mind your opsec. Limited to 32 characters."
+alias_random = "Generate random alias"
+content_placeholder = "Write something with markdown or type / for formatting options..."
+content_opsec = "Mind your opsec, be careful what you share."
+markup_guide = "markup guide"
+legal_privacy = "legal & privacy"
+source_code = "source code"
+
+[zh]
+
+[ru]
+
+[hu]

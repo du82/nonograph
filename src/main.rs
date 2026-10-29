@@ -5,12 +5,14 @@ mod api;
 mod archiver;
 mod config;
 mod format;
+mod i18n;
 mod nojs;
 mod parser;
 mod save;
 mod template;
 
 use config::Config;
+use i18n::Strings;
 use std::sync::mpsc;
 use std::thread;
 
@@ -168,10 +170,27 @@ impl PostCache {
 pub(crate) type PostStorage = Arc<Mutex<PostCache>>;
 pub(crate) type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
+struct AcceptLanguage(Option<String>);
+
+#[rocket::async_trait]
+impl<'r> rocket::request::FromRequest<'r> for AcceptLanguage {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        let header = req.headers().get_one("Accept-Language").map(str::to_string);
+        rocket::request::Outcome::Success(AcceptLanguage(header))
+    }
+}
+
 #[get("/")]
-fn index(config: &State<Config>) -> content::RawHtml<String> {
+fn index(
+    config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
+) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
-    let mut context = HashMap::new();
+    let mut context = strings.context_for(accept_language.0.as_deref());
+
     context.insert("error".to_string(), "".to_string());
     context.insert("success".to_string(), "".to_string());
     context.insert(
@@ -801,8 +820,12 @@ fn robots_txt() -> content::RawText<&'static str> {
 }
 
 #[get("/nojs")]
-fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
-    let html = index(config).0;
+fn nojs_index(
+    config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
+) -> content::RawHtml<String> {
+    let html = index(config, strings, accept_language).0;
     let clean_html = nojs::strip_javascript(&html);
     content::RawHtml(clean_html)
 }
@@ -975,6 +998,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     use rocket::data::{Limits, ToByteUnit};
 
     let config = Config::load_with_logging();
+    let strings = Strings::load_with_logging();
 
     let limits = Limits::default()
         .limit("form", config.form_data_limit_bytes().bytes())
@@ -1008,6 +1032,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .manage(storage)
         .manage(FileSaveQueue::new(file_save_sender))
         .manage(config)
+        .manage(strings)
         .mount(
             "/",
             routes![
