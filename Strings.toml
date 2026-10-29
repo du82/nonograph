@@ -1,4 +1,4 @@
-# User-facing strings for the Nonograph homepage.
+# User-facing strings for Nonograph.
 #
 # To add a language, copy the `[en]` table, rename it to the language tag, and
 # translate the values. Any key you leave out falls back to English, so partial
