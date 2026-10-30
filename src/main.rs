@@ -274,6 +274,8 @@ impl Fairing for SecurityHeadersFairing {
     }
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        // Strip server info to stop the script kiddies AI bots
+        response.remove_header("Server");
         // TODO: Refactor HTML and remove unsafe-inline.
         response.set_header(Header::new(
             "Content-Security-Policy",
@@ -937,6 +939,16 @@ fn serve_static_page(
     }
 }
 
+#[catch(404)]
+fn not_found_catcher() -> content::RawHtml<&'static str> {
+    content::RawHtml(NOT_FOUND_HTML)
+}
+
+#[catch(400)]
+fn bad_request_catcher() -> content::RawHtml<&'static str> {
+    content::RawHtml(NOT_FOUND_HTML)
+}
+
 fn start_cache_purge_worker(storage: PostStorage, interval_mins: u64) {
     thread::spawn(move || loop {
         thread::sleep(std::time::Duration::from_secs(interval_mins * 60));
@@ -1048,7 +1060,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 nojs_index,
                 nojs_view_post
             ],
-        );
+        )
+        .register("/", catchers![not_found_catcher, bad_request_catcher]);
 
     if let Some(url) = onion_url {
         rocket = rocket.attach(OnionLocationFairing { onion_url: url });
