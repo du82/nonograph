@@ -71,6 +71,14 @@ impl Strings {
         None
     }
 
+    pub fn english_context() -> HashMap<String, String> {
+        Self::embedded()
+            .locales
+            .get(FALLBACK_LOCALE)
+            .cloned()
+            .unwrap_or_default()
+    }
+
     pub fn context_for(&self, accept_language: Option<&str>) -> HashMap<String, String> {
         let mut context: HashMap<String, String> = self
             .locales
