@@ -111,3 +111,6 @@ Nonograph is an open-source alternative to Telegraph (telegra.ph) with a focus o
 
 ## License
 Public domain ([Unlicense](https://unlicense.org)). This software belongs to everyone. Use it, modify it, share it without restriction. Do what you want with it, but remember there's no warranty. Please respect the policies of hosted Nonograph servers you come across.
+
+## Thanks
+Nonograph was translated by humans to Russian, Hungarian, Spanish, Portuguese, and Ukrainian. It is secured by humans reviewing code and discovering strange edge cases and being paid for their findings. It is hosted by humans on dozens of servers all over the world who make it freely available. The logo was designed by a human artist who was paid well. Thank you to all of the humans who made this possible.
