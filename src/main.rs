@@ -5,12 +5,14 @@ mod api;
 mod archiver;
 mod config;
 mod format;
+mod i18n;
 mod nojs;
 mod parser;
 mod save;
 mod template;
 
 use config::Config;
+use i18n::Strings;
 use std::sync::mpsc;
 use std::thread;
 
@@ -168,10 +170,27 @@ impl PostCache {
 pub(crate) type PostStorage = Arc<Mutex<PostCache>>;
 pub(crate) type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
+struct AcceptLanguage(Option<String>);
+
+#[rocket::async_trait]
+impl<'r> rocket::request::FromRequest<'r> for AcceptLanguage {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(req: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        let header = req.headers().get_one("Accept-Language").map(str::to_string);
+        rocket::request::Outcome::Success(AcceptLanguage(header))
+    }
+}
+
 #[get("/")]
-fn index(config: &State<Config>) -> content::RawHtml<String> {
+fn index(
+    config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
+) -> content::RawHtml<String> {
     let engine = TemplateEngine::new("templates");
-    let mut context = HashMap::new();
+    let mut context = strings.context_for(accept_language.0.as_deref());
+
     context.insert("error".to_string(), "".to_string());
     context.insert("success".to_string(), "".to_string());
     context.insert(
@@ -255,6 +274,8 @@ impl Fairing for SecurityHeadersFairing {
     }
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        // Strip server info to stop the script kiddies AI bots
+        response.remove_header("Server");
         // TODO: Refactor HTML and remove unsafe-inline.
         response.set_header(Header::new(
             "Content-Security-Policy",
@@ -596,7 +617,7 @@ fn view_post(
     if !is_valid_post_id(actual_post_id) {
         return Err((
             Status::NotFound,
-            rocket::Either::Right(content::RawHtml(NOT_FOUND_HTML.to_string())),
+            rocket::Either::Right(content::RawHtml(not_found_html().to_string())),
         ));
     }
 
@@ -760,7 +781,7 @@ fn view_post(
         }
         None => Err((
             Status::NotFound,
-            rocket::Either::Right(content::RawHtml(NOT_FOUND_HTML.to_string())),
+            rocket::Either::Right(content::RawHtml(not_found_html().to_string())),
         )),
     }
 }
@@ -801,8 +822,12 @@ fn robots_txt() -> content::RawText<&'static str> {
 }
 
 #[get("/nojs")]
-fn nojs_index(config: &State<Config>) -> content::RawHtml<String> {
-    let html = index(config).0;
+fn nojs_index(
+    config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
+) -> content::RawHtml<String> {
+    let html = index(config, strings, accept_language).0;
     let clean_html = nojs::strip_javascript(&html);
     content::RawHtml(clean_html)
 }
@@ -836,29 +861,18 @@ fn nojs_view_post(
     }
 }
 
-const NOT_FOUND_HTML: &str = r#"<!doctype html>
-<html>
-<head>
-    <title>404 - Page not found</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-        body {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            text-align: center;
-            color: #333;
+const NOT_FOUND_TEMPLATE: &str = include_str!("../templates/404.html");
+
+fn not_found_html() -> &'static str {
+    static NOT_FOUND_HTML: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    NOT_FOUND_HTML.get_or_init(|| {
+        let mut html = NOT_FOUND_TEMPLATE.to_string();
+        for (key, value) in Strings::english_context() {
+            html = html.replace(&format!("{{{{{}}}}}", key), &value);
         }
-        h1 { font-weight: 300; margin-bottom: 16px; }
-        a { color: #333; }
-    </style>
-</head>
-<body>
-    <h1>Page Not Found</h1>
-    <p><a href="/">Write Your Own</a></p>
-</body>
-</html>"#;
+        html
+    })
+}
 
 fn serve_static_page(
     page_name: &str,
@@ -909,9 +923,19 @@ fn serve_static_page(
         }
         Err(_) => Err((
             Status::NotFound,
-            content::RawHtml(NOT_FOUND_HTML.to_string()),
+            content::RawHtml(not_found_html().to_string()),
         )),
     }
+}
+
+#[catch(404)]
+fn not_found_catcher() -> content::RawHtml<&'static str> {
+    content::RawHtml(not_found_html())
+}
+
+#[catch(400)]
+fn bad_request_catcher() -> content::RawHtml<&'static str> {
+    content::RawHtml(not_found_html())
 }
 
 fn start_cache_purge_worker(storage: PostStorage, interval_mins: u64) {
@@ -975,6 +999,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
     use rocket::data::{Limits, ToByteUnit};
 
     let config = Config::load_with_logging();
+    let strings = Strings::load_with_logging();
 
     let limits = Limits::default()
         .limit("form", config.form_data_limit_bytes().bytes())
@@ -1008,6 +1033,7 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
         .manage(storage)
         .manage(FileSaveQueue::new(file_save_sender))
         .manage(config)
+        .manage(strings)
         .mount(
             "/",
             routes![
@@ -1023,7 +1049,8 @@ fn rocket() -> rocket::Rocket<rocket::Build> {
                 nojs_index,
                 nojs_view_post
             ],
-        );
+        )
+        .register("/", catchers![not_found_catcher, bad_request_catcher]);
 
     if let Some(url) = onion_url {
         rocket = rocket.attach(OnionLocationFairing { onion_url: url });
@@ -1153,6 +1180,15 @@ mod tests {
 
         let result = engine.render("test", &context).unwrap();
         assert_eq!(result, "<h1>Test Title</h1><p>Test content</p>");
+    }
+
+    #[test]
+    fn test_not_found_html_injects_english_strings() {
+        let html = not_found_html();
+        assert!(html.contains("Page not found"));
+        assert!(html.contains("Write your own"));
+        assert!(!html.contains("{{page_not_found}}"));
+        assert!(!html.contains("{{write_your_own}}"));
     }
 
     #[test]

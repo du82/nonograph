@@ -686,8 +686,8 @@
                 <span>0 / 256,000</span>
             </div>
             <div class="mobile-header-center">
-                <a href="#help-sheet" class="help-link">About</a>
-                <button type="submit" form="publishForm">Publish</button>
+                <a href="#help-sheet" class="help-link">{{about}}</a>
+                <button type="submit" form="publishForm">{{publish}}</button>
             </div>
         </div>
 
@@ -695,62 +695,36 @@
         <div class="bottom-sheet-overlay" id="help-sheet">
             <div class="bottom-sheet">
                 <div class="bottom-sheet-header">
-                    <h2 class="bottom-sheet-title">About Nonograph</h2>
+                    <h2 class="bottom-sheet-title">{{about_heading}}</h2>
                     <a href="#" class="bottom-sheet-close"> &times; </a>
                 </div>
                 <div class="bottom-sheet-content">
                     <!-- About -->
                     <div class="help-section">
-                        <h3>What's this?</h3>
-                        <p>
-                            Nonograph is for writing things you want to exist
-                            somewhere permanent without that somewhere being
-                            attached to you. A thought, an essay, a rant, class
-                            notes, up to you. You write it, you get a link.
-                            Share the link with whoever you'd like, or keep it
-                            to yourself.
-                        </p>
-                        <p>
-                            The service and software are designed to last. Your
-                            pages are stored as plaintext markup, no proprietary
-                            formats. Being a simple, lightweight, open-source
-                            project means it should last a long time with very
-                            little funding.
-                        </p>
+                        <h3>{{whats_this_heading}}</h3>
+                        <p>{{whats_this_body}}</p>
+                        <p>{{longevity_body}}</p>
                     </div>
 
                     <div class="help-section">
-                        <h3>Principles</h3>
+                        <h3>{{principles_heading}}</h3>
                         <ul>
-                            <li>No ads, no monetization, no investors</li>
-                            <li>
-                                Posts cannot be edited or deleted after
-                                publishing
-                            </li>
-                            <li>No accounts, no tracking, no analytics</li>
-                            <li>Open to all, no political or social biases</li>
-                            <li>Open source, self-hostable</li>
+                            <li>{{principle_no_ads}}</li>
+                            <li>{{principle_immutable}}</li>
+                            <li>{{principle_no_accounts}}</li>
+                            <li>{{principle_open}}</li>
+                            <li>{{principle_self_hostable}}</li>
                         </ul>
                     </div>
 
                     <div class="help-section">
-                        <h3>Source code</h3>
-                        <p>
-                            It's entirely open source. The code is at
-                            <strong>github.com/du82/nonograph</strong>. You can
-                            read it, run it yourself, and host for others
-                            easily.
-                        </p>
+                        <h3>{{source_heading}}</h3>
+                        <p>{{source_body}}</p>
                     </div>
 
                     <div class="help-section">
-                        <h3>Formatting</h3>
-                        <p>
-                            Type <code>/</code> for a menu of formatting
-                            options, or use markdown directly. Add
-                            <code>.md</code> to any post URL to see the raw
-                            source.
-                        </p>
+                        <h3>{{formatting_heading}}</h3>
+                        <p>{{formatting_body}}</p>
                     </div>
                 </div>
             </div>
@@ -767,10 +741,10 @@
                     <textarea
                         type="text"
                         name="title"
-                        placeholder="Title"
+                        placeholder="{{title_placeholder}}"
                         maxlength="128"
                         rows="1"
-                        title="Mind your opsec. Limited to 128 characters."
+                        title="{{title_opsec}}"
                         required
                     ></textarea>
                     <div class="alias-anchor">
@@ -778,7 +752,7 @@
                             type="button"
                             class="alias-rand"
                             id="aliasRand"
-                            title="Generate random alias"
+                            title="{{alias_random}}"
                         >
                             <svg
                                 width="14"
@@ -800,18 +774,18 @@
                         <input
                             type="text"
                             name="alias"
-                            placeholder="Alias (optional)"
+                            placeholder="{{alias_placeholder}}"
                             maxlength="32"
                             class="author-input"
-                            title="Mind your opsec. Limited to 32 characters."
+                            title="{{alias_opsec}}"
                         />
                     </div>
                     <writemark-editor
                         name="content"
                         mode="live"
-                        placeholder="Write something with markdown or type / for formatting options..."
+                        placeholder="{{content_placeholder}}"
                         maxlength="{{content_max_length}}"
-                        title="Mind your opsec, be careful what you share."
+                        title="{{content_opsec}}"
                         required
                     ></writemark-editor>
                     <input
@@ -823,7 +797,7 @@
             </div>
 
             <div class="sidebar">
-                <button type="submit" form="publishForm">Publish</button>
+                <button type="submit" form="publishForm">{{publish}}</button>
                 <div class="char-count" id="charCount">
                     <svg class="progress-circle" id="progressCircle">
                         <circle class="background" cx="8" cy="8" r="6"></circle>
@@ -839,10 +813,10 @@
                     <span>0 / 256,000</span>
                 </div>
                 <div class="links">
-                    <a href="/markup" target="_blank">markup guide</a>
-                    <a href="/legal" target="_blank">legal &amp; privacy</a>
+                    <a href="/markup" target="_blank">{{markup_guide}}</a>
+                    <a href="/legal" target="_blank">{{legal_privacy}}</a>
                     <a href="https://github.com/du82/nonograph" target="_blank"
-                        >source code</a
+                        >{{source_code}}</a
                     >
                 </div>
             </div>

@@ -82,7 +82,7 @@ jobs:
         run: |
           mkdir -p release
           cp target/${{ matrix.target }}/release/nonograph${{ matrix.binary-suffix }} release/nonograph${{ matrix.binary-suffix }}
-          cp README.md LICENSE Config.toml release/
+          cp README.md LICENSE Config.toml Strings.toml release/
           cp -r content templates release/
           cp run status.sh release/
           cp build-info-${{ matrix.target }}.txt release/
@@ -94,7 +94,7 @@ jobs:
         run: |
           mkdir -p release
           cp target/${{ matrix.target }}/release/nonograph${{ matrix.binary-suffix }} release/nonograph${{ matrix.binary-suffix }}
-          cp README.md LICENSE Config.toml release/
+          cp README.md LICENSE Config.toml Strings.toml release/
           cp -r content templates release/
           cp build-info-${{ matrix.target }}.txt release/
           cd release
@@ -105,7 +105,7 @@ jobs:
         run: |
           mkdir release
           Copy-Item "target\${{ matrix.target }}\release\nonograph${{ matrix.binary-suffix }}" "release\nonograph${{ matrix.binary-suffix }}"
-          Copy-Item README.md, LICENSE, Config.toml -Destination release
+          Copy-Item README.md, LICENSE, Config.toml, Strings.toml -Destination release
           Copy-Item content, templates -Destination release -Recurse
           Copy-Item build-info-${{ matrix.target }}.txt -Destination release
           cd release

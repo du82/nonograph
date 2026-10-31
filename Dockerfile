@@ -12,7 +12,7 @@ RUN cargo build --release && rm -rf src
 
 COPY src/ ./src/
 COPY templates/ ./templates/
-COPY Config.toml ./
+COPY Config.toml Strings.toml ./
 RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
@@ -49,6 +49,7 @@ RUN mkdir -p /app/content /app/templates /var/lib/tor && \
 
 COPY --from=builder /app/target/release/nonograph /app/
 COPY --from=builder /app/Config.toml /app/
+COPY --from=builder /app/Strings.toml /app/
 COPY --from=builder /app/templates/ /app/templates/
 COPY entrypoint.sh /app/entrypoint.sh
 

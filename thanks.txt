@@ -1,0 +1,10 @@
+Thank you to the humans (about 25 people so far!) who have helped make Nonograph what it is.
+
+To the server operators with my hardware in their homes who provide decentralization.
+To the translators who helped bring Nonograph to their language and their country.
+To the artist who designed the Nonograph logo, helping make the project appealing.
+To the security experts who review the codebase and report vulnerabilities and bugs.
+To the local censorship experts who help Nonograph get around their region's filtering.
+To the moderators of nonogra.ph who keep the flagship instance free of liabilities.
+
+<3
