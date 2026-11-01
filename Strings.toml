@@ -3,6 +3,8 @@
 # To add a language, copy the `[en]` table, rename it to the language tag, and
 # translate the values. Any key you leave out falls back to English, so partial
 # translations are fine.
+#
+# Leave everything before the `=` as-is, only change within the quotes.
 
 [en]
 publish = "Publish"
@@ -58,11 +60,13 @@ title_opsec = "Соблюдайте правила OpSec. Не более 128 с
 alias_placeholder = "Псевдоним (необязательно)"
 alias_opsec = "Соблюдайте правила OpSec. Не более 32 символов."
 alias_random = "Сгенерировать случайный псевдоним"
-content_placeholder = "Напишите что-нибудь, используя Markdown, или введите / для выбора форматирования..."
+content_placeholder = "Напишите что-нибудь, используя markdown, или введите / для выбора форматирования..."
 content_opsec = "Соблюдайте правила OpSec, будьте осторожны с тем, чем делитесь."
 markup_guide = "руководство по Markdown"
 legal_privacy = "правовая информация" # shortened to "Legal information" due to length
 source_code = "исходный код"
+page_not_found = "Страница не найдена"
+write_your_own = "Напишите своё"
 
 [hu]
 publish = "Közzététel"
@@ -91,6 +95,8 @@ content_opsec = "Vigyázz mit osztasz meg, ügyelj az opsec-re."
 markup_guide = "formázási útmutató"
 legal_privacy = "ÁSZF és adatvédelem"
 source_code = "forráskód"
+page_not_found = "Oldal nem található"
+write_your_own = "Írj sajátot"
 
 [es]
 publish = "Publicar"
