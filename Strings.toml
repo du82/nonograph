@@ -6,6 +6,7 @@
 #
 # Leave everything before the `=` as-is, only change within the quotes.
 
+# English
 [en]
 publish = "Publish"
 about = "About"
@@ -36,6 +37,7 @@ source_code = "source code"
 page_not_found = "Page not found"
 write_your_own = "Write your own"
 
+# Simplified Chinese
 [zh]
 publish = "发布"
 about = "关于"
@@ -66,6 +68,7 @@ source_code = "源代码"
 page_not_found = "页面未找到"
 write_your_own = "写下你的内容"
 
+# Russian
 [ru]
 publish = "Опубликовать"
 about = "О проекте"
@@ -96,6 +99,7 @@ source_code = "исходный код"
 page_not_found = "Страница не найдена"
 write_your_own = "Напишите своё"
 
+# Hungarian
 [hu]
 publish = "Közzététel"
 about = "A projektről"
@@ -126,6 +130,7 @@ source_code = "forráskód"
 page_not_found = "Oldal nem található"
 write_your_own = "Írj sajátot"
 
+# Spanish
 [es]
 publish = "Publicar"
 about = "Acerca de"
@@ -156,6 +161,7 @@ source_code = "código fuente"
 page_not_found = "Página no encontrada"
 write_your_own = "Escribe el tuyo propio"
 
+# Portuguese
 [pt]
 publish = "Publicar"
 about = "Sobre"
@@ -186,6 +192,7 @@ source_code = "código fonte"
 page_not_found = "Página não encontrada"
 write_your_own = "Escreva você mesmo"
 
+# Turkish
 [tr]
 publish = "Yayınla"
 about = "Hakkında"
@@ -215,3 +222,34 @@ legal_privacy = "yasal bilgiler ve gizlilik"
 source_code = "kaynak kodu"
 page_not_found = "Sayfa bulunamadı"
 write_your_own = "Sen de yaz"
+
+# Serbian
+[sr]
+publish = "Objavi"
+about = "Opis"
+about_heading = "O Nonographu"
+whats_this_heading = "Šta je ovo?"
+whats_this_body = "Nonograph služi za pisanje stvari za koje želite da postoje negde trajno bez da to negde bude povezano sa tobom. Misao, esej, kritike, beleške, na tebi je. Ispišeš, dobiješ link. Podeli link sa kime god želiš, ili čuvaj za sebe."
+longevity_body = "Softver je dizajniran da traje. Tvoje stranice su sačuvane kao plaintext markup, nema formata zatvorenog izvora. Jednostavan, lightweight, projekat otvorenog izvora znači da bi trebao fugo ds traje čak i sa malom količinom donacija."
+principles_heading = "Principi"
+principle_no_ads = "Bez oglasa, bez monetizacije i bez investitora"
+principle_immutable = "Postovi nemogu biti izmenjeni ili izbrisani nakon objave"
+principle_no_accounts = "Bez naloga, bez praćenja, bez analitike"
+principle_open = "Otvoren za sve, nema političkih niti društvenih pristranosti"
+principle_self_hostable = "Otvorenog izvora, self-hostable"
+source_heading = "Izvorni kod"
+source_body = "Kompletno je otvorenog izvora. Kod se nalazi na github.com/du82/nonograph. Možete ga pročitati, sami ga pokrenuti i hostovati ga za ostale slobodno."
+formatting_heading = "Formatovanje"
+formatting_body = "Napiši / za meni opcija formatovanja, ili koriszi markdown direktno. Dodaj .md bilo kom URL-u objave da bi video raw source."
+title_placeholder = "Naslov"
+title_opsec = "Čuvaj svoj opsec. Ograničeno na 128 karaktera."
+alias_placeholder = "Nadimak (opcionalno)"
+alias_opsec = "Čuvaj svoj opsec. Ograničeno na 32 karaktera."
+alias_random = "Generiši nasumični nadimak"
+content_placeholder = "Napiši nešto sa markdown ili napiši / za opcije formatovanja..."
+content_opsec = "Čuvaj svoj opsec, pazi šta deliš."
+markup_guide = "uputstvo za markup"
+legal_privacy = "legalna informacija i privatnost"
+source_code = "izvorni kod"
+page_not_found = "Stranica nije pronađena"
+write_your_own = "Napiši svoje"
