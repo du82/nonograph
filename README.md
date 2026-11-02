@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 ## Known Instances
 
 | Uptime |    Location   |                   Clearnet                  |                                  Onion                                 |
-|:------:|:-------------:|:-------------------------------------------:|:----------------------------------------------------------------------:|
+|:------:|:--------------|:--------------------------------------------|:-----------------------------------------------------------------------|
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonogra.ph)      | 🏴‍☠️ Unknown    | https://nonogra.ph                          | http://ortmy3ey5usdzf4ivht6axtb72owjniaeqrexknosyons544aooltzyd.onion/ |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.eversiege.network)      | 🏴‍☠️ Unknown    | https://write.eversiege.network/            | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.anarchists.space)      | 🏴‍☠️ Unknown    | https://write.anarchists.space/             | http://qrb7g7gnowbpxxbpjeqaxr3a6odcvipd2xdumemvqj2nyfusghzzv6yd.onion  |
