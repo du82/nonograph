@@ -35,7 +35,8 @@ https://github.com/user-attachments/assets/d662c9a2-f0ed-4266-bf55-e2c1f024269e
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.eversiege.network)      | 🏴‍☠️ Unknown    | https://write.eversiege.network/            | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fwrite.anarchists.space)      | 🏴‍☠️ Unknown    | https://write.anarchists.space/             | http://qrb7g7gnowbpxxbpjeqaxr3a6odcvipd2xdumemvqj2nyfusghzzv6yd.onion  |
 | ![Website](https://img.shields.io/website?url=https%3A%2F%2Fnonograph.com)      | 🇭🇰 Hong Kong  | https://nonograph.com https://nonograph.ink | http://gt65bmujun7alps7b7oar5x2u5lprxjdvpwrxcrnwkgheocjwllchhqd.onion/ |
-| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world)      | 🇫🇮 Finland    | https://proxy.write.daun.world/             | see above                                                              |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fdisc.us.ci)      | 🏴‍☠️ Unknown    | https://disc.us.ci/             | Tor unreachable                                                              |
+| ![Website](https://img.shields.io/website?url=https%3A%2F%2Fproxy.write.daun.world)      | 🇫🇮 Finland    | https://proxy.write.daun.world/             | http://fmoigm7j3z6vh4hgssdfhlt6knkp443thgxpe5wmbaevvb5km2d3suyd.onion/ |
 | Onion  | 🇷🇺 Russia     |                                             | http://q2w7sdjlmfc5vjif6y3372665wzyqskqvjji7bmhfn72orxcbljvonid.onion/ |
 | Onion  | 🇭🇺 Hungary    |                                             | http://oahjeuod7h7kiu7nfhasx34djvnwtlgzogk7a5t7kl2gqskskhi4r5qd.onion/ |
 | Onion  | 🏴‍☠️ Unknown    |                                             | http://uawaa47jvsfr3ij63ns25xp6qvhqswsx3fgij2evbrcnt3ygxq3dbwyd.onion/ |
