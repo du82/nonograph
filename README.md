@@ -90,8 +90,10 @@ A published page with an image:
 
 <img width="1920" height="1080" alt="published-page2" src="https://github.com/user-attachments/assets/0fc38a43-8bcc-4fbf-9087-ea4100be3e6c" />
 
-## Also available on...
+## Codebase mirrored to...
 - Radicle: [`rad:z2irFqQ3Zx1S8kqsVgH9itBoVUxkT`](https://radicle.network/nodes/iris.radicle.network/rad%3Az2irFqQ3Zx1S8kqsVgH9itBoVUxkT)
+- Forgejo: [git.anarchists.space](https://git.anarchists.space/nonograph/nonograph)
+- Archive: [Software Heritage Archive](https://archive.softwareheritage.org/browse/origin/directory/?origin_url=https://github.com/du82/nonograph&visit_type=git)
 
 ## Name and origins
 `anonymous` + `monograph` + `telegraph` = `nonograph`
