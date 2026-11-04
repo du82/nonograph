@@ -172,6 +172,12 @@ pub(crate) type FileSaveQueue = Mutex<mpsc::Sender<Post>>;
 
 struct AcceptLanguage(Option<String>);
 
+impl AcceptLanguage {
+    fn not_found(&self, strings: &Strings) -> content::RawHtml<String> {
+        content::RawHtml(not_found_html(strings, self.0.as_deref()))
+    }
+}
+
 #[rocket::async_trait]
 impl<'r> rocket::request::FromRequest<'r> for AcceptLanguage {
     type Error = std::convert::Infallible;
@@ -595,6 +601,8 @@ fn view_post(
     post_id: &str,
     storage: &State<PostStorage>,
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<
     ViewPostOk,
     (
@@ -617,7 +625,7 @@ fn view_post(
     if !is_valid_post_id(actual_post_id) {
         return Err((
             Status::NotFound,
-            rocket::Either::Right(content::RawHtml(not_found_html().to_string())),
+            rocket::Either::Right(accept_language.not_found(strings)),
         ));
     }
 
@@ -781,7 +789,7 @@ fn view_post(
         }
         None => Err((
             Status::NotFound,
-            rocket::Either::Right(content::RawHtml(not_found_html().to_string())),
+            rocket::Either::Right(accept_language.not_found(strings)),
         )),
     }
 }
@@ -789,22 +797,28 @@ fn view_post(
 #[get("/markup")]
 fn markup_page(
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
-    serve_static_page("markup", config)
+    serve_static_page("markup", config, strings, accept_language)
 }
 
 #[get("/legal")]
 fn legal_page(
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
-    serve_static_page("legal", config)
+    serve_static_page("legal", config, strings, accept_language)
 }
 
 #[get("/about")]
 fn about_page(
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
-    serve_static_page("about", config)
+    serve_static_page("about", config, strings, accept_language)
 }
 
 #[get("/robots.txt")]
@@ -837,6 +851,8 @@ fn nojs_view_post(
     post_id: &str,
     storage: &State<PostStorage>,
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<
     ViewPostOk,
     (
@@ -844,7 +860,7 @@ fn nojs_view_post(
         rocket::Either<content::RawText<String>, content::RawHtml<String>>,
     ),
 > {
-    match view_post(post_id, storage, config) {
+    match view_post(post_id, storage, config, strings, accept_language) {
         Ok(rocket::Either::Left(content::RawHtml(html))) => {
             let clean_html = nojs::strip_javascript(&html);
             let fixed_html = clean_html
@@ -863,20 +879,19 @@ fn nojs_view_post(
 
 const NOT_FOUND_TEMPLATE: &str = include_str!("../templates/404.html");
 
-fn not_found_html() -> &'static str {
-    static NOT_FOUND_HTML: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    NOT_FOUND_HTML.get_or_init(|| {
-        let mut html = NOT_FOUND_TEMPLATE.to_string();
-        for (key, value) in Strings::english_context() {
-            html = html.replace(&format!("{{{{{}}}}}", key), &value);
-        }
-        html
-    })
+fn not_found_html(strings: &Strings, accept_language: Option<&str>) -> String {
+    let mut html = NOT_FOUND_TEMPLATE.to_string();
+    for (key, value) in strings.context_for(accept_language) {
+        html = html.replace(&format!("{{{{{}}}}}", key), &value);
+    }
+    html
 }
 
 fn serve_static_page(
     page_name: &str,
     config: &State<Config>,
+    strings: &State<Strings>,
+    accept_language: AcceptLanguage,
 ) -> Result<content::RawHtml<String>, (Status, content::RawHtml<String>)> {
     let file_path = format!("content/{}.md", page_name);
 
@@ -921,21 +936,24 @@ fn serve_static_page(
                 )))
             }
         }
-        Err(_) => Err((
-            Status::NotFound,
-            content::RawHtml(not_found_html().to_string()),
-        )),
+        Err(_) => Err((Status::NotFound, accept_language.not_found(strings))),
     }
 }
 
+fn not_found_for_request(req: &Request<'_>) -> content::RawHtml<String> {
+    let strings = req.rocket().state::<Strings>().cloned().unwrap_or_default();
+    let accept_language = req.headers().get_one("Accept-Language");
+    content::RawHtml(not_found_html(&strings, accept_language))
+}
+
 #[catch(404)]
-fn not_found_catcher() -> content::RawHtml<&'static str> {
-    content::RawHtml(not_found_html())
+fn not_found_catcher(req: &Request<'_>) -> content::RawHtml<String> {
+    not_found_for_request(req)
 }
 
 #[catch(400)]
-fn bad_request_catcher() -> content::RawHtml<&'static str> {
-    content::RawHtml(not_found_html())
+fn bad_request_catcher(req: &Request<'_>) -> content::RawHtml<String> {
+    not_found_for_request(req)
 }
 
 fn start_cache_purge_worker(storage: PostStorage, interval_mins: u64) {
@@ -1184,11 +1202,23 @@ mod tests {
 
     #[test]
     fn test_not_found_html_injects_english_strings() {
-        let html = not_found_html();
+        let html = not_found_html(&Strings::load_with_logging(), Some("en-US"));
         assert!(html.contains("Page not found"));
         assert!(html.contains("Write your own"));
         assert!(!html.contains("{{page_not_found}}"));
         assert!(!html.contains("{{write_your_own}}"));
+    }
+
+    #[test]
+    fn test_not_found_html_respects_language_preference() {
+        let strings = Strings::load_with_logging();
+        let en = not_found_html(&strings, Some("en-US"));
+
+        let zh = not_found_html(&strings, Some("zh-CN,zh;q=0.9"));
+        assert!(zh.contains("页面未找到"));
+        assert!(zh.contains("写下你的内容"));
+
+        assert_eq!(not_found_html(&strings, Some("xx-YY")), en);
     }
 
     #[test]

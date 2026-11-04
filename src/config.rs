@@ -210,7 +210,7 @@ impl Config {
     pub fn load_with_logging() -> Self {
         match Self::load() {
             Ok(config) => {
-                println!("Nonograph: ✅ Configuration loaded successfully");
+                println!("Nonograph: Configuration loaded successfully");
                 println!("   Title limit: {} chars", config.limits.title_max_length);
                 println!("   Alias limit: {} chars", config.limits.alias_max_length);
                 println!(
@@ -221,8 +221,8 @@ impl Config {
                 config
             }
             Err(e) => {
-                eprintln!("Nonograph: ⚠️  Configuration error: {}", e);
-                eprintln!("Nonograph:    Using default configuration");
+                eprintln!("Nonograph: Configuration error: {}", e);
+                eprintln!("Nonograph: Using default configuration");
                 Config::default()
             }
         }
