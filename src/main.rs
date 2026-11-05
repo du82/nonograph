@@ -1567,14 +1567,14 @@ mod tests {
         assert!(long_title.len() > 128);
 
         // Test content length limit
-        let long_content = "a".repeat(130000);
-        assert!(long_content.len() > 128000);
+        let long_content = "a".repeat(260000);
+        assert!(long_content.len() > 256000);
 
         // Test valid lengths
         let valid_title = "a".repeat(50);
         let valid_content = "a".repeat(50000);
         assert!(valid_title.len() <= 128);
-        assert!(valid_content.len() <= 128000);
+        assert!(valid_content.len() <= 256000);
     }
 
     #[test]

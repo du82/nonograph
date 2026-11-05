@@ -98,7 +98,7 @@ impl Default for Config {
             limits: Limits {
                 title_max_length: 128,
                 alias_max_length: 32,
-                content_max_length: 128000,
+                content_max_length: 256000,
                 form_data_limit_kb: 512,
             },
             server: Server {
@@ -289,7 +289,7 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.limits.title_max_length, 128);
         assert_eq!(config.limits.alias_max_length, 32);
-        assert_eq!(config.limits.content_max_length, 128000);
+        assert_eq!(config.limits.content_max_length, 256000);
         assert_eq!(config.server.port, 8000);
     }
 
@@ -348,7 +348,7 @@ mod tests {
         );
 
         // Content too long
-        let long_content = "x".repeat(130000);
+        let long_content = "x".repeat(260000);
         assert_eq!(
             config
                 .validate_post("Title", &long_content, None)
