@@ -15,6 +15,10 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary-suffix: ""
             archive-suffix: ".tar.gz"
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary-suffix: ""
+            archive-suffix: ".tar.gz"
           - os: macos-latest
             target: x86_64-apple-darwin
             binary-suffix: ""
@@ -27,10 +31,20 @@ jobs:
             target: x86_64-pc-windows-msvc
             binary-suffix: ".exe"
             archive-suffix: ".zip"
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            binary-suffix: ".exe"
+            archive-suffix: ".zip"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -110,7 +124,7 @@ jobs:
           Copy-Item build-info-${{ matrix.target }}.txt -Destination release
           cd release
           Compress-Archive -Path * -DestinationPath ../nonograph-${{ github.ref_name }}-${{ matrix.target }}${{ matrix.archive-suffix }}
-    
+
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -138,15 +152,18 @@ jobs:
           echo "Commit SHA: ${{ github.sha }}" >> combined-build-info.txt
           echo "" >> combined-build-info.txt
           echo "Supported Platforms:" >> combined-build-info.txt
-          echo "- Linux x86_64 (Ubuntu Latest)" >> combined-build-info.txt
+          echo "- Linux x86_64 (Ubuntu Latest X86)" >> combined-build-info.txt
+          echo "- Linux aarch64 (Ubuntu 24.04 ARM)" >> combined-build-info.txt
           echo "- macOS x86_64 (Intel)" >> combined-build-info.txt
           echo "- macOS aarch64 (Apple Silicon)" >> combined-build-info.txt
           echo "- Windows x86_64" >> combined-build-info.txt
+          echo "- Windows aarch64 (ARM)" >> combined-build-info.txt
           echo "" >> combined-build-info.txt
           echo "Build Environment Details:" >> combined-build-info.txt
           echo "- Rust toolchain: stable" >> combined-build-info.txt
           echo "- GitHub Actions runners used:" >> combined-build-info.txt
           echo "  * ubuntu-latest" >> combined-build-info.txt
+          echo "  * ubuntu-24.04-arm" >> combined-build-info.txt
           echo "  * macos-latest" >> combined-build-info.txt
           echo "  * windows-latest" >> combined-build-info.txt
 
