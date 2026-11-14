@@ -4395,17 +4395,17 @@ Final paragraph with normal text."#;
     }
     #[test]
     fn test_collapsible_sections() {
-        let closed = render_markdown("<details>\\n<summary>More information</summary>\\nHidden content\\n</details>");
+        let closed = render_markdown("<details>\n<summary>More information</summary>\nHidden content\n</details>");
         assert!(closed.contains("<details>"));
         assert!(closed.contains("<summary>More information</summary>"));
         assert!(closed.contains("Hidden content"));
         assert!(closed.contains("</details>"));
 
-        let open = render_markdown("<details open>\\n<summary>Visible by default</summary>\\nContent\\n</details>");
+        let open = render_markdown("<details open>\n<summary>Visible by default</summary>\nContent\n</details>");
         assert!(open.contains("<details open>"));
         assert!(open.contains("<summary>Visible by default</summary>"));
 
-        let unsafe_html = render_markdown("<details onclick=\\"alert(1)\\" open>\\n<summary onmouseover=\\"alert(1)\\">Safe title</summary>\\nContent\\n</details>");
+        let unsafe_html = render_markdown("<details onclick=\\"alert(1)\\" open>\n<summary onmouseover=\\"alert(1)\\">Safe title</summary>\nContent\n</details>");
         assert!(!unsafe_html.contains("onclick"));
         assert!(!unsafe_html.contains("onmouseover"));
         assert!(unsafe_html.contains("<details open>"));
