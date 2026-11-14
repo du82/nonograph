@@ -379,6 +379,8 @@ fn sanitize_html(html: String) -> String {
             "h3",
             "h4",
             "blockquote",
+            "details",
+            "summary",
             "div",
             "ol",
             "ul",
@@ -400,6 +402,7 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("td", &["style"])
         .add_tag_attributes("a", &["href", "target", "id", "class"])
         .add_tag_attributes("div", &["class"])
+        .add_tag_attributes("details", &["open"])
         .add_tag_attributes("hr", &["class"])
         .add_tag_attributes("ul", &["class"])
         .add_tag_attributes("li", &["id", "class"])
@@ -4390,4 +4393,23 @@ Final paragraph with normal text."#;
         assert!(multiple_result.contains("<hr class=\"divider-thin\">"));
         assert!(multiple_result.contains("<hr class=\"divider-double\">"));
     }
+    #[test]
+    fn test_collapsible_sections() {
+        let closed = render_markdown("<details>\\n<summary>More information</summary>\\nHidden content\\n</details>");
+        assert!(closed.contains("<details>"));
+        assert!(closed.contains("<summary>More information</summary>"));
+        assert!(closed.contains("Hidden content"));
+        assert!(closed.contains("</details>"));
+
+        let open = render_markdown("<details open>\\n<summary>Visible by default</summary>\\nContent\\n</details>");
+        assert!(open.contains("<details open>"));
+        assert!(open.contains("<summary>Visible by default</summary>"));
+
+        let unsafe_html = render_markdown("<details onclick=\\"alert(1)\\" open>\\n<summary onmouseover=\\"alert(1)\\">Safe title</summary>\\nContent\\n</details>");
+        assert!(!unsafe_html.contains("onclick"));
+        assert!(!unsafe_html.contains("onmouseover"));
+        assert!(unsafe_html.contains("<details open>"));
+        assert!(unsafe_html.contains("<summary>Safe title</summary>"));
+    }
+
 }
