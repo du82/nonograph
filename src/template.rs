@@ -45,19 +45,35 @@ impl TemplateEngine {
             result = result.replace("{{writemark_js}}", &script);
         }
 
-        // Replace all {{variable}} patterns with values from context
-        for (key, value) in context {
-            let pattern = format!("{{{{{}}}}}", key);
-            let escaped_value = if key == "content" {
-                value.clone()
-            } else {
-                html_attr_escape(value)
-            };
-            result = result.replace(&pattern, &escaped_value);
+        let mut rendered = String::with_capacity(result.len());
+        let mut rest = result.as_str();
+        let mut unresolved = false;
+        while let Some(open) = rest.find("{{") {
+            rendered.push_str(&rest[..open]);
+            match rest[open + 2..].find("}}") {
+                Some(close) => {
+                    let key = &rest[open + 2..open + 2 + close];
+                    match context.get(key) {
+                        Some(v) if key == "content" => rendered.push_str(v),
+                        Some(v) => rendered.push_str(&html_attr_escape(v)),
+                        None => {
+                            rendered.push_str(&rest[open..open + 4 + close]);
+                            unresolved = true;
+                        }
+                    }
+                    rest = &rest[open + 4 + close..];
+                }
+                None => {
+                    rendered.push_str(&rest[open..]);
+                    rest = "";
+                    break;
+                }
+            }
         }
+        rendered.push_str(rest);
+        result = rendered;
 
-        // Check for any remaining unreplaced variables and warn
-        if result.contains("{{") && result.contains("}}") {
+        if unresolved {
             eprintln!(
                 "Nonograph: Warning: Template {} contains unreplaced variables",
                 template_name
@@ -174,6 +190,30 @@ mod tests {
         let result = engine.render("test", &context).unwrap();
         // Note: Our simple template engine doesn't escape HTML - this will be handled by ammonia
         assert_eq!(result, "<div><script>alert('xss')</script></div>");
+    }
+
+    #[test]
+    fn test_value_cannot_inject_another_variable() {
+        let dir = tempdir().unwrap();
+        fs::write(
+            dir.path().join("post.html"),
+            "<title>{{title}}</title><div>{{content}}</div>",
+        )
+        .unwrap();
+
+        let engine = TemplateEngine::new(dir.path().to_str().unwrap());
+        let mut context = HashMap::new();
+        context.insert("title".to_string(), "{{content}}".to_string());
+        context.insert(
+            "content".to_string(),
+            r#"<img alt="</title><script>alert(1)</script>">"#.to_string(),
+        );
+
+        let result = engine.render("post", &context).unwrap();
+        assert!(result.contains("<title>{{content}}</title>"));
+        assert!(
+            result.ends_with("</title><div><img alt=\"</title><script>alert(1)</script>\"></div>")
+        );
     }
 
     #[test]
