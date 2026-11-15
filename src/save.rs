@@ -32,8 +32,17 @@ pub fn save_post_to_file_in_dir(post: &Post, base_dir: &str) -> Result<(), Strin
 
     let file_content = format!("{}{}", frontmatter, post.raw_content);
 
-    fs::write(&file_path, file_content)
-        .map_err(|e| format!("Failed to write post to file {:?}: {}", file_path, e))?;
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&file_path)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, file_content.as_bytes()))
+        .map_err(|e| {
+            format!(
+                "Refusing to overwrite or failed to write {:?}: {}",
+                file_path, e
+            )
+        })?;
 
     Ok(())
 }
@@ -103,6 +112,39 @@ mod tests {
 
         // Test that a non-existent post doesn't exist
         assert!(!post_file_exists_in_dir("nonexistent-post", temp_path));
+    }
+
+    #[test]
+    #[serial]
+    fn test_save_refuses_to_overwrite_existing_post() {
+        let (temp_dir, _content_dir) = setup_test_env();
+        let temp_path = temp_dir.path().to_str().unwrap();
+
+        let first = Post {
+            id: "immutable-01-01-2024".to_string(),
+            title: "Immutable".to_string(),
+            author: "".to_string(),
+            content: String::new(),
+            raw_content: "FIRST-CONTENT".to_string(),
+            created_at: Utc::now(),
+        };
+        save_post_to_file_in_dir(&first, temp_path).unwrap();
+
+        let second = Post {
+            raw_content: "SECOND-CONTENT".to_string(),
+            ..first.clone()
+        };
+        assert!(save_post_to_file_in_dir(&second, temp_path).is_err());
+
+        let on_disk = fs::read_to_string(
+            temp_dir
+                .path()
+                .join("content")
+                .join("immutable-01-01-2024.md"),
+        )
+        .unwrap();
+        assert!(on_disk.contains("FIRST-CONTENT"));
+        assert!(!on_disk.contains("SECOND-CONTENT"));
     }
 
     #[test]
