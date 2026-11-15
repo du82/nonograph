@@ -106,6 +106,8 @@ Nonograph is an open-source alternative to Telegraph (telegra.ph) with a focus o
 
 ## Audits and security
 
+Due to a flood of AI generated vulnerability reports "farming" me for bounty payouts, starting on 11/16/2026, a $5 reward ceiling will be set on all AI-assisted reports. Use your brain, don't be a meat proxy! All human-made reports will be paid at the normal rate.
+
 - 10/13/2026 - [@du82](https://github.com/du82) added $13,200 USD worth of Monero to the bug bounty program.
 - 9/5/2026 - [@netqo](https://github.com/netqo) contributed security improvements. Paid in Monero in [this pull request](https://github.com/du82/nonograph/pull/28).
 * 8/21/2026 - [@sgpinkus](https://github.com/sgpinkus) contributed security improvements. Paid in Monero in [this pull request](https://github.com/du82/nonograph/pull/26).
