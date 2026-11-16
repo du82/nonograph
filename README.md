@@ -117,3 +117,6 @@ Due to a flood of AI generated vulnerability reports "farming" me for bounty pay
 
 ## License
 Public domain ([Unlicense](https://unlicense.org)). This software belongs to everyone. Use it, modify it, share it without restriction. Do what you want with it, but remember there's no warranty. Please respect the policies of hosted Nonograph servers you come across.
+
+## Statement on feature completeness 
+This is a simple project, and it should stay that way. I welcome bug fixes, security fixes, or translations, but I do not wish to stack features upon features or introduce new workflows that people have to learn. Please [fork the repo](https://docs.github.com/articles/fork-a-repo) if you wish to add new features.
