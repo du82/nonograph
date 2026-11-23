@@ -131,8 +131,29 @@ pub fn render_markdown(content: &str) -> String {
     render_markdown_with_config(content, &crate::config::Config::default())
 }
 
+fn neutralize_placeholder_tokens(content: &str) -> String {
+    const TOKENS: [&str; 7] = [
+        "FENCEDBLOCK",
+        "MEDIASYNTAX",
+        "LINKSYNTAX",
+        "CODEBLOCK",
+        "XFOOTNOTE",
+        "XHASHX",
+        "XENDX",
+    ];
+    let mut out = content.to_string();
+    for token in TOKENS {
+        if out.contains(token) {
+            let broken = format!("{}\u{200B}{}", &token[..1], &token[1..]);
+            out = out.replace(token, &broken);
+        }
+    }
+    out
+}
+
 pub fn render_markdown_with_config(content: &str, config: &crate::config::Config) -> String {
-    let cleaned_content = remove_standalone_list_tags(content);
+    let content = neutralize_placeholder_tokens(content);
+    let cleaned_content = remove_standalone_list_tags(&content);
 
     let (protected_content, fenced_blocks) = extract_fenced_code_blocks(&cleaned_content);
     let (mut working_content, code_blocks) = extract_code_blocks(&protected_content);
@@ -1118,11 +1139,11 @@ fn restore_fenced_code_blocks_with_config(
     fenced_blocks: &[(String, String, u32)],
     config: &crate::config::Config,
 ) -> String {
-    let mut result = text.to_string();
-
-    // Initialize syntax highlighting
-    let ps = SyntaxSet::load_defaults_newlines();
-    let ts = ThemeSet::load_defaults();
+    // Initialize syntax highlighting once per process (expensive to build).
+    static SYNTAX_SET: std::sync::OnceLock<SyntaxSet> = std::sync::OnceLock::new();
+    static THEME_SET: std::sync::OnceLock<ThemeSet> = std::sync::OnceLock::new();
+    let ps = SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines);
+    let ts = THEME_SET.get_or_init(ThemeSet::load_defaults);
 
     let theme = ts
         .themes
@@ -1135,25 +1156,22 @@ fn restore_fenced_code_blocks_with_config(
             &ts.themes["base16-ocean.dark"]
         });
 
-    for (index, (language, code_content, line_count)) in fenced_blocks.iter().enumerate() {
-        let placeholder = format!("{{{{FENCEDBLOCK{}}}}}", index);
-        let syntect_lang = map_language_for_syntect(language);
-
-        // Generate the complete HTML structure
-        let replacement = render_code_block(
-            &ps,
-            theme,
-            language,
-            &syntect_lang,
-            code_content,
-            *line_count,
-            &config.code_blocks,
-        );
-
-        result = result.replace(&placeholder, &replacement);
-    }
-
-    result
+    restore_placeholders_linear(text, "{{FENCEDBLOCK", "}}", |index| {
+        fenced_blocks
+            .get(index)
+            .map(|(language, code_content, line_count)| {
+                let syntect_lang = map_language_for_syntect(language);
+                render_code_block(
+                    ps,
+                    theme,
+                    language,
+                    &syntect_lang,
+                    code_content,
+                    *line_count,
+                    &config.code_blocks,
+                )
+            })
+    })
 }
 
 fn render_code_block(
@@ -1700,13 +1718,37 @@ fn extract_media_syntax(text: &str) -> (String, Vec<String>) {
     (result, media_blocks)
 }
 
-fn restore_media_syntax(text: &str, media_blocks: &[String]) -> String {
-    let mut result = text.to_string();
-    for (index, raw) in media_blocks.iter().enumerate() {
-        let placeholder = format!("{{{{MEDIASYNTAX{}}}}}", index);
-        result = result.replace(&placeholder, raw);
+fn restore_placeholders_linear(
+    text: &str,
+    open: &str,
+    close: &str,
+    mut render: impl FnMut(usize) -> Option<String>,
+) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find(open) {
+        let after = &rest[pos + open.len()..];
+        let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+        let tail = &after[digits.len()..];
+        if let (Ok(index), true) = (digits.parse::<usize>(), tail.starts_with(close)) {
+            if let Some(replacement) = render(index) {
+                out.push_str(&rest[..pos]);
+                out.push_str(&replacement);
+                rest = &tail[close.len()..];
+                continue;
+            }
+        }
+        out.push_str(&rest[..pos + open.len()]);
+        rest = after;
     }
-    result
+    out.push_str(rest);
+    out
+}
+
+fn restore_media_syntax(text: &str, media_blocks: &[String]) -> String {
+    restore_placeholders_linear(text, "{{MEDIASYNTAX", "}}", |i| {
+        media_blocks.get(i).cloned()
+    })
 }
 
 fn extract_link_syntax(text: &str) -> (String, Vec<String>) {
@@ -1768,12 +1810,7 @@ fn extract_link_syntax(text: &str) -> (String, Vec<String>) {
 }
 
 fn restore_link_syntax(text: &str, link_blocks: &[String]) -> String {
-    let mut result = text.to_string();
-    for (index, raw) in link_blocks.iter().enumerate() {
-        let placeholder = format!("{{{{LINKSYNTAX{}}}}}", index);
-        result = result.replace(&placeholder, raw);
-    }
-    result
+    restore_placeholders_linear(text, "{{LINKSYNTAX", "}}", |i| link_blocks.get(i).cloned())
 }
 
 fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
@@ -1816,16 +1853,11 @@ fn extract_code_blocks(text: &str) -> (String, Vec<String>) {
 }
 
 fn restore_code_blocks(text: &str, code_blocks: &[String]) -> String {
-    let mut result = text.to_string();
-
-    for (index, code_content) in code_blocks.iter().enumerate() {
-        let placeholder = format!("{{{{CODEBLOCK{}}}}}", index);
-        let escaped_content = html_escape(code_content);
-        let replacement = format!("<code>{}</code>", escaped_content);
-        result = result.replace(&placeholder, &replacement);
-    }
-
-    result
+    restore_placeholders_linear(text, "{{CODEBLOCK", "}}", |i| {
+        code_blocks
+            .get(i)
+            .map(|c| format!("<code>{}</code>", html_escape(c)))
+    })
 }
 
 fn process_comments(content: &str) -> String {
@@ -1942,24 +1974,23 @@ fn process_footnotes(content: &str) -> String {
         i += 1;
     }
 
-    // Replace placeholders with actual HTML
-    for i in 1..=footnote_counter {
-        let placeholder = format!("XFOOTNOTEREFX{}XENDX", i);
-        let replacement = format!(
-            "<sup><a href=\"XHASHXFN{}\" id=\"fnref{}\">{}</a></sup>",
-            i, i, i
-        );
-        result = result.replace(&placeholder, &replacement);
-    }
+    result = restore_placeholders_linear(&result, "XFOOTNOTEREFX", "XENDX", |i| {
+        (i >= 1 && i <= footnote_counter as usize).then(|| {
+            format!(
+                "<sup><a href=\"XHASHXFN{}\" id=\"fnref{}\">{}</a></sup>",
+                i, i, i
+            )
+        })
+    });
 
-    for i in 1..=inline_footnote_counter {
-        let placeholder = format!("XFOOTNOTEINLINEX{}XENDX", i);
-        let replacement = format!(
-            "<sup><a href=\"XHASHXifn{}\" id=\"ifn{}ref\">{}</a></sup>",
-            i, i, i
-        );
-        result = result.replace(&placeholder, &replacement);
-    }
+    result = restore_placeholders_linear(&result, "XFOOTNOTEINLINEX", "XENDX", |i| {
+        (i >= 1 && i <= inline_footnote_counter as usize).then(|| {
+            format!(
+                "<sup><a href=\"XHASHXifn{}\" id=\"ifn{}ref\">{}</a></sup>",
+                i, i, i
+            )
+        })
+    });
 
     // Add footnotes section at the end if there are any footnotes
     if !footnote_references.is_empty() || !inline_footnotes.is_empty() {
@@ -2091,6 +2122,21 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_forged_placeholders_do_not_amplify_output() {
+        let input = format!("`{}` {}", "A".repeat(1000), "{{CODEBLOCK0}}".repeat(500));
+        let out = render_markdown(&input);
+        assert_eq!(out.matches(&"A".repeat(1000)).count(), 1);
+        assert!(out.len() < input.len() * 3);
+    }
+
+    #[test]
+    fn test_forged_footnote_placeholders() {
+        let out = render_markdown(&"XFOOTNOTEREFX1XENDX".repeat(100));
+        assert!(!out.contains("<sup><a href="));
+        assert!(out.len() < 10_000);
+    }
 
     #[test]
     fn test_linked_image_unwraps_to_plain_image() {
