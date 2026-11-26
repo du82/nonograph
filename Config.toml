@@ -54,6 +54,10 @@ external_link_security = true
 # For production deployments, this should always be 'true'
 csrf_protection_enabled = true
 
+# Require solving an image captcha before publishing any page whose markup
+# contains a link ("http://" or "https://")
+captcha_on_links = false
+
 [code_blocks]
 # Settings for fenced code blocks and their interactive affordances.
 # Any missing or invalid value falls back to the default shown below.

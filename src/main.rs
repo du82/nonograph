@@ -3,6 +3,7 @@ extern crate rocket;
 
 mod api;
 mod archiver;
+mod captcha_guard;
 mod config;
 mod format;
 mod i18n;
@@ -289,7 +290,7 @@ impl Fairing for SecurityHeadersFairing {
              base-uri 'self'; \
              form-action 'self'; \
              frame-ancestors 'self'; \
-             img-src 'self' https: http:; \
+             img-src 'self' https: http: data:; \
              media-src 'self' https: http:; \
              object-src 'none'; \
              script-src 'self' 'unsafe-inline'; \

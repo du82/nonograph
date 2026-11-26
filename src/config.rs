@@ -51,6 +51,8 @@ pub struct Security {
     pub max_url_length: usize,
     pub external_link_security: bool,
     pub csrf_protection_enabled: bool,
+    #[serde(default)]
+    pub captcha_on_links: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +122,7 @@ impl Default for Config {
                 max_url_length: 4096,
                 external_link_security: true,
                 csrf_protection_enabled: true,
+                captcha_on_links: false,
             },
             code_blocks: CodeBlocks::default(),
         }
@@ -230,6 +233,20 @@ impl Config {
 
     pub fn form_data_limit_bytes(&self) -> u32 {
         self.limits.form_data_limit_kb * 1024
+    }
+
+    pub fn captcha_required(&self) -> bool {
+        self.captcha_required_in_dir(".")
+    }
+
+    pub fn captcha_required_in_dir(&self, base_dir: &str) -> bool {
+        if self.security.captcha_on_links {
+            return true;
+        }
+        Path::new(base_dir)
+            .join("content")
+            .join("enable-captcha.txt")
+            .exists()
     }
 
     pub fn resolve_onion_url(&self) -> Option<String> {
@@ -512,5 +529,38 @@ collapse_default_lines = 250
         assert_eq!(default_config.security.max_url_length, 4096);
         assert!(default_config.security.external_link_security);
         assert!(default_config.security.csrf_protection_enabled);
+    }
+
+    #[test]
+    fn test_captcha_default_disabled() {
+        let config = Config::default();
+        assert!(!config.security.captcha_on_links);
+    }
+
+    #[test]
+    fn test_captcha_required_via_config_flag() {
+        let mut config = Config::default();
+        config.security.captcha_on_links = true;
+        assert!(config.captcha_required_in_dir("."));
+    }
+
+    #[test]
+    fn test_captcha_required_via_toggle_file() {
+        use tempfile::tempdir;
+
+        let temp_dir = tempdir().unwrap();
+        let base = temp_dir.path().to_str().unwrap();
+        let content_dir = temp_dir.path().join("content");
+        std::fs::create_dir_all(&content_dir).unwrap();
+
+        let config = Config::default();
+        assert!(!config.security.captcha_on_links);
+        assert!(!config.captcha_required_in_dir(base));
+
+        std::fs::write(content_dir.join("enable-captcha.txt"), b"").unwrap();
+        assert!(config.captcha_required_in_dir(base));
+
+        std::fs::remove_file(content_dir.join("enable-captcha.txt")).unwrap();
+        assert!(!config.captcha_required_in_dir(base));
     }
 }

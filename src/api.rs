@@ -7,6 +7,7 @@ use rocket::{
 };
 use serde::Serialize;
 
+use crate::captcha_guard;
 use crate::config::Config;
 use crate::parser;
 use crate::{generate_post_id, is_valid_csrf_token, FileSaveQueue, Post, PostStorage};
@@ -17,6 +18,10 @@ pub(crate) struct NewPost {
     content: String,
     alias: String,
     csrf_token: String,
+    #[field(default = String::new())]
+    captcha_answer: String,
+    #[field(default = String::new())]
+    captcha_challenge: String,
 }
 
 pub(crate) struct CsrfProtected;
@@ -101,6 +106,27 @@ pub(crate) fn create_post(
         return Ok(rocket::response::Redirect::to(error_url));
     }
 
+    if config.captcha_required() && captcha_guard::content_has_link(&form.content) {
+        let solved = !form.captcha_challenge.is_empty()
+            && captcha_guard::verify(&form.captcha_challenge, &form.captcha_answer);
+
+        if !solved {
+            let retry = !form.captcha_challenge.is_empty();
+            match captcha_guard::new_challenge() {
+                Some(challenge) => {
+                    return Err(content::RawHtml(render_captcha_page(
+                        &form, &challenge, retry,
+                    )));
+                }
+                None => {
+                    return Ok(rocket::response::Redirect::to(
+                        "/?error=captcha_unavailable",
+                    ));
+                }
+            }
+        }
+    }
+
     let post_id = match generate_post_id(&form.title, storage) {
         Ok(id) => id,
         Err(_) => return Ok(rocket::response::Redirect::to("/?error=no_available_slots")),
@@ -133,6 +159,151 @@ pub(crate) fn create_post(
     }
 
     Ok(rocket::response::Redirect::to(format!("/{}", post_id)))
+}
+
+fn render_captcha_page(
+    form: &NewPost,
+    challenge: &captcha_guard::Challenge,
+    retry: bool,
+) -> String {
+    let esc = parser::html_escape;
+
+    let retry_notice = if retry {
+        "<p class=\"notice\">That answer wasn't correct. Please try again.</p>"
+    } else {
+        ""
+    };
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Verify you're human</title>
+<style>
+  * {{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }}
+  body {{
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 40px;
+    line-height: 1.6;
+    background: #ffffff;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }}
+  .captcha-card {{
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }}
+  h1 {{
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }}
+  p {{
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 24px;
+  }}
+  p.notice {{
+    color: #c0392b;
+  }}
+  .captcha-img {{
+    display: block;
+    margin: 0 auto 24px;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+  }}
+  input[type="text"] {{
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-align: center;
+    font-family: Georgia, "Times New Roman", Times, serif;
+    background: transparent;
+    color: #333;
+    margin-bottom: 16px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }}
+  input[type="text"]:focus {{
+    outline: none;
+    border-color: #999;
+  }}
+  input[type="text"]::placeholder {{
+    color: #999;
+    opacity: 1;
+    font-weight: 400;
+    letter-spacing: normal;
+  }}
+  button {{
+    background: #333;
+    color: white;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 18px;
+    width: 100%;
+    min-height: 44px;
+    transition: background-color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+  }}
+  button:hover {{
+    background: #000;
+  }}
+  button:active {{
+    background: #111;
+    transform: translateY(1px);
+  }}
+</style>
+</head>
+<body>
+  <div class="captcha-card">
+    <h1>Verify you're human</h1>
+    <p>Enter the number shown below to publish.</p>
+    {retry_notice}
+    <img class="captcha-img" src="data:image/png;base64,{image}" alt="Verification challenge" width="220" height="120">
+    <form action="/api/page/create" method="post" autocomplete="off">
+      <input type="hidden" name="title" value="{title}">
+      <input type="hidden" name="content" value="{content}">
+      <input type="hidden" name="alias" value="{alias}">
+      <input type="hidden" name="csrf_token" value="{csrf}">
+      <input type="hidden" name="captcha_challenge" value="{token}">
+      <input type="text" name="captcha_answer" placeholder="Enter number"
+             autocapitalize="off" autocorrect="off" spellcheck="false" autofocus required>
+      <button type="submit">Publish</button>
+    </form>
+  </div>
+</body>
+</html>"#,
+        retry_notice = retry_notice,
+        image = esc(&challenge.image_base64),
+        title = esc(&form.title),
+        content = esc(&form.content),
+        alias = esc(&form.alias),
+        csrf = esc(&form.csrf_token),
+        token = esc(&challenge.token),
+    )
 }
 
 const API_REFERENCE: &str = r#"Nonograph API reference

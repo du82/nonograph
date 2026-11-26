@@ -15,6 +15,7 @@ deunicode = "1.4" # transliterates unicode
 reqwest = { version = "0.11", features = ["json"] } # not really anywhere in prod yet
 serde_json = "1.0" # makes json work
 url = "2.4" # URL parsing
+captcha = "1.0" # generates image captchas for link posts
 
 [dev-dependencies]
 tempfile = "3.0"
