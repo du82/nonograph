@@ -21,11 +21,57 @@ pub(crate) struct NewPost {
 
 pub(crate) struct CsrfProtected;
 
+fn header_host(value: &str) -> Option<String> {
+    let value = value.trim();
+    let rest = value
+        .strip_prefix("https://")
+        .or_else(|| value.strip_prefix("http://"))?;
+    let authority = rest
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(rest)
+        .rsplit('@')
+        .next()
+        .unwrap_or(rest);
+    if authority.is_empty() {
+        return None;
+    }
+    Some(authority.to_ascii_lowercase())
+}
+
+fn origin_is_same_site(request: &Request<'_>) -> bool {
+    let request_host = match request.host() {
+        Some(h) => h.to_string().to_ascii_lowercase(),
+        None => return false,
+    };
+
+    let origin = request.headers().get_one("Origin").and_then(header_host);
+    if let Some(origin_host) = origin {
+        return origin_host == request_host;
+    }
+
+    if let Some(referer_host) = request.headers().get_one("Referer").and_then(header_host) {
+        return referer_host == request_host;
+    }
+
+    true
+}
+
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for CsrfProtected {
     type Error = ();
 
-    async fn from_request(_request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let csrf_enabled = request
+            .rocket()
+            .state::<Config>()
+            .map(|c| c.security.csrf_protection_enabled)
+            .unwrap_or(true);
+
+        if csrf_enabled && !origin_is_same_site(request) {
+            return Outcome::Error((rocket::http::Status::Forbidden, ()));
+        }
+
         Outcome::Success(CsrfProtected)
     }
 }

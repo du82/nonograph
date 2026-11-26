@@ -417,6 +417,25 @@ fn generate_csrf_token() -> String {
         .collect::<String>()
 }
 
+fn csrf_secret() -> u64 {
+    use std::sync::OnceLock;
+    static SECRET: OnceLock<u64> = OnceLock::new();
+    *SECRET.get_or_init(|| {
+        use rand::Rng;
+        rand::thread_rng().gen::<u64>()
+    })
+}
+
+fn csrf_sign(data: &str) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    csrf_secret().hash(&mut hasher);
+    data.hash(&mut hasher);
+    csrf_secret().hash(&mut hasher);
+    hasher.finish()
+}
+
 fn generate_csrf_token_with_timestamp() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
@@ -426,11 +445,7 @@ fn generate_csrf_token_with_timestamp() -> String {
     let random_part = generate_csrf_token();
     let combined = format!("{}:{}", timestamp, random_part);
 
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    combined.hash(&mut hasher);
-    let hash = hasher.finish();
+    let hash = csrf_sign(&combined);
 
     format!("{}.{:x}", combined, hash)
 }
@@ -452,11 +467,7 @@ pub(crate) fn is_valid_csrf_token(token: &str) -> bool {
     let provided_hash = parts[1];
 
     // Recreate hash from data
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    data.hash(&mut hasher);
-    let expected_hash = format!("{:x}", hasher.finish());
+    let expected_hash = format!("{:x}", csrf_sign(data));
 
     // Verify hash matches
     if provided_hash != expected_hash {
@@ -477,7 +488,7 @@ pub(crate) fn is_valid_csrf_token(token: &str) -> bool {
             .as_secs();
 
         // Token is valid for 24 hours
-        current_time - timestamp < 86400
+        current_time.saturating_sub(timestamp) < 86400
     } else {
         false
     }

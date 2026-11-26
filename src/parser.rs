@@ -76,12 +76,24 @@ fn is_ip_blocked(ip: IpAddr) -> bool {
 }
 
 fn is_safe_url(url: &str) -> bool {
-    if !url.contains("://") {
+    let trimmed = url.trim();
+
+    if !trimmed.contains("://") && !trimmed.starts_with("//") {
         return true;
     }
 
-    let parsed = match Url::parse(url) {
+    let parsed = match Url::parse(trimmed) {
         Ok(u) => u,
+        Err(url::ParseError::RelativeUrlWithoutBase) => {
+            let base = match Url::parse("https://nonograph.invalid/") {
+                Ok(b) => b,
+                Err(_) => return false,
+            };
+            match base.join(trimmed) {
+                Ok(u) => u,
+                Err(_) => return false,
+            }
+        }
         Err(_) => return false,
     };
 
@@ -108,14 +120,16 @@ fn is_safe_url(url: &str) -> bool {
             }
         }
         url::Host::Domain(domain) => {
-            let ascii_domain = deunicode::deunicode(domain).to_lowercase();
+            let ascii_domain = deunicode::deunicode(domain)
+                .to_lowercase()
+                .trim_end_matches('.')
+                .to_string();
 
-            if ascii_domain == "localhost" {
+            if ascii_domain == "localhost" || ascii_domain.ends_with(".localhost") {
                 return false;
             }
 
-            let lookup = ascii_domain.trim_end_matches('.');
-            if let Ok(ip) = lookup.parse::<IpAddr>() {
+            if let Ok(ip) = ascii_domain.parse::<IpAddr>() {
                 if is_ip_blocked(ip) {
                     return false;
                 }
@@ -218,17 +232,25 @@ fn process_images_with_config(text: &str, config: &crate::config::Config) -> Str
                     bracket_end = Some(j);
                     break;
                 }
+                if chars[j] == '!' && j + 1 < chars.len() && chars[j + 1] == '[' {
+                    break;
+                }
                 j += 1;
             }
 
             if let Some(bracket_end_idx) = bracket_end {
                 // Check for ![alt](url) pattern
                 if bracket_end_idx + 1 < chars.len() && chars[bracket_end_idx + 1] == '(' {
+                    let paren_scan_limit =
+                        (bracket_end_idx + 2).saturating_add(config.security.max_url_length + 1);
                     let mut paren_end = None;
                     let mut k = bracket_end_idx + 2;
-                    while k < chars.len() && chars[k] != '\n' {
+                    while k < chars.len() && k < paren_scan_limit && chars[k] != '\n' {
                         if chars[k] == ')' {
                             paren_end = Some(k);
+                            break;
+                        }
+                        if chars[k] == '!' && k + 1 < chars.len() && chars[k + 1] == '[' {
                             break;
                         }
                         k += 1;
@@ -449,6 +471,16 @@ fn sanitize_html(html: String) -> String {
         .add_tag_attributes("rect", &["x", "y", "width", "height", "rx"])
         .add_tag_attributes("path", &["d", "fill-rule"])
         .add_tag_attributes("pre", &["class"])
+        .attribute_filter(|_element, attribute, value| match attribute {
+            "src" | "href" => {
+                if is_safe_url(value) {
+                    Some(std::borrow::Cow::Borrowed(value))
+                } else {
+                    None
+                }
+            }
+            _ => Some(std::borrow::Cow::Borrowed(value)),
+        })
         .link_rel(Some("noopener noreferrer"));
 
     builder.clean(&html).to_string()
@@ -1687,6 +1719,9 @@ fn extract_media_syntax(text: &str) -> (String, Vec<String>) {
                     bracket_end = Some(j);
                     break;
                 }
+                if chars[j] == '!' && j + 1 < chars.len() && chars[j + 1] == '[' {
+                    break;
+                }
                 j += 1;
             }
             if let Some(b_end) = bracket_end {
@@ -1696,6 +1731,9 @@ fn extract_media_syntax(text: &str) -> (String, Vec<String>) {
                     while k < chars.len() && chars[k] != '\n' {
                         if chars[k] == ')' {
                             paren_end = Some(k);
+                            break;
+                        }
+                        if chars[k] == '!' && k + 1 < chars.len() && chars[k + 1] == '[' {
                             break;
                         }
                         k += 1;
@@ -1766,6 +1804,9 @@ fn extract_link_syntax(text: &str) -> (String, Vec<String>) {
                     bracket_end = Some(j);
                     break;
                 }
+                if chars[j] == '[' {
+                    break;
+                }
                 j += 1;
             }
 
@@ -1776,6 +1817,9 @@ fn extract_link_syntax(text: &str) -> (String, Vec<String>) {
                     while k < chars.len() && chars[k] != '\n' {
                         if chars[k] == ')' {
                             paren_end = Some(k);
+                            break;
+                        }
+                        if chars[k] == '[' {
                             break;
                         }
                         k += 1;
@@ -2051,6 +2095,9 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
                     bracket_end = Some(j);
                     break;
                 }
+                if chars[j] == '[' {
+                    break;
+                }
                 j += 1;
             }
 
@@ -2062,6 +2109,9 @@ fn process_links_with_config(text: &str, config: &crate::config::Config) -> Stri
                     while k < chars.len() && chars[k] != '\n' {
                         if chars[k] == ')' {
                             paren_end = Some(k);
+                            break;
+                        }
+                        if chars[k] == '[' {
                             break;
                         }
                         k += 1;
